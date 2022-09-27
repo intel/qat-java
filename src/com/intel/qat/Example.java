@@ -18,10 +18,6 @@ public class Example {
     File filePath = new File(args[0]);
     File filesList[] = filePath.listFiles();
 
-    System.out.println("Files in souce path: ");
-    for(File f: filesList)
-        System.out.println("file -> " + f.getName());
-
     System.out.println("--------------------------------");
     int numberOfThreads = Integer.parseInt(args[2]);
     Thread[] threads = new Thread[numberOfThreads];
@@ -54,6 +50,7 @@ public class Example {
         }
         catch (InterruptedException ie){System.out.println(ie.getMessage());}
     }
+    System.out.println("Please find so file in target/sharedobject and jar file in target/jar");
   }
 
   private static  void doCompressDecompress(File[] filesList, int numberOfThreads, int thread, int filesPerThread, int remainingFiles, String destination) throws IOException{
@@ -79,15 +76,11 @@ public class Example {
       srcBuff.clear();
       destBuff.clear();
 
-      System.out.println("Thread: " + Thread.currentThread().getName() + " picked file: " + file.getName());
       byte[] srcArray = Files.readAllBytes(file.toPath());
-      System.out.println("source Length = " + srcArray.length + " for file: "+ file.getName());
 
       // get max compressed Length
       int maxCompressedLength =
         compressorDecompressor.maxCompressedLength(srcArray.length);
-
-      System.out.println("max compressed length: " + maxCompressedLength + " for file : " + file.getName());
 
       //source and destination byte buffer
 
@@ -97,48 +90,30 @@ public class Example {
       }
       srcBuff.put(srcArray);
       srcBuff.flip();
-      //byte[] compressedArray = new byte[maxCompressedLength]; // dest
-      //System.out.println("compressed buffer position before compression : "+ destBuff.position());
-      int compressedLength = compressorDecompressor.compressByteBuff(srcBuff,0, srcBuff.limit(), destBuff);
-      //compressorDecompressor.compress(srcArray, 0, srcArray.length, compressedArray);
+      
+	int compressedLength = compressorDecompressor.compressByteBuff(srcBuff,0, srcBuff.limit(), destBuff);
+
       if (compressedLength < 0) {
         System.out.println("unsuccessful compression.. exiting");
       }
 
-      System.out.println("compressed size: " + compressedLength + " for file : " + file.getName());
-      //System.out.println("compressed buffer limit after compression : "+ destBuff.position());
       destBuff.flip();
       srcBuff.clear();
-      //byte[] originalArray = new byte[srcArray.length]; // decompressed
-      //ByteBuffer originalBuff = (ByteBuffer)compressorDecompressor.nativeByteBuff(srcArray.length);
-      //originalBuff.clear();
       int uncompressedLength2 = compressorDecompressor.decompressByteBuff(destBuff,0, compressedLength, srcBuff);
-      //int uncompressedLength2 = compressorDecompressor.decompressByteBuffNoRef(0, compressedLength, srcArray.length);
-      //.decompress(compressedArray, 0, compressedLength, originalArray, srcArray.length);
-
-      System.out.println("decompressed size: " + uncompressedLength2 + " for file : " + file.getName());
-
+      
       if (uncompressedLength2 <= 0 || uncompressedLength2 != srcArray.length) {
         System.out.println("unsuccessful decompression.. exiting");
         return;
       }
         
-      //originalBuff.flip();
+
       byte[] arrtoWrite = new byte[uncompressedLength2];
-      //originalBuff.get(arrtoWrite,0,uncompressedLength2);
       srcBuff.get(arrtoWrite,0,uncompressedLength2);
-      System.out.println("*************content inside the buffer************");
-      System.out.println(arrtoWrite);
       try (FileOutputStream fos = new FileOutputStream(destination + file.getName().replaceFirst("[.][^.]+$", "") +"-output.txt")) {
         fos.write(arrtoWrite);
-      }
-      //compressorDecompressor.freeNativeByteBuffNoRef(srcBuff, true);
-      //compressorDecompressor.freeNativeByteBuffNoRef(destBuff, false);
-      
-
+      }      
       
     }
-    System.out.println("***********************************");
     compressorDecompressor.freeNativeByteBuff(srcBuff);
     compressorDecompressor.freeNativeByteBuff(destBuff);
     compressorDecompressor.teardown();

@@ -11,7 +11,7 @@ public class InternalJNI {
   static native int maxCompressedSize(int sourceSize);
   static native int compressByteArray(byte[] src, int srcOffset, int srcLen, byte[] dest);
   static native ByteBuffer nativeByteBuff(long size);
-  static native ByteBuffer nativeSrcDestByteBuff(long srcSize, long destSize);
+  static native ByteBuffer[] nativeSrcDestByteBuff(long srcSize, long destSize);
   static native ByteBuffer nativeByteBuffThreadLocal(long size, boolean ifSourceByteBuff);
   static native int freeNativeByteBuff(ByteBuffer buff);
   static native int freeNativesrcDestByteBuff(ByteBuffer srcbuff, ByteBuffer destbuff);

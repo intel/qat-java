@@ -43,7 +43,7 @@ public class CompressorDecompressor{
     return InternalJNI.nativeByteBuff(size);
   }
 
-  public ByteBuffer nativeSrcDestByteBuff(int srcSize, int destSize){
+  public ByteBuffer[] nativeSrcDestByteBuff(int srcSize, int destSize){
     if (qzStatus != QZ_OK) {
       throw new RuntimeException("Error " + qzStatus +
                                  ": failed to get native Byte Buffer.");
