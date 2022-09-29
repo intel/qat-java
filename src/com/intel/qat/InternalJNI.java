@@ -15,10 +15,7 @@ public class InternalJNI {
   static native ByteBuffer nativeByteBuffThreadLocal(long size, boolean ifSourceByteBuff);
   static native int freeNativeByteBuff(ByteBuffer buff);
   static native int freeNativesrcDestByteBuff(ByteBuffer srcbuff, ByteBuffer destbuff);
-  static native int freeNativeByteBuffThreadLocal(ByteBuffer buff, boolean ifSourceByteBuff);
   static native int compressByteBuff(ByteBuffer src, int srcOffset, int srcLen, ByteBuffer dest);
-  static native int compressByteBuffThreadLocal(int srcOffset, int srcLen, int compressedLength);
   static native int decompressByteBuff(ByteBuffer src, int srcOffset, int srcLen, ByteBuffer dest);
-  static native int decompressByteBuffThreadLocal(int srcOffset, int srcLen, int uncompressedLength);
   static native int decompressByteArray(byte[] src, int srcOffset, int srcLen,byte[] dest, int uncompressedLength);
 }

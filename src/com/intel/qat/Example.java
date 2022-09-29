@@ -65,11 +65,14 @@ public class Example {
             inFiles.add(filesList[j]);
     }
     CompressorDecompressor compressorDecompressor = new CompressorDecompressor();
+    ByteBuffer srcBuff = null, destBuff = null;
     try{
     // init session with QAT hardware
     compressorDecompressor.setup();
-    ByteBuffer srcBuff = (ByteBuffer)compressorDecompressor.nativeByteBuff(1000);
-    ByteBuffer destBuff = (ByteBuffer)compressorDecompressor.nativeByteBuff(1000);
+     ByteBuffer[] nativeByteBuffs = new ByteBuffer[2];
+	    nativeByteBuffs = compressorDecompressor.nativeSrcDestByteBuff(compressorDecompressor.maxCompressedLength(1000), 1000);
+      srcBuff = nativeByteBuffs[0];
+      destBuff = nativeByteBuffs[1];
 
     for(File file: inFiles){
       
@@ -116,6 +119,7 @@ public class Example {
     }
     compressorDecompressor.freeNativeByteBuff(srcBuff);
     compressorDecompressor.freeNativeByteBuff(destBuff);
+
     compressorDecompressor.teardown();
    }
    catch(RuntimeException re){

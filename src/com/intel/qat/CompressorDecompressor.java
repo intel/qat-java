@@ -33,16 +33,6 @@ public class CompressorDecompressor{
 
     return InternalJNI.maxCompressedSize(srcLen);
   }
-
-  public ByteBuffer nativeByteBuff(int size){
-    if (qzStatus != QZ_OK) {
-      throw new RuntimeException("Error " + qzStatus +
-                                 ": failed to get native Byte Buffer.");
-    }
-
-    return InternalJNI.nativeByteBuff(size);
-  }
-
   public ByteBuffer[] nativeSrcDestByteBuff(int srcSize, int destSize){
     if (qzStatus != QZ_OK) {
       throw new RuntimeException("Error " + qzStatus +
@@ -50,24 +40,6 @@ public class CompressorDecompressor{
     }
 
     return InternalJNI.nativeSrcDestByteBuff(srcSize, destSize);
-  }
-
-  public ByteBuffer nativeByteBuffThreadLocal(int size, boolean ifSource){
-    if (qzStatus != QZ_OK) {
-      throw new RuntimeException("Error " + qzStatus +
-                                 ": failed to get native Byte Buffer.");
-    }
-
-    return InternalJNI.nativeByteBuffThreadLocal(size, ifSource);
-  }
-
-  public int freeNativeByteBuff(ByteBuffer buff){
-    if (qzStatus != QZ_OK) {
-      throw new RuntimeException("Error " + qzStatus +
-                                 ": failed to free native Byte Buffer.");
-    }
-
-    return InternalJNI.freeNativeByteBuff(buff);
   }
 
   public int freeNativesrcDestByteBuff(ByteBuffer srcbuff, ByteBuffer destbuff){
@@ -79,16 +51,6 @@ public class CompressorDecompressor{
     return InternalJNI.freeNativesrcDestByteBuff(srcbuff, destbuff);
   }
 
-
-  public int freeNativeByteBuffThreadLocal(ByteBuffer buff, boolean ifSource){
-    if (qzStatus != QZ_OK) {
-      throw new RuntimeException("Error " + qzStatus +
-                                 ": failed to free native Byte Buffer.");
-    }
-
-    return InternalJNI.freeNativeByteBuffThreadLocal(buff, ifSource);
-  }
-
   public int compressByteBuff(ByteBuffer src,int srcOffset, int srcLen, ByteBuffer dest){
     if (qzStatus != QZ_OK) {
       throw new RuntimeException("Error " + qzStatus +
@@ -98,15 +60,6 @@ public class CompressorDecompressor{
     return InternalJNI.compressByteBuff(src,srcOffset, srcLen, dest);
   }
 
-  public int compressByteBuffThreadLocal(int srcOffset, int srcLen, int compressedLength){
-    if (qzStatus != QZ_OK) {
-      throw new RuntimeException("Error " + qzStatus +
-                                 ": failed to compress Byte Buffer.");
-    }
-
-    return InternalJNI.compressByteBuffThreadLocal(srcOffset, srcLen, compressedLength);
-  }
-
   public int decompressByteBuff(ByteBuffer src,int srcOffset, int srcLen, ByteBuffer dest){
     if (qzStatus != QZ_OK) {
       throw new RuntimeException("Error " + qzStatus +
@@ -114,15 +67,6 @@ public class CompressorDecompressor{
     }
 
     return InternalJNI.decompressByteBuff(src,srcOffset, srcLen, dest);
-  }
-
-  public int decompressByteBuffThreadLocal(int srcOffset, int srcLen, int uncompressedLength){
-    if (qzStatus != QZ_OK) {
-      throw new RuntimeException("Error " + qzStatus +
-                                 ": failed to decompress Byte Buffer.");
-    }
-
-    return InternalJNI.decompressByteBuffThreadLocal(srcOffset, srcLen, uncompressedLength);
   }
 
   public int compressByteArray(byte[] src, int srcOffset, int srcLen, byte[] dest) {
