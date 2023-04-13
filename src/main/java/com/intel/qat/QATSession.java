@@ -24,27 +24,39 @@ public class QATSession {
   private int internalBufferSizeInBytes;
 
   private int retryCount = 0;
-
-  private Boolean retry = false;
   public ByteBuffer unCompressedBuffer;
   public ByteBuffer compressedBuffer;
 
   private QATUtils.ExecutionPaths executionPath;
 
+  private String compressionAlgo; // public ENUM instead of String to restrict the choice and validation wont be needed
+
+  private int compressionLevel;
+
   //TODO: Have two boolean flags HARDWARE_ONLY(performance mode - if pinned memory not available , fail it (no cmalloc and no bytebuffer)
   // , AUTO -> hardware first else fallback to software
- // ,RETRY logic ->
+  // ,RETRY logic ->
   // check what happens ,
 
   public QATSession(){
+    // call parameterized constructor
+    //this(DEFAULT_INTERNAL_BUFFER_SIZE_IN_BYTES, QATUtils.ExecutionPaths.QAT_HARDWARE_ONLY, false, 0);
     internalBufferSizeInBytes = DEFAULT_INTERNAL_BUFFER_SIZE_IN_BYTES;
-    this.executionPath = QATUtils.ExecutionPaths.QAT_HARDWARE_ONLY;
+    this.executionPath = QATUtils.ExecutionPaths.AUTO;
+    this.compressionAlgo = String.valueOf(QATUtils.CompressionAlgo.DEFLATE);
+    this.compressionLevel = 6;
+    setup();
   }
-  public QATSession(int bufferSize, QATUtils.ExecutionPaths executionPath, boolean retry, int retryCount){
+  public QATSession(int bufferSize, QATUtils.ExecutionPaths executionPath, int retryCount, String compressionAlgo, int compressionLevel){
+    if(!validateParams(retryCount, compressionAlgo, compressionLevel))
+      throw new QATException("Invalid QATSession object parameters"); // Illegal argument exception - fail it right away
+
     this.internalBufferSizeInBytes = bufferSize;
     this.executionPath = executionPath;
-    this.retry = retry;
     this.retryCount = retryCount;
+    this.compressionAlgo = compressionAlgo;
+    this.compressionLevel = compressionLevel;
+    setup();
   }
 
   /**
@@ -52,9 +64,11 @@ public class QATSession {
    * using this API
    */
 
-  public void setup() {
-	System.out.println("execution path value = "+ this.executionPath.getExecutionPathCode());
-    int r = InternalJNI.setup(this.executionPath.getExecutionPathCode());
+  // code review comments: merge set up and allocation of buffer in 1 JNI function call
+   protected void setup() { // refactor this and there should be ONLY 1 JNI call per execution path
+     // setup call specific to a path
+    System.out.println("execution path value = "+ this.executionPath.getExecutionPathCode());
+    int r = InternalJNI.setup(this.executionPath.getExecutionPathCode(), this.compressionAlgo, this.compressionLevel);
     if (r != QZ_OK) {
       throw new QATException(QATUtils.getErrorMessage(r));
     }
@@ -63,7 +77,7 @@ public class QATSession {
       ByteBuffer[] tmpBuffer = null;
 
       try {
-        tmpBuffer = nativeSrcDestByteBuff(internalBufferSizeInBytes);
+        tmpBuffer = nativeSrcDestByteBuff(internalBufferSizeInBytes); // combine this with setup native method
       } catch (QATException e) {
         teardown();
         throw new QATException(QATUtils.getErrorMessage(Integer.parseInt(e.getMessage())));
@@ -100,10 +114,11 @@ public class QATSession {
       }
     }
     else{
+      // make sure this came with allocate with allocateDirect API call
       unCompressedBuffer.clear();
       compressedBuffer.clear();
       unCompressedBuffer = null;
-      compressedBuffer = null;
+      compressedBuffer = null; // better solution to mark this for garbage collection instead of assignment to null
     }
     int r = InternalJNI.teardown();
     if (r != QZ_OK) {
@@ -120,7 +135,7 @@ public class QATSession {
    * @param srcLen source length
    * @return maximum compressed length
    */
-   public int maxCompressedLength(int srcLen) {
+  public int maxCompressedLength(int srcLen) {
     if (qzStatus != QZ_OK) {
       throw new QATException(QATUtils.getErrorMessage(qzStatus));
     }
@@ -154,7 +169,7 @@ public class QATSession {
    * @param destbuff destination buffer
    * @return success or fail status
    */
-   int freeNativesrcDestByteBuff(ByteBuffer srcbuff, ByteBuffer destbuff){
+  int freeNativesrcDestByteBuff(ByteBuffer srcbuff, ByteBuffer destbuff){
     if (qzStatus != QZ_OK) {
       throw new QATException(QATUtils.getErrorMessage(qzStatus));
     }
@@ -171,12 +186,18 @@ public class QATSession {
    * @return success or fail status
    */
 
-  public int compressByteBuff(ByteBuffer src,int srcOffset, int srcLen, ByteBuffer dest){
+  public int compressByteBuff(ByteBuffer src,int srcOffset, int srcLen, ByteBuffer dest){ // we dont need offset and length parameters
+    if((srcLen - srcOffset + 1) < this.unCompressedBuffer.limit()){
+        throw new QATException("buffer size is larger than initial mentioned srcSize, recreate the object again");
+    }
+    if(!src.isDirect() || !dest.isDirect()){
+      throw new QATException("Provided buffer is not direct bytebuffer");
+    } // why it should be direct byte buffer??
     if (qzStatus != QZ_OK) {
       throw new QATException(QATUtils.getErrorMessage(qzStatus));
     }
 
-    return InternalJNI.compressByteBuff(src,srcOffset, srcLen, dest, this.retry, this.retryCount);
+    return InternalJNI.compressByteBuff(src,srcOffset, srcLen, dest, this.retryCount);
   }
 
   /**
@@ -189,10 +210,24 @@ public class QATSession {
    */
 
   public int decompressByteBuff(ByteBuffer src,int srcOffset, int srcLen, ByteBuffer dest){
+    if((srcLen - srcOffset + 1) < this.compressedBuffer.limit()){
+      throw new QATException("buffer size is larger than initial mentioned destSize, recreate the object again");
+    }
     if (qzStatus != QZ_OK) {
       throw new QATException(QATUtils.getErrorMessage(qzStatus));
     }
 
-    return InternalJNI.decompressByteBuff(src,srcOffset, srcLen, dest, this.retry, this.retryCount);
+    return InternalJNI.decompressByteBuff(src,srcOffset, srcLen, dest, this.retryCount);
+  }
+
+  private Boolean validateParams(int retryCount, String compressionAlgo, int compressionLevel){
+
+    try{
+      QATUtils.CompressionAlgo.valueOf(compressionAlgo);
+    }
+    catch (IllegalArgumentException ie){
+      return false;
+    }
+    return (retryCount <= 10 && compressionLevel <= 9 && compressionLevel > 0);
   }
 }

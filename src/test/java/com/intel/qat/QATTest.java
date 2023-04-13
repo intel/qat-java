@@ -30,12 +30,12 @@ public class QATTest {
 
     @Test
     public void testHardwareSetupTearDown(){
-        QATSession qatSession = new QATSession(1000,QATUtils.ExecutionPaths.QAT_HARDWARE_ONLY, false,0);
+        QATSession qatSession = new QATSession(1000, QATUtils.ExecutionPaths.QAT_HARDWARE_ONLY,0, String.valueOf(QATUtils.CompressionAlgo.DEFLATE),6);
         try {
             qatSession.setup();
         }
         catch (QATException qe){
-            fail(qe.getMessage());
+            fail("QAT session could not be established");
             return;
         }
 
@@ -50,12 +50,12 @@ public class QATTest {
 
     @Test
     public void testNativeMemory(){
-        QATSession qatSession = new QATSession(1000,QATUtils.ExecutionPaths.QAT_HARDWARE_ONLY, false,0);
+        QATSession qatSession = new QATSession(1000, QATUtils.ExecutionPaths.QAT_HARDWARE_ONLY,0, String.valueOf(QATUtils.CompressionAlgo.DEFLATE),6);
         try {
             qatSession.setup();
         }
         catch (QATException qe){
-            fail(qe.getMessage());
+            fail("QAT session could not be established");
             return;
         }
         assertEquals(qatSession.unCompressedBuffer.isDirect(), true);
@@ -64,7 +64,7 @@ public class QATTest {
         try {
             qatSession.teardown();
         } catch (QATException qe) {
-            fail(qe.getMessage());
+            fail("QAT session teardown failed");
             return;
         }
         assertTrue(true);
@@ -92,7 +92,7 @@ public class QATTest {
 
     @Test
     public void testSetupDuplicate(){
-        QATSession qatSession = new QATSession(1000,QATUtils.ExecutionPaths.QAT_HARDWARE_ONLY, true,10);
+        QATSession qatSession = new QATSession(1000, QATUtils.ExecutionPaths.QAT_HARDWARE_ONLY,0, String.valueOf(QATUtils.CompressionAlgo.DEFLATE),6);
         try {
             qatSession.setup();
             qatSession.setup();
@@ -101,6 +101,39 @@ public class QATTest {
             assertEquals(1, QATUtils.getErrorMessage(Integer.parseInt(qe.getMessage())));
         }
         fail("Session duplicate test got failed");
+    }
+
+    @Test
+    public void testInvalidCompressionAlgo(){
+        try {
+            QATSession qatSession = new QATSession(1000, QATUtils.ExecutionPaths.QAT_HARDWARE_ONLY, 0, "ABC", 6);
+        }
+        catch (QATException qe){
+            assertTrue(true);
+        }
+        fail("Invalid compression algorithm test failed!");
+    }
+
+    @Test
+    public void testInvalidCompressionLevel(){
+        try {
+            QATSession qatSession = new QATSession(1000, QATUtils.ExecutionPaths.QAT_HARDWARE_ONLY, 0, "deflate", 10);
+        }
+        catch (QATException qe){
+            assertTrue(true);
+        }
+        fail("Invalid compression level test failed!");
+    }
+
+    @Test
+    public void testInvalidRetryCount(){
+        try {
+            QATSession qatSession = new QATSession(1000, QATUtils.ExecutionPaths.QAT_HARDWARE_ONLY, 100, "deflate", 6);
+        }
+        catch (QATException qe){
+            assertTrue(true);
+        }
+        fail("Invalid retry count test failed!");
     }
     private void doCompressDecompress(int thread) throws QATException{
         List<File> inFiles = new ArrayList<>();
@@ -113,7 +146,7 @@ public class QATTest {
             for(int j = filesList.length - remainingFiles; j < filesList.length; j++)
                 inFiles.add(filesList[j]);
         }
-        QATSession qatSession = new QATSession(1000,QATUtils.ExecutionPaths.QAT_HARDWARE_ONLY, true,10);
+        QATSession qatSession = new QATSession(1000, QATUtils.ExecutionPaths.QAT_HARDWARE_ONLY,0, String.valueOf(QATUtils.CompressionAlgo.DEFLATE),6);
         try{
             // init session with QAT hardware
             try {
@@ -182,4 +215,5 @@ public class QATTest {
         }
 
     }
+
 }

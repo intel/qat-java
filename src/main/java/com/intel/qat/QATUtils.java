@@ -23,7 +23,22 @@ public class QATUtils { // static class
             return executionPathCode;
         }
     }
-    public static String getErrorMessage(int errorCode) {
+
+    public enum CompressionAlgo{
+        DEFLATE("deflate"),
+        LZ4("lz4");
+
+        public final String compressionAlgorithm;
+
+        CompressionAlgo(String compressionAlgorithm){
+            this.compressionAlgorithm = compressionAlgorithm;
+        }
+
+        public String getCompressionAlgorithm(){
+            return compressionAlgorithm;
+        }
+    }
+    public static String getErrorMessage(int errorCode) { // package visibility only
         switch (errorCode) {
             case Integer.MIN_VALUE:
                 return "Session not setup";
@@ -82,4 +97,6 @@ public class QATUtils { // static class
         }
         return "Invalid code";
     }
+
+
 }
