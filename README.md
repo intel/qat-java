@@ -1,3 +1,5 @@
+** THIS LIBRARY IS BEING UPDATED TO MAVEN PROJECT, YOU CAN USE 'MAIN' BRANCH CODE AND FOLLOW BELOW INSTRUCTIONS **
+
 DESCRIPTION
 -----------
 This library is JNI application using QATZip APIs https://github.com/intel-innersource/applications.qat.shims.qatzip.qatzip
