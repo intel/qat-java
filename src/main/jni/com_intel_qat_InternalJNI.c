@@ -1,222 +1,229 @@
-#define _GNU_SOURCE
-#include "com_intel_qat_InternalJNI.h"
-#include "qatzip.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sched.h>
-#include <numa.h>
-#include <limits.h>
-#include <stdbool.h>
+/*******************************************************************************
+ * Copyright (C) 2023 Intel Corporation
+ *
+ * SPDX-License-Identifier: BSD
+ ******************************************************************************/
 
-static __thread QzSession_T qz_session;
-static __thread QzSessionParams_T qz_params;
-static __thread QzSessionParamsDeflate_T deflate_params;
+package com.intel.qat;
 
-static __thread int cpu_id;
-static __thread int numa_id;
-static __thread jobject sourceAddr;
-static __thread jobject destAddr;
-static QzPollingMode_T polling_mode = QZ_BUSY_POLLING;
-static QzDataFormat_T data_fmt = QZ_DEFLATE_GZIP_EXT;
-//static unsigned int compressionLevel = 6;
+import org.testng.annotations.Test;
 
-/*
- * Class:     com_intel_qat_InternalJNI
- * Method:    setup
- * initializes QAT hardware and sets up a session
- */
-JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_setup(JNIEnv *env, jclass jc,jint executionPath) {
-  int rc;
-setbuf(stdout, NULL);
-printf("session to be established..%d",executionPath);
-  if(executionPath == 0){
-    rc = qzInit(&qz_session, 0);
-    printf("hardware session obtained..%d",rc);
-  }
-  else if(executionPath == 1)
-    rc = qzInit(&qz_session, 1);
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.util.ArrayList;
+import java.util.List;
 
-  if (rc != QZ_OK && rc != QZ_DUPLICATE)
-    return rc;
+import static org.testng.Assert.*;
 
-  rc = qzGetDefaults(&qz_params);
-  if (rc != QZ_OK)
-    return rc;
+public class QATTest {
+    //TODO what kind of test we need ?
+    private int numberOfThreads;
+    private File filePath, filesList[];
+    private Thread[] threads;
 
-  //qz_params.comm.mem_type = PINNED_MEM;
-  //deflate_params.common_params.comp_algorithm = comp_algorithm;
+    private int filesPerThread,remainingFiles;
 
-  rc = qzGetDefaultsDeflate(&deflate_params);
-  if (rc != QZ_OK)
-    return rc;
-
-  deflate_params.data_fmt = data_fmt;
-  deflate_params.common_params.comp_lvl = 6;
-  deflate_params.common_params.polling_mode = polling_mode;
-
-  rc = qzSetupSessionDeflate(&qz_session, &deflate_params);
-  if (rc != QZ_OK)
-    return rc;
-
-  //set NUMA id
-  cpu_id = sched_getcpu();
-  numa_id = numa_node_of_cpu(cpu_id);
-
-  return QZ_OK;
-}
-
-
-/*
- * Class:     com_intel_qat_InternalJNI
- * Method:    nativeByteBuff
- * Allocate new ByteBuffer using qzMalloc
- */
-JNIEXPORT jobjectArray JNICALL Java_com_intel_qat_InternalJNI_nativeSrcDestByteBuff
-(JNIEnv *env, jclass jc, jlong srcSize, jlong destSize) {
-  void* tempSrcAddr = qzMalloc(srcSize, numa_id, true);
-  void* tempDestAddr = qzMalloc(destSize, numa_id, true);
-
-  if(NULL == tempSrcAddr || NULL == tempDestAddr)
-  {
-    printf("qzMalloc::PINNED memory is not available\n");
-    tempSrcAddr = NULL;
-    tempDestAddr = NULL;
-      //throw std::runtime_error("failed to allocate native memory");
-    
-  }
-
-  jobjectArray ret = (jobjectArray)(*env)->NewObjectArray(env,2,(*env)->FindClass(env,"java/nio/ByteBuffer"),NULL);
-  (*env)->SetObjectArrayElement(env,ret,0,(*env)->NewDirectByteBuffer(env,tempSrcAddr,srcSize));
-  (*env)->SetObjectArrayElement(env,ret,1,(*env)->NewDirectByteBuffer(env,tempDestAddr,destSize));
-
-  return ret;
-}
-/*
- * Class:     com_intel_qat_InternalJNI
- * Method:    freeNativesrcDestByteBuff
- * frees native allocated ByteBuffer
- */
-
-JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_freeNativesrcDestByteBuff
-(JNIEnv *env, jclass jc, jobject srcBuff, jobject destBuff) {
-
-  unsigned char *unSrcBuff =
-      (unsigned char *)(*env)->GetDirectBufferAddress(env, srcBuff);
-
-  if(unSrcBuff)
-    qzFree((void*)unSrcBuff);
-
-  unsigned char *unDestBuff =
-      (unsigned char *)(*env)->GetDirectBufferAddress(env, destBuff);
-
-  if(unDestBuff)
-    qzFree((void*)unDestBuff);
-
-  return 0;
-}
-
-
-/*
- * Class:     com_intel_qat_InternalJNI
- * Method:    compressByteBuff
- * compress ByteBuffer
- */
-JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_compressByteBuff(
-    JNIEnv *env, jclass obj, jobject srcBuffer,jint srcOffset, jint srcLen, jobject destBuffer, jboolean retry, jint retryCount) {
-  unsigned int srcSize = srcLen;
-  unsigned int compressedLength = -1;
-
-  unsigned char *src =
-      (unsigned char *)(*env)->GetDirectBufferAddress(env, srcBuffer);
-
-  if(!src)
-    return -1;
-
-  src+= srcOffset;
-  unsigned char *dest_buff =
-      (unsigned char *)(*env)->GetDirectBufferAddress(env, destBuffer);
-
-  if(!dest_buff)
-    return -1;
-
-  int rc = qzCompress(&qz_session, src, &srcSize, dest_buff,
-                      &compressedLength, 1);
-
-
-  if(rc == QZ_NOSW_NO_INST_ATTACH && retry && retryCount > 0){
-    while(retryCount > 0 && qzCompress(&qz_session, src, &srcSize, dest_buff,
-                      &compressedLength, 1) != QZ_OK){
-        retryCount--;
+    public void QATTest(){
+        this.numberOfThreads = 11;
+        filePath = new File("../resources");
+        filesList = filePath.listFiles();
+        threads = new Thread[numberOfThreads];
+        int filesPerThread = filesList.length / numberOfThreads;
+        int remainingFiles = filesList.length % numberOfThreads;
     }
-  }
- 
-  if (rc != QZ_OK)
-    return rc;
 
-  return compressedLength;
-}
+    @Test
+    public void testHardwareSetupTearDown(){
+        System.out.println("EXECUTING testHardwareSetupTearDown..");
+        QATSession qatSession = new QATSession(1000, QATUtils.ExecutionPaths.QAT_HARDWARE_ONLY,0, String.valueOf(QATUtils.CompressionAlgo.DEFLATE),6);
+        try {
+            qatSession.setup();
+        }
+        catch (QATException qe){
+            fail("QAT session could not be established");
+            return;
+        }
 
-/*
- * Class:     com_intel_qat_InternalJNI
- * Method:    decompressByteBuff
- * copies byte array from calling process and compress input, copies data back to out parameter
- */
-JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_decompressByteBuff(
-    JNIEnv *env, jclass obj, jobject srcBuffer,jint srcOffset, jint srcLen, jobject destBuffer, jboolean retry, jint retryCount) {
-
-  unsigned int srcSize = srcLen;
-  unsigned int uncompressedLength = UINT_MAX;
-
-  unsigned char *src =
-      (unsigned char *)(*env)->GetDirectBufferAddress(env, srcBuffer);
-
-  if(!src)
-    return -1;
-
-  src+= srcOffset;
-  unsigned char *dest_buff =
-      (unsigned char *)(*env)->GetDirectBufferAddress(env, destBuffer);
-
-  if(!dest_buff)
-    return -1;
-
-  int rc = qzDecompress(&qz_session, src, &srcSize, dest_buff, &uncompressedLength);
-
-    if(rc == QZ_NOSW_NO_INST_ATTACH && retry && retryCount > 0){
-          while(retryCount > 0 && qzDecompress(&qz_session, src, &srcSize, dest_buff, &uncompressedLength) != QZ_OK){
-              retryCount--;
-          }
+        try {
+            qatSession.teardown();
+        } catch (QATException qe) {
+            fail("QAT session teardown failed");
+            return;
+        }
+        assertTrue(true);
     }
-  if (rc != QZ_OK)
-    return rc;
 
-  return uncompressedLength;
-}
+    @Test
+    public void testNativeMemory(){
+        System.out.println("EXECUTING testNativeMemory..");
+        QATSession qatSession = new QATSession(1000, QATUtils.ExecutionPaths.QAT_HARDWARE_ONLY,0, String.valueOf(QATUtils.CompressionAlgo.DEFLATE),6);
+        try {
+            qatSession.setup();
+        }
+        catch (QATException qe){
+            fail("QAT session could not be established");
+            return;
+        }
+        assertEquals(qatSession.unCompressedBuffer.isDirect(), true);
+        assertEquals(qatSession.compressedBuffer.isDirect(), true);
 
-/*
- * Class:     com_intel_qat_InternalJNI
- * Method:    maxCompressedSize
- * returns maximum compressed size for a given source size
- */
+        try {
+            qatSession.teardown();
+        } catch (QATException qe) {
+            fail("QAT session teardown failed");
+            return;
+        }
+        assertTrue(true);
 
-JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_maxCompressedSize(JNIEnv *env,
-                                                               jclass jobj,
-                                                               jint srcSize) {
-  return qzMaxCompressedLength(srcSize, &qz_session);
-}
+    }
 
-/*
- * Class:     com_intel_qat_InternalJNI
- * Method:    teardown
- * teardown QAT session and release QAT hardware resources
- */
+    @Test
+    public void testCompressionDecompression(){
+        System.out.println("EXECUTING testCompressionDecompression..");
+        for(int i = 0; i < numberOfThreads; i++){
+            final int thread = i;
 
-JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_teardown(JNIEnv *env,
-                                                      jclass jobj) {
-  int rc = qzTeardownSession(&qz_session);
-  if (rc != QZ_OK)
-    return rc;
+            threads[i] = new Thread(){
+                @Override
+                public void run(){
+                    try{
+                        doCompressDecompress(thread);
+                    }
+                    catch(QATException ie){
+                        System.out.println("doCompressDecompress fails " + ie.getMessage());
+                    }
+                }
+            };
+        }
+    }
 
-  return qzClose(&qz_session);
+    @Test
+    public void testSetupDuplicate(){
+        System.out.println("EXECUTING testSetupDuplicate..");
+        QATSession qatSession = new QATSession(1000, QATUtils.ExecutionPaths.QAT_HARDWARE_ONLY,0, String.valueOf(QATUtils.CompressionAlgo.DEFLATE),6);
+        try {
+            qatSession.setup();
+            qatSession.setup();
+        }
+        catch (QATException qe){
+            assertEquals(1, QATUtils.getErrorMessage(Integer.parseInt(qe.getMessage())));
+        }
+        fail("Session duplicate test got failed");
+    }
+
+    @Test
+    public void testInvalidCompressionLevel(){
+        System.out.println("EXECUTING testInvalidCompressionLevel..");
+        try {
+            QATSession qatSession = new QATSession(1000, QATUtils.ExecutionPaths.QAT_HARDWARE_ONLY, 0, "deflate", 10);
+	    fail("Invalid compression level test failed!");
+        }
+        catch (IllegalArgumentException ie){
+	    System.out.println("illegal argument exception");
+            assertTrue(true);
+        }
+	catch (Exception e){
+	    System.out.println("general exception");
+            assertTrue(true);
+        }
+
+
+
+    }
+
+    @Test
+    public void testInvalidRetryCount(){
+        System.out.println("EXECUTING testInvalidRetryCount..");
+        try {
+            QATSession qatSession = new QATSession(1000, QATUtils.ExecutionPaths.QAT_HARDWARE_ONLY, 100, "deflate", 6);
+	    fail("Invalid retry count test failed!");
+        }
+        catch (IllegalArgumentException ie){
+            assertTrue(true);
+        }
+
+    }
+    private void doCompressDecompress(int thread) throws QATException{
+        List<File> inFiles = new ArrayList<>();
+
+        for(int i = filesPerThread * thread; i < filesPerThread * (thread + 1);i++){
+            inFiles.add(filesList[i]);
+        }
+
+        if(thread == numberOfThreads - 1 && remainingFiles > 0){
+            for(int j = filesList.length - remainingFiles; j < filesList.length; j++)
+                inFiles.add(filesList[j]);
+        }
+        QATSession qatSession = new QATSession(1000, QATUtils.ExecutionPaths.QAT_HARDWARE_ONLY,0, String.valueOf(QATUtils.CompressionAlgo.DEFLATE),6);
+        try{
+            // init session with QAT hardware
+            try {
+                qatSession.setup();
+            }
+            catch (QATException qe){
+                System.out.println("setup session failed");
+                return;
+            }
+
+            for(File file: inFiles){
+                qatSession.unCompressedBuffer.clear();
+                qatSession.compressedBuffer.clear();
+
+                byte[] srcArray = new byte[0];
+                try {
+                    srcArray = Files.readAllBytes(file.toPath());
+                } catch (IOException e) {
+                    throw new QATException(e.getMessage());
+                }
+
+                // get max compressed Length
+                int maxCompressedLength =
+                        qatSession.maxCompressedLength(srcArray.length);
+
+                //source and destination byte buffer
+
+                if(!qatSession.unCompressedBuffer.isDirect() || !qatSession.compressedBuffer.isDirect()){
+                    System.out.println("ERROR: src or dest byte buffer is not direct\n");
+                    return;
+                }
+                qatSession.unCompressedBuffer.put(srcArray);
+                qatSession.compressedBuffer.flip();
+
+                int compressedLength = qatSession.compressByteBuff(qatSession.unCompressedBuffer,0,
+                        qatSession.unCompressedBuffer.limit(),
+                        qatSession.compressedBuffer);
+
+                if (compressedLength < 0) {
+                    System.out.println("unsuccessful compression.. exiting");
+                }
+
+                qatSession.compressedBuffer.flip();
+                qatSession.unCompressedBuffer.clear();
+                int uncompressedLength2 = qatSession.decompressByteBuff(qatSession.compressedBuffer,0,
+                        compressedLength, qatSession.unCompressedBuffer);
+
+                assertNotEquals(uncompressedLength2,0);
+                assertEquals(uncompressedLength2, srcArray.length);
+
+
+                byte[] arrtoWrite = new byte[uncompressedLength2];
+                qatSession.unCompressedBuffer.get(arrtoWrite,0,uncompressedLength2);
+                try (FileOutputStream fos = new FileOutputStream("../resources/res" + file.getName().replaceFirst("[.][^.]+$", "") +"-output.txt")) {
+                    fos.write(arrtoWrite);
+                }
+                catch (Exception e){
+                    fail("uncompressed data failed to write");
+                }
+            }
+
+            qatSession.teardown();
+        }
+        catch(QATException e) {
+            System.out.println("Runtime Exception message: " + e.getMessage());
+        }
+
+    }
+
 }

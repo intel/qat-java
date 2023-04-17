@@ -20,4 +20,3 @@ public class InternalJNI {
   static native int compressByteBuff(ByteBuffer src, int srcOffset, int srcLen, ByteBuffer dest, int retryCount);
   static native int decompressByteBuff(ByteBuffer src, int srcOffset, int srcLen, ByteBuffer dest, int retryCount);
 }
-}

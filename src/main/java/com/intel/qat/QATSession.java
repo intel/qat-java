@@ -6,12 +6,6 @@
 
 package com.intel.qat;
 import java.nio.ByteBuffer;
-import java.lang.ref.Cleaner;
-// need javadocs for all public methods
-//clang format for the source code - default
-//create QAT specific exception ( override Runtime Exception)
-// Do not put error code directly in the log , create mapping with integer with string error code (only error code)
-// change to QATSession name
 
 /**
  * Defines APIs for creation of hardware session with QAT device, exposed compression and decompression APIs and hardware session cleanup
@@ -20,7 +14,7 @@ public class QATSession {
 
   private final int QZ_OK = 0;
   private int qzStatus = Integer.MIN_VALUE;
-  private final int DEFAULT_INTERNAL_BUFFER_SIZE_IN_BYTES = 480 * 1024;
+  private final static int DEFAULT_INTERNAL_BUFFER_SIZE_IN_BYTES = 480 * 1024;
   private int internalBufferSizeInBytes;
 
   private int retryCount = 0;
@@ -40,16 +34,12 @@ public class QATSession {
 
   public QATSession(){
     // call parameterized constructor
-    //this(DEFAULT_INTERNAL_BUFFER_SIZE_IN_BYTES, QATUtils.ExecutionPaths.QAT_HARDWARE_ONLY, false, 0);
-    internalBufferSizeInBytes = DEFAULT_INTERNAL_BUFFER_SIZE_IN_BYTES;
-    this.executionPath = QATUtils.ExecutionPaths.AUTO;
-    this.compressionAlgo = String.valueOf(QATUtils.CompressionAlgo.DEFLATE);
-    this.compressionLevel = 6;
+    this(DEFAULT_INTERNAL_BUFFER_SIZE_IN_BYTES, QATUtils.ExecutionPaths.AUTO, 0,"deflate",0);
     setup();
   }
   public QATSession(int bufferSize, QATUtils.ExecutionPaths executionPath, int retryCount, String compressionAlgo, int compressionLevel){
     if(!validateParams(retryCount, compressionAlgo, compressionLevel))
-      throw new QATException("Invalid QATSession object parameters"); // Illegal argument exception - fail it right away
+      throw new IllegalArgumentException("Invalid QATSession object parameters"); // Illegal argument exception - fail it right away
 
     this.internalBufferSizeInBytes = bufferSize;
     this.executionPath = executionPath;
@@ -65,8 +55,8 @@ public class QATSession {
    */
 
   // code review comments: merge set up and allocation of buffer in 1 JNI function call
-   protected void setup() { // refactor this and there should be ONLY 1 JNI call per execution path
-     // setup call specific to a path
+  protected void setup() { // refactor this and there should be ONLY 1 JNI call per execution path
+    // setup call specific to a path
     System.out.println("execution path value = "+ this.executionPath.getExecutionPathCode());
     int r = InternalJNI.setup(this.executionPath.getExecutionPathCode(), this.compressionAlgo, this.compressionLevel);
     if (r != QZ_OK) {
@@ -188,7 +178,7 @@ public class QATSession {
 
   public int compressByteBuff(ByteBuffer src,int srcOffset, int srcLen, ByteBuffer dest){ // we dont need offset and length parameters
     if((srcLen - srcOffset + 1) < this.unCompressedBuffer.limit()){
-        throw new QATException("buffer size is larger than initial mentioned srcSize, recreate the object again");
+      throw new QATException("buffer size is larger than initial mentioned srcSize, recreate the object again");
     }
     if(!src.isDirect() || !dest.isDirect()){
       throw new QATException("Provided buffer is not direct bytebuffer");
@@ -221,9 +211,10 @@ public class QATSession {
   }
 
   private Boolean validateParams(int retryCount, String compressionAlgo, int compressionLevel){
-
+    System.out.println("validating..");
     try{
       QATUtils.CompressionAlgo.valueOf(compressionAlgo);
+      System.out.println("algo present..");
     }
     catch (IllegalArgumentException ie){
       return false;
