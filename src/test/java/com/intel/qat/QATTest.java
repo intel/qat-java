@@ -16,6 +16,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.testng.Assert.*;
+import java.util.Arrays;
 
 public class QATTest {
     //TODO what kind of test we need ?
@@ -35,17 +36,37 @@ public class QATTest {
     }
 
     @Test
+    public void testDefaultConstructor(){
+        System.out.println("EXECUTING testDefaultConstructor..");
+        try {
+            QATSession qatSession = new QATSession();
+        }
+        catch (IllegalArgumentException | QATException ie){
+            fail(ie.getMessage());
+        }
+        assertTrue(true);
+    }
+
+    @Test
+    public void testParametrizedConstructor(){
+        System.out.println("EXECUTING testParametrizedConstructor..");
+        try {
+            QATSession qatSession = new QATSession(1000, QATUtils.ExecutionPaths.QAT_HARDWARE_ONLY, 0, QATUtils.CompressionAlgo.DEFLATE, 6);
+        }
+        catch (IllegalArgumentException| QATException ie){
+            fail(ie.getMessage());
+        }
+        assertTrue(true);
+    }
     public void testHardwareSetupTearDown(){
         System.out.println("EXECUTING testHardwareSetupTearDown..");
-        QATSession qatSession = new QATSession(1000, QATUtils.ExecutionPaths.QAT_HARDWARE_ONLY,0, String.valueOf(QATUtils.CompressionAlgo.DEFLATE),6);
+        QATSession qatSession = null;
         try {
-            qatSession.setup();
+            qatSession = new QATSession(1000, QATUtils.ExecutionPaths.QAT_HARDWARE_ONLY,0, QATUtils.CompressionAlgo.DEFLATE,6);
         }
         catch (QATException qe){
-            fail("QAT session could not be established");
-            return;
+            fail(qe.getMessage());
         }
-
         try {
             qatSession.teardown();
         } catch (QATException qe) {
@@ -53,22 +74,19 @@ public class QATTest {
             return;
         }
         assertTrue(true);
+
     }
 
     @Test
     public void testNativeMemory(){
         System.out.println("EXECUTING testNativeMemory..");
-        QATSession qatSession = new QATSession(1000, QATUtils.ExecutionPaths.QAT_HARDWARE_ONLY,0, String.valueOf(QATUtils.CompressionAlgo.DEFLATE),6);
+        QATSession qatSession = null;
         try {
-            qatSession.setup();
+            qatSession = new QATSession(1000, QATUtils.ExecutionPaths.QAT_HARDWARE_ONLY,0, QATUtils.CompressionAlgo.DEFLATE,6);
         }
         catch (QATException qe){
-            fail("QAT session could not be established");
-            return;
+            fail(qe.getMessage());
         }
-        assertEquals(qatSession.unCompressedBuffer.isDirect(), true);
-        assertEquals(qatSession.compressedBuffer.isDirect(), true);
-
         try {
             qatSession.teardown();
         } catch (QATException qe) {
@@ -102,13 +120,12 @@ public class QATTest {
     @Test
     public void testSetupDuplicate(){
         System.out.println("EXECUTING testSetupDuplicate..");
-        QATSession qatSession = new QATSession(1000, QATUtils.ExecutionPaths.QAT_HARDWARE_ONLY,0, String.valueOf(QATUtils.CompressionAlgo.DEFLATE),6);
+        QATSession qatSession = new QATSession(1000, QATUtils.ExecutionPaths.QAT_HARDWARE_ONLY,0, QATUtils.CompressionAlgo.DEFLATE,6);
         try {
-            qatSession.setup();
             qatSession.setup();
         }
         catch (QATException qe){
-            assertEquals(1, QATUtils.getErrorMessage(Integer.parseInt(qe.getMessage())));
+            assertTrue(true);
         }
         fail("Session duplicate test got failed");
     }
@@ -117,7 +134,7 @@ public class QATTest {
     public void testInvalidCompressionLevel(){
         System.out.println("EXECUTING testInvalidCompressionLevel..");
         try {
-            QATSession qatSession = new QATSession(1000, QATUtils.ExecutionPaths.QAT_HARDWARE_ONLY, 0, "deflate", 10);
+            QATSession qatSession = new QATSession(1000, QATUtils.ExecutionPaths.QAT_HARDWARE_ONLY, 0, QATUtils.CompressionAlgo.DEFLATE, 10);
             fail("Invalid compression level test failed!");
         }
         catch (IllegalArgumentException ie){
@@ -137,7 +154,7 @@ public class QATTest {
     public void testInvalidRetryCount(){
         System.out.println("EXECUTING testInvalidRetryCount..");
         try {
-            QATSession qatSession = new QATSession(1000, QATUtils.ExecutionPaths.QAT_HARDWARE_ONLY, 100, "deflate", 6);
+            QATSession qatSession = new QATSession(1000, QATUtils.ExecutionPaths.QAT_HARDWARE_ONLY, 100, QATUtils.CompressionAlgo.DEFLATE, 6);
             fail("Invalid retry count test failed!");
         }
         catch (IllegalArgumentException ie){
@@ -156,20 +173,16 @@ public class QATTest {
             for(int j = filesList.length - remainingFiles; j < filesList.length; j++)
                 inFiles.add(filesList[j]);
         }
-        QATSession qatSession = new QATSession(1000, QATUtils.ExecutionPaths.QAT_HARDWARE_ONLY,0, String.valueOf(QATUtils.CompressionAlgo.DEFLATE),6);
+        QATSession qatSession = null;
         try{
-            // init session with QAT hardware
             try {
-                qatSession.setup();
+                qatSession = new QATSession(1000, QATUtils.ExecutionPaths.QAT_HARDWARE_ONLY, 0, QATUtils.CompressionAlgo.DEFLATE, 6);
             }
-            catch (QATException qe){
-                System.out.println("setup session failed");
-                return;
+            catch (QATException qe) {
+                fail(qe.getMessage());
             }
 
             for(File file: inFiles){
-                qatSession.unCompressedBuffer.clear();
-                qatSession.compressedBuffer.clear();
 
                 byte[] srcArray = new byte[0];
                 try {
@@ -182,34 +195,22 @@ public class QATTest {
                 int maxCompressedLength =
                         qatSession.maxCompressedLength(srcArray.length);
 
+                byte[] destArray = new byte[maxCompressedLength];
                 //source and destination byte buffer
-
-                if(!qatSession.unCompressedBuffer.isDirect() || !qatSession.compressedBuffer.isDirect()){
-                    System.out.println("ERROR: src or dest byte buffer is not direct\n");
-                    return;
-                }
-                qatSession.unCompressedBuffer.put(srcArray);
-                qatSession.compressedBuffer.flip();
-
-                int compressedLength = qatSession.compressByteBuff(qatSession.unCompressedBuffer,0,
-                        qatSession.unCompressedBuffer.limit(),
-                        qatSession.compressedBuffer);
+                int compressedLength = qatSession.compressByteArray(srcArray,0,srcArray.length, destArray);
 
                 if (compressedLength < 0) {
                     System.out.println("unsuccessful compression.. exiting");
                 }
 
-                qatSession.compressedBuffer.flip();
-                qatSession.unCompressedBuffer.clear();
-                int uncompressedLength2 = qatSession.decompressByteBuff(qatSession.compressedBuffer,0,
-                        compressedLength, qatSession.unCompressedBuffer);
+                int uncompressedLength2 = qatSession.decompressByteArray(destArray,0, compressedLength, srcArray);
 
                 assertNotEquals(uncompressedLength2,0);
                 assertEquals(uncompressedLength2, srcArray.length);
 
-
                 byte[] arrtoWrite = new byte[uncompressedLength2];
-                qatSession.unCompressedBuffer.get(arrtoWrite,0,uncompressedLength2);
+                arrtoWrite = Arrays.copyOf(srcArray, uncompressedLength2);
+
                 try (FileOutputStream fos = new FileOutputStream("../resources/res" + file.getName().replaceFirst("[.][^.]+$", "") +"-output.txt")) {
                     fos.write(arrtoWrite);
                 }

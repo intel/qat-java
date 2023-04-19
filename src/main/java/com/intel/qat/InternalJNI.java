@@ -11,9 +11,11 @@ public class InternalJNI {
   static { System.loadLibrary("qat-java"); } //
 
   // change to default
-  static native int setup(int executionPath, String compressionAlgo, int compressionLevel);
+  static native ByteBuffer[] setupAUTO(long internalBufferSizeInBytes, String compressionAlgo, int compressionLevel);
+
+  static native ByteBuffer[] setupHardware(long internalBufferSizeInBytes, String compressionAlgo, int compressionLevel);
   static native int teardown();
-  static native int maxCompressedSize(int sourceSize);
+  static native int maxCompressedSize(long sourceSize);
 
   static native ByteBuffer[] nativeSrcDestByteBuff(long srcSize, long destSize);
   static native int freeNativesrcDestByteBuff(ByteBuffer srcbuff, ByteBuffer destbuff);
