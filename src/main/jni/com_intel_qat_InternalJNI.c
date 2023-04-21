@@ -19,6 +19,7 @@
 #define QZ_HW_INIT_ERROR "An error occured while initializing QAT hardware"
 #define QZ_SETUP_SESSION_ERROR "An error occured while setting up session"
 
+// all this goes to QATSession
 static __thread QzSession_T qz_session;
 static __thread QzSessionParams_T qz_params;
 static __thread QzSessionParamsDeflate_T deflate_params;
@@ -26,6 +27,8 @@ static __thread QzSessionParamsLZ4_T lz4_params;
 
 static __thread int cpu_id;
 static __thread int numa_id;
+// all this goes to QATSession
+
 //static __thread jobject sourceAddr;
 //static __thread jobject destAddr;
 static QzPollingMode_T polling_mode = QZ_BUSY_POLLING;
@@ -98,7 +101,7 @@ JNIEXPORT jobjectArray JNICALL Java_com_intel_qat_InternalJNI_setupHardware(JNIE
 
   rc = qzInit(&qz_session, 0);
 
-  if (rc != QZ_OK && rc != QZ_DUPLICATE)
+  if (rc != QZ_OK || rc == QZ_DUPLICATE)
     throw_exception(env, QZ_HW_INIT_ERROR, rc);
 
   if(strncmp(nativeCompressionAlgo , "deflate", strlen(nativeCompressionAlgo)))
@@ -109,7 +112,10 @@ JNIEXPORT jobjectArray JNICALL Java_com_intel_qat_InternalJNI_setupHardware(JNIE
   {
     rc = setupLZ4Session(compressionLevel);
   }
-
+  else{
+    throw_exception(env,QZ_HW_INIT_ERROR,rc);
+  }
+   printf("setup session completed\n");
   if(QZ_OK != rc)
     throw_exception(env, QZ_SETUP_SESSION_ERROR, rc);
   //set NUMA id
@@ -137,7 +143,7 @@ JNIEXPORT jobjectArray JNICALL Java_com_intel_qat_InternalJNI_setupAUTO(JNIEnv *
     softwareSession = 1;
   }
   */
-  if (rc != QZ_OK && rc != QZ_DUPLICATE)
+  if (rc != QZ_OK || rc == QZ_DUPLICATE)
     throw_exception(env, QZ_HW_INIT_ERROR, rc);
 
  if(strncmp(nativeCompressionAlgo , "deflate", strlen(nativeCompressionAlgo)))
@@ -225,6 +231,40 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_freeNativesrcDestByteBuff
 
   return compressedLength;
 }
+/*
+ * Class:     com_intel_qat_InternalJNI
+ * Method:    compressByteArray
+ * compress ByteArray
+ */
+
+JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_compressByteArray(
+    JNIEnv *env, jclass obj, jbyteArray uncompressedArray, jint srcOffset,
+    jint srcLen, jbyteArray compressedArray) {
+  unsigned int srcSize = srcLen;
+  unsigned int compressedLength = -1;
+  unsigned char *src =
+      (unsigned char *)(*env)->GetByteArrayElements(env, uncompressedArray, 0);
+  src += srcOffset;
+
+  // QATZip max Compress length
+  jint len = (*env)->GetArrayLength(env, compressedArray);
+  unsigned char dest_buff[len];
+
+  int rc = qzCompress(&qz_session, src, &srcSize, dest_buff,
+                      &compressedLength, 1);
+  if (rc != QZ_OK)
+    return rc;
+
+  // throw error if srcSize != srcLen - srcOffset + 1, get the confirmation if this is due to destination not big enough
+
+  (*env)->ReleaseByteArrayElements(env, uncompressedArray, (signed char *)src,
+                                   0);
+  (*env)->SetByteArrayRegion(env, compressedArray, 0, compressedLength,
+                             (signed char *)dest_buff);
+
+  return compressedLength;
+}
+
 
 /*
  * Class:     com_intel_qat_InternalJNI
@@ -265,6 +305,34 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_decompressByteBuff(
 
 /*
  * Class:     com_intel_qat_InternalJNI
+ * Method:    decompressByteArray
+ * copies byte array from calling process and compress input, copies data back to out parameter
+ */
+
+ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_decompressByteArray(
+     JNIEnv *env, jclass obj, jbyteArray compressedArray, jint srcOffset,
+     jint srcLen, jbyteArray destArray, jint uncompressedLength) {
+   unsigned char *src =
+       (unsigned char *)(*env)->GetByteArrayElements(env, compressedArray, 0);
+   src += srcOffset;
+
+   unsigned char dest_buff[uncompressedLength];
+   unsigned int srcSize = srcLen;
+   unsigned int dest_len = -1;
+
+   int rc = qzDecompress(&qz_session, src, &srcSize, dest_buff, &dest_len);
+   if (rc != QZ_OK)
+     return rc;
+
+   (*env)->ReleaseByteArrayElements(env, compressedArray, (signed char *)src, 0);
+   (*env)->SetByteArrayRegion(env, destArray, 0, uncompressedLength,
+                              (signed char *)dest_buff);
+
+   return uncompressedLength;
+ }
+
+/*
+ * Class:     com_intel_qat_InternalJNI
  * Method:    maxCompressedSize
  * returns maximum compressed size for a given source size
  */
@@ -287,5 +355,11 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_teardown(JNIEnv *env,
   if (rc != QZ_OK)
     return rc;
 
-  return qzClose(&qz_session);
+  rc = qzClose(&qz_session);
+
+  if (rc != QZ_OK)
+      return rc;
+
+  free((void*)qz_session);
+  return QZ_OK;
 }

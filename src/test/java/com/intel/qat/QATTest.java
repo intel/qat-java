@@ -38,20 +38,25 @@ public class QATTest {
     @Test
     public void testDefaultConstructor(){
         System.out.println("EXECUTING testDefaultConstructor..");
+        QATSession qatSession = null;
         try {
-            QATSession qatSession = new QATSession();
+            qatSession = new QATSession();
         }
         catch (IllegalArgumentException | QATException ie){
             fail(ie.getMessage());
         }
+        qatSession.teardown();
         assertTrue(true);
+
     }
 
     @Test
     public void testParametrizedConstructor(){
         System.out.println("EXECUTING testParametrizedConstructor..");
+        QATSession qatSession = null;
         try {
-            QATSession qatSession = new QATSession(1000, QATUtils.ExecutionPaths.QAT_HARDWARE_ONLY, 0, QATUtils.CompressionAlgo.DEFLATE, 6);
+            qatSession = new QATSession(1000, QATUtils.ExecutionPaths.QAT_HARDWARE_ONLY, 0, QATUtils.CompressionAlgo.DEFLATE, 6);
+            qatSession.teardown();
         }
         catch (IllegalArgumentException| QATException ie){
             fail(ie.getMessage());
@@ -71,7 +76,6 @@ public class QATTest {
             qatSession.teardown();
         } catch (QATException qe) {
             fail("QAT session teardown failed");
-            return;
         }
         assertTrue(true);
 
@@ -91,7 +95,6 @@ public class QATTest {
             qatSession.teardown();
         } catch (QATException qe) {
             fail("QAT session teardown failed");
-            return;
         }
         assertTrue(true);
 
@@ -125,6 +128,7 @@ public class QATTest {
             qatSession.setup();
         }
         catch (QATException qe){
+            qatSession.teardown();
             assertTrue(true);
         }
         fail("Session duplicate test got failed");
@@ -133,8 +137,9 @@ public class QATTest {
     @Test
     public void testInvalidCompressionLevel(){
         System.out.println("EXECUTING testInvalidCompressionLevel..");
+        QATSession qatSession = null;
         try {
-            QATSession qatSession = new QATSession(1000, QATUtils.ExecutionPaths.QAT_HARDWARE_ONLY, 0, QATUtils.CompressionAlgo.DEFLATE, 10);
+            qatSession = new QATSession(1000, QATUtils.ExecutionPaths.QAT_HARDWARE_ONLY, 0, QATUtils.CompressionAlgo.DEFLATE, 10);
             fail("Invalid compression level test failed!");
         }
         catch (IllegalArgumentException ie){

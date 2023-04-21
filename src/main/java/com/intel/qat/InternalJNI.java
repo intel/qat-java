@@ -8,7 +8,8 @@ package com.intel.qat;
 import java.nio.ByteBuffer;
 
 public class InternalJNI {
-  static { System.loadLibrary("qat-java"); } //
+  //static { System.loadLibrary("qat-java"); } //
+  static {Native.loadLibrary();}
 
   // change to default
   static native ByteBuffer[] setupAUTO(long internalBufferSizeInBytes, String compressionAlgo, int compressionLevel);
@@ -20,5 +21,7 @@ public class InternalJNI {
   static native ByteBuffer[] nativeSrcDestByteBuff(long srcSize, long destSize);
   static native int freeNativesrcDestByteBuff(ByteBuffer srcbuff, ByteBuffer destbuff);
   static native int compressByteBuff(ByteBuffer src, int srcOffset, int srcLen, ByteBuffer dest, int retryCount);
+  static native int compressByteArray(byte[] src, int srcOffset, int srcLen, byte[] dest, int retryCount);
   static native int decompressByteBuff(ByteBuffer src, int srcOffset, int srcLen, ByteBuffer dest, int retryCount);
+  static native int decompressByteArray(byte[] src, int srcOffset, int srcLen, byte[] dest, int retryCount);
 }
