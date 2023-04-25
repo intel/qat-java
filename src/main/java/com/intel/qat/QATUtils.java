@@ -14,8 +14,7 @@ public class QATUtils { // static class
 
     public enum ExecutionPaths{
         QAT_HARDWARE_ONLY(0),
-        AUTO(1),
-        SOFTWARE_ONLY(2);// not possible
+        AUTO(1);
         private final int executionPathCode;
         ExecutionPaths(int executionPathCode) {
             this.executionPathCode = executionPathCode;

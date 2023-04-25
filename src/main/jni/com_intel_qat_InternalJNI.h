@@ -7,27 +7,21 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
 /*
  * Class:     com_intel_qat_InternalJNI
- * Method:    setupSoftware
+ * Method:    setup
  * Signature: ()I
  */
-JNIEXPORT jobjectArray JNICALL Java_com_intel_qat_InternalJNI_setupAUTO
-  (JNIEnv *, jclass,jlong,jstring,jint);
-/*
- * Class:     com_intel_qat_InternalJNI
- * Method:    setupSoftware
- * Signature: ()I
- */
-JNIEXPORT jobjectArray JNICALL Java_com_intel_qat_InternalJNI_setupHardware
-  (JNIEnv *, jclass,jlong, jstring, jint);
+JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_setup
+  (JNIEnv *, jclass, jobject, jint, jlong, jstring, jint);
 /*
  * Class:     com_intel_qat_InternalJNI
  * Method:    teardown
  * Signature: ()I
  */
 JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_teardown
-  (JNIEnv *, jclass);
+  (JNIEnv *, jclass, jlong);
 
 /*
  * Class:     com_intel_qat_InternalJNI
@@ -35,7 +29,7 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_teardown
  * Signature: (I)I
  */
 JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_maxCompressedSize
-  (JNIEnv *, jclass, jlong);
+  (JNIEnv *, jclass, jlong, jlong);
 /*
  * Class:     com_intel_qat_InternalJNI
  * Method:    freeNativeByteBuff
@@ -50,7 +44,7 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_freeNativesrcDestByteBuff
  * Signature: (Ljava/nio/ByteBuffer;IILjava/nio/ByteBuffer;)I
  */
 JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_compressByteBuff
-  (JNIEnv *, jclass, jobject, jint, jint, jobject, jint);
+  (JNIEnv *, jclass, jlong, jobject, jint, jint, jobject, jint);
 /*
  * Class:     com_intel_qat_InternalJNI
  * Method:    compressByteArray
@@ -58,7 +52,7 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_compressByteBuff
  */
 
 JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_compressByteArray(
-    JNIEnv *, jclass, jbyteArray, jint, jint, jbyteArray);
+    JNIEnv *, jclass, jlong, jbyteArray, jint, jint, jbyteArray, jint);
 
 /*
  * Class:     com_intel_qat_InternalJNI
@@ -66,7 +60,7 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_compressByteArray(
  * Signature: (Ljava/nio/ByteBuffer;IILjava/nio/ByteBuffer;)I
  */
 JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_decompressByteBuff
-  (JNIEnv *, jclass, jobject, jint, jint, jobject, jint);
+  (JNIEnv *, jclass, jlong, jobject, jint, jint, jobject, jint);
 
 
 /*
@@ -76,7 +70,7 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_decompressByteBuff
  */
 
 JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_decompressByteArray(
-     JNIEnv *, jclass, jbyteArray, jint, jint, jbyteArray, jint);
+     JNIEnv *, jclass, jlong, jbyteArray, jint, jint, jbyteArray, jint,jint);
 
 #ifdef __cplusplus
 }
