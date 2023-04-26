@@ -6,8 +6,6 @@
 
 package com.intel.qat;
 
-import org.testng.annotations.Test;
-
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -15,7 +13,13 @@ import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.testng.Assert.*;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
 import java.util.Arrays;
 
 public class QATTest {
@@ -46,6 +50,7 @@ public class QATTest {
             fail(ie.getMessage());
         }
         qatSession.teardown();
+        System.out.println("EXECUTING testDefaultConstructor successful..");
         assertTrue(true);
 
     }
@@ -61,6 +66,7 @@ public class QATTest {
         catch (IllegalArgumentException| QATException ie){
             fail(ie.getMessage());
         }
+        System.out.println("EXECUTING testParametrizedConstructor succesfull..");
         assertTrue(true);
     }
     @Test
@@ -78,6 +84,7 @@ public class QATTest {
         } catch (QATException qe) {
             fail("QAT session teardown failed");
         }
+        System.out.println("EXECUTING testHardwareSetupTearDown successful..");
         assertTrue(true);
 
     }
@@ -97,6 +104,7 @@ public class QATTest {
         } catch (QATException qe) {
             fail("QAT session teardown failed");
         }
+        System.out.println("EXECUTING testNativeMemory successful..");
         assertTrue(true);
 
     }
@@ -119,6 +127,8 @@ public class QATTest {
                 }
             };
         }
+        System.out.println("EXECUTING testCompressionDecompression successful..");
+        assertTrue(true);
     }
 
     @Test
@@ -130,6 +140,7 @@ public class QATTest {
         }
         catch (QATException qe){
             qatSession.teardown();
+            System.out.println("EXECUTING testSetupDuplicate successful..");
             assertTrue(true);
         }
         fail("Session duplicate test got failed");
@@ -145,6 +156,7 @@ public class QATTest {
         }
         catch (IllegalArgumentException ie){
             System.out.println("illegal argument exception");
+            System.out.println("EXECUTING testInvalidCompressionLevel successful..");
             assertTrue(true);
         }
         catch (Exception e){
@@ -164,6 +176,7 @@ public class QATTest {
             fail("Invalid retry count test failed!");
         }
         catch (IllegalArgumentException ie){
+            System.out.println("EXECUTING testInvalidRetryCount successful..");
             assertTrue(true);
         }
 
