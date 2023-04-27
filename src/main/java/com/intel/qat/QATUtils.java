@@ -6,14 +6,10 @@
 
 package com.intel.qat;
 
-public class QATUtils { // static class
+public class QATUtils {
 
-    private QATUtils(){
-
-    }
-
-    public enum ExecutionPaths{
-        QAT_HARDWARE_ONLY(0),
+    public static enum ExecutionPaths{
+        HARDWARE(0),
         AUTO(1);
         private final int executionPathCode;
         ExecutionPaths(int executionPathCode) {
@@ -25,17 +21,17 @@ public class QATUtils { // static class
         }
     }
 
-    public enum CompressionAlgo{
-        DEFLATE("deflate"),
-        LZ4("lz4");
+    public static enum CompressionAlgo{
+        DEFLATE(0), // assign int than string
+        LZ4(1);
 
-        public final String compressionAlgorithm;
+        public final int compressionAlgorithm;
 
-        CompressionAlgo(String compressionAlgorithm){
+        CompressionAlgo(int compressionAlgorithm){
             this.compressionAlgorithm = compressionAlgorithm;
         }
 
-        public String getCompressionAlgorithm(){
+        public int getCompressionAlgorithm(){
             return compressionAlgorithm;
         }
     }

@@ -14,14 +14,14 @@ extern "C" {
  * Signature: ()I
  */
 JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_setup
-  (JNIEnv *, jclass, jobject, jint, jlong, jstring, jint);
+  (JNIEnv *, jclass, jobject, jint, jlong, jint, jint);
 /*
  * Class:     com_intel_qat_InternalJNI
  * Method:    teardown
  * Signature: ()I
  */
 JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_teardown
-  (JNIEnv *, jclass, jlong);
+  (JNIEnv *, jclass, jlong, jobject, jobject);
 
 /*
  * Class:     com_intel_qat_InternalJNI
@@ -30,13 +30,6 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_teardown
  */
 JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_maxCompressedSize
   (JNIEnv *, jclass, jlong, jlong);
-/*
- * Class:     com_intel_qat_InternalJNI
- * Method:    freeNativeByteBuff
- * Signature: (Ljava/nio/ByteBuffer;)I
- */
-JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_freeNativesrcDestByteBuff
-  (JNIEnv *, jclass, jobject,jobject);
 
 /*
  * Class:     com_intel_qat_InternalJNI

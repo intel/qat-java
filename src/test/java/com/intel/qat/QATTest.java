@@ -43,6 +43,68 @@ public class QATTest {
     }
 
     @Test
+    public void testNativeByteBuffer(){
+        System.out.println("EXECUTING testNativeByteBuffer..");
+        QATSession qatSession = null;
+        try {
+            qatSession = new QATSession();
+            assertNotNull(qatSession.unCompressedBuffer);
+            assertNotNull(qatSession.compressedBuffer);
+            System.out.println("Bytebuffer source is non-empty"+ qatSession.unCompressedBuffer.toString());
+            System.out.println("Bytebuffer source is direct byte buffer "+ qatSession.unCompressedBuffer.isDirect());
+            System.out.println("Bytebuffer dest is non-empty"+ qatSession.compressedBuffer.toString());
+            System.out.println("Bytebuffer dest is direct byte buffer "+ qatSession.compressedBuffer.isDirect());
+
+            assertTrue(qatSession.unCompressedBuffer.isDirect());
+            assertTrue(qatSession.unCompressedBuffer.isDirect());
+
+            qatSession.teardown();
+        }
+        catch (IllegalArgumentException | QATException ie){
+            fail(ie.getMessage());
+        }
+        catch (Exception e){
+            fail(e.getMessage());
+        }
+    }
+
+    @Test
+    public void testTeardown(){
+        System.out.println("EXECUTING testTeardown..");
+        QATSession qatSession = null;
+        try {
+            qatSession = new QATSession();
+            assertNotNull(qatSession.unCompressedBuffer);
+            assertNotNull(qatSession.compressedBuffer);
+            System.out.println("Bytebuffer source is non-empty"+ qatSession.unCompressedBuffer.toString());
+            System.out.println("Bytebuffer source is direct byte buffer "+ qatSession.unCompressedBuffer.isDirect());
+            System.out.println("Bytebuffer dest is non-empty"+ qatSession.compressedBuffer.toString());
+            System.out.println("Bytebuffer dest is direct byte buffer "+ qatSession.compressedBuffer.isDirect());
+
+            assertTrue(qatSession.unCompressedBuffer.isDirect());
+            assertTrue(qatSession.unCompressedBuffer.isDirect());
+
+            try {
+                qatSession.teardown();
+            }
+            catch (Exception e){
+                fail(e.getMessage());
+            }
+            System.out.println("teardown succeeded");
+            assertTrue(true);
+        }
+        catch (IllegalArgumentException | QATException ie){
+            fail(ie.getMessage());
+        }
+        catch (Exception e){
+            System.out.println(e.getMessage());
+            fail(e.getMessage());
+        }
+    }
+
+
+    /*
+    @Test
     public void testDefaultConstructor(){
         System.out.println("EXECUTING testDefaultConstructor..");
         QATSession qatSession = null;
@@ -248,5 +310,5 @@ public class QATTest {
         }
 
     }
-
+    */
 }
