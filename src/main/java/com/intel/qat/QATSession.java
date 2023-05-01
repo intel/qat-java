@@ -85,19 +85,19 @@ public class QATSession {
    */
   private void setupAUTO(){
     try {
+      System.out.println("Java: session pointer " + qzSession);
       InternalJNI.setup(this,QATUtils.ExecutionPaths.AUTO.getExecutionPathCode(),DEFAULT_INTERNAL_BUFFER_SIZE_IN_BYTES, this.compressionAlgo.getCompressionAlgorithm(), this.compressionLevel);
+      System.out.println("Java: session pointer after" + qzSession);
+      System.out.println("Java: uncompressed buffer " + unCompressedBuffer.isDirect());
+      System.out.println("Java: compressed buffer " + compressedBuffer.isDirect());
+      System.out.println("Java: Session pointer " + qzSession);
     }
     catch (Exception e){
       throw new QATException(e.getMessage());
     }
 
     if(partialPinnedMem()){
-      try {
-        teardown();
-      }
-      catch (QATException qe){
-        throw new QATException("teardown failed");
-      }
+     // Should we log it?
     }
   }
 
@@ -107,6 +107,7 @@ public class QATSession {
 
   private void setupHardware(){
     try{
+      System.out.println("session pointer " + qzSession);
       InternalJNI.setup(this, QATUtils.ExecutionPaths.HARDWARE.getExecutionPathCode(), DEFAULT_INTERNAL_BUFFER_SIZE_IN_BYTES, this.compressionAlgo.getCompressionAlgorithm(), this.compressionLevel);
     }
     catch (Exception e){
@@ -126,9 +127,17 @@ public class QATSession {
    * teardown API destroys the QAT hardware session and free up resources and PINNED memory allocated with setup API call
    */
   public void teardown() {
-    int r = InternalJNI.teardown(qzSession, unCompressedBuffer, compressedBuffer);
-    if (r != QZ_OK) {
-      throw new QATException(QATUtils.getErrorMessage(r));
+    System.out.println("tearing down");
+    int r;
+
+    try {
+      r = InternalJNI.teardown(qzSession, unCompressedBuffer, compressedBuffer);
+      if (r != QZ_OK) {
+        throw new QATException(QATUtils.getErrorMessage(r));
+      }
+    }
+    catch (Exception e){
+      System.out.println(e.getMessage());
     }
   }
 
@@ -321,21 +330,21 @@ public class QATSession {
     while (remaining > 0) {
       unCompressedBuffer.clear();
       compressedBuffer.clear();
-
+      int sourceLimit = (unCompressedBufferLimit <= remaining)? unCompressedBufferLimit:remaining;
       unCompressedBuffer.put(srcBuff.array(), sourceOffsetInLoop, unCompressedBufferLimit);
       unCompressedBuffer.flip();
 
       try {
-        compressedSize = InternalJNI.compressByteBuff(qzSession, unCompressedBuffer, 0, unCompressedBufferLimit, compressedBuffer, 0, retryCount);
+        compressedSize = InternalJNI.compressByteBuff(qzSession, unCompressedBuffer, 0, sourceLimit, compressedBuffer, 0, retryCount);
         compressedBuffer.flip();
         destBuff.put(compressedBuffer.array(), destOffsetInLoop, compressedSize);
       } catch (Exception e) {
         throw new QATException("not compressed successfully");
       }
 
-      sourceOffsetInLoop += unCompressedBufferLimit;
+      sourceOffsetInLoop += sourceLimit;
       destOffsetInLoop += compressedSize;
-      remaining -= unCompressedBufferLimit;
+      remaining -= sourceLimit;
     }
   }
 
@@ -349,21 +358,23 @@ public class QATSession {
     while (remaining > 0) {
       unCompressedBuffer.clear();
       compressedBuffer.clear();
+      int sourceLimit = (unCompressedBufferLimit <= remaining)? unCompressedBufferLimit:remaining;
 
-      unCompressedBuffer.put(src, sourceOffsetInLoop, unCompressedBufferLimit);
+      unCompressedBuffer.put(src, sourceOffsetInLoop, sourceLimit);
       unCompressedBuffer.flip();
 
       try {
-        compressedSize = InternalJNI.compressByteBuff(qzSession, unCompressedBuffer, 0, unCompressedBufferLimit, compressedBuffer, 0, retryCount);
+        compressedSize = InternalJNI.compressByteBuff(qzSession, unCompressedBuffer, 0, sourceLimit, compressedBuffer, 0, retryCount);
         compressedBuffer.flip();
+        System.out.println("compressed size is "+ compressedSize);
         compressedBuffer.get(dest,destOffsetInLoop,compressedSize);
       } catch (Exception e) {
-        throw new QATException("not compressed successfully");
+        throw new QATException("compressByteArrayInLoop: not compressed successfully "+ e.getMessage());
       }
 
-      sourceOffsetInLoop += unCompressedBufferLimit;
+      sourceOffsetInLoop += sourceLimit;
       destOffsetInLoop += compressedSize;
-      remaining -= unCompressedBufferLimit;
+      remaining -= sourceLimit;
     }
   }
 

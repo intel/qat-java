@@ -10,7 +10,7 @@ import java.nio.ByteBuffer;
 public class InternalJNI {
   static {Native.loadLibrary();}
 
-  static native void setup(QATSession qatSessionObj, int softwareBackup, long internalBufferSizeInBytes, int compressionAlgo, int compressionLevel);
+  static native void setup(QATSession qatSessionObject, int softwareBackup, long internalBufferSizeInBytes, int compressionAlgo, int compressionLevel);
 
   static native int teardown(long qzSession, ByteBuffer unCompressedBuffer, ByteBuffer compressedBuffer);
   static native int maxCompressedSize(long qzSession, long sourceSize);

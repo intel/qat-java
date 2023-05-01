@@ -41,32 +41,33 @@ public class QATTest {
         int filesPerThread = filesList.length / numberOfThreads;
         int remainingFiles = filesList.length % numberOfThreads;
     }
-
+/*
     @Test
-    public void testNativeByteBuffer(){
-        System.out.println("EXECUTING testNativeByteBuffer..");
+    void testSimpleCompressionDecompression(){
         QATSession qatSession = null;
-        try {
+        try{
             qatSession = new QATSession();
-            assertNotNull(qatSession.unCompressedBuffer);
-            assertNotNull(qatSession.compressedBuffer);
-            System.out.println("Bytebuffer source is non-empty"+ qatSession.unCompressedBuffer.toString());
-            System.out.println("Bytebuffer source is direct byte buffer "+ qatSession.unCompressedBuffer.isDirect());
-            System.out.println("Bytebuffer dest is non-empty"+ qatSession.compressedBuffer.toString());
-            System.out.println("Bytebuffer dest is direct byte buffer "+ qatSession.compressedBuffer.isDirect());
+            System.out.println("compressed buffer is " +qatSession.compressedBuffer.limit());
 
-            assertTrue(qatSession.unCompressedBuffer.isDirect());
-            assertTrue(qatSession.unCompressedBuffer.isDirect());
+        String uncompressed = "lorem opsum lorem opsum opsum lorem";
+        byte[] source = uncompressed.getBytes();
+        byte[] uncomp = new byte[source.length];
+        byte[] dest = new byte[qatSession.maxCompressedLength(source.length)];
 
-            qatSession.teardown();
+            System.out.println("source length " + source.length);
+
+        int compressedSize = qatSession.compressByteArray(source,0, source.length, dest,0);
+        assertNotNull(dest);
+
+        int decompressedSize = qatSession.decompressByteArray(dest,0, dest.length, uncomp, 0);
+        assertNotNull(uncomp);
+        assertEquals(uncomp.toString().equals(uncompressed), true);
         }
-        catch (IllegalArgumentException | QATException ie){
+        catch (QATException ie){
             fail(ie.getMessage());
         }
-        catch (Exception e){
-            fail(e.getMessage());
-        }
     }
+    */
 
     @Test
     public void testTeardown(){
@@ -76,21 +77,19 @@ public class QATTest {
             qatSession = new QATSession();
             assertNotNull(qatSession.unCompressedBuffer);
             assertNotNull(qatSession.compressedBuffer);
-            System.out.println("Bytebuffer source is non-empty"+ qatSession.unCompressedBuffer.toString());
-            System.out.println("Bytebuffer source is direct byte buffer "+ qatSession.unCompressedBuffer.isDirect());
-            System.out.println("Bytebuffer dest is non-empty"+ qatSession.compressedBuffer.toString());
-            System.out.println("Bytebuffer dest is direct byte buffer "+ qatSession.compressedBuffer.isDirect());
+            System.out.println("Java test: Bytebuffer source is non-empty"+ qatSession.unCompressedBuffer.toString());
+            System.out.println("Java test: Bytebuffer source is direct byte buffer "+ qatSession.unCompressedBuffer.isDirect());
+            System.out.println("Java test: Bytebuffer dest is non-empty"+ qatSession.compressedBuffer.toString());
+            System.out.println("Java test: Bytebuffer dest is direct byte buffer "+ qatSession.compressedBuffer.isDirect());
 
             assertTrue(qatSession.unCompressedBuffer.isDirect());
             assertTrue(qatSession.unCompressedBuffer.isDirect());
 
-            try {
-                qatSession.teardown();
-            }
-            catch (Exception e){
-                fail(e.getMessage());
-            }
-            System.out.println("teardown succeeded");
+            qatSession.teardown();
+
+            System.out.println("Java test: teardown succeeded");
+            System.out.println("Java test: After Bytebuffer source is non-empty"+ qatSession.unCompressedBuffer.toString());
+            System.out.println("Java test: Bytebuffer source is direct byte buffer "+ qatSession.unCompressedBuffer.isDirect());
             assertTrue(true);
         }
         catch (IllegalArgumentException | QATException ie){
@@ -102,8 +101,39 @@ public class QATTest {
         }
     }
 
+    @Test
+    public void testNativeByteBuffer(){
+        System.out.println("EXECUTING testNativeByteBuffer..");
+        QATSession qatSession = null;
+        try {
+            qatSession = new QATSession();
+            assertNotNull(qatSession.unCompressedBuffer);
+            assertNotNull(qatSession.compressedBuffer);
+            System.out.println("Java test: Bytebuffer source is non-empty"+ qatSession.unCompressedBuffer.toString());
+            System.out.println("Java test: Bytebuffer source is direct byte buffer "+ qatSession.unCompressedBuffer.isDirect());
+            System.out.println("Java test: Bytebuffer dest is non-empty"+ qatSession.compressedBuffer.toString());
+            System.out.println("Java test: Bytebuffer dest is direct byte buffer "+ qatSession.compressedBuffer.isDirect());
 
-    /*
+            assertTrue(qatSession.unCompressedBuffer.isDirect());
+            assertTrue(qatSession.unCompressedBuffer.isDirect());
+
+            qatSession.teardown();
+            System.out.println("Java test: teared down session");
+        }
+        catch (IllegalArgumentException | QATException ie){
+            fail(ie.getMessage());
+        }
+        catch (Exception e){
+            fail(e.getMessage());
+        }
+        System.out.println("Java test: teardown succeeded");
+        System.out.println("Java test: After Bytebuffer source is non-empty"+ qatSession.unCompressedBuffer.toString());
+        assertTrue(true);
+    }
+
+
+/*
+    
     @Test
     public void testDefaultConstructor(){
         System.out.println("EXECUTING testDefaultConstructor..");
@@ -125,7 +155,7 @@ public class QATTest {
         System.out.println("EXECUTING testParametrizedConstructor..");
         QATSession qatSession = null;
         try {
-            qatSession = new QATSession(QATUtils.ExecutionPaths.QAT_HARDWARE_ONLY, 0, QATUtils.CompressionAlgo.DEFLATE, 6);
+            qatSession = new QATSession(QATUtils.ExecutionPaths.HARDWARE, 0, QATUtils.CompressionAlgo.DEFLATE, 6);
             qatSession.teardown();
         }
         catch (IllegalArgumentException| QATException ie){
@@ -139,7 +169,7 @@ public class QATTest {
         System.out.println("EXECUTING testHardwareSetupTearDown..");
         QATSession qatSession = null;
         try {
-            qatSession = new QATSession(QATUtils.ExecutionPaths.QAT_HARDWARE_ONLY,0, QATUtils.CompressionAlgo.DEFLATE,6);
+            qatSession = new QATSession(QATUtils.ExecutionPaths.HARDWARE,0, QATUtils.CompressionAlgo.DEFLATE,6);
         }
         catch (QATException qe){
             fail(qe.getMessage());
@@ -159,7 +189,7 @@ public class QATTest {
         System.out.println("EXECUTING testNativeMemory..");
         QATSession qatSession = null;
         try {
-            qatSession = new QATSession(QATUtils.ExecutionPaths.QAT_HARDWARE_ONLY,0, QATUtils.CompressionAlgo.DEFLATE,6);
+            qatSession = new QATSession(QATUtils.ExecutionPaths.HARDWARE,0, QATUtils.CompressionAlgo.DEFLATE,6);
         }
         catch (QATException qe){
             fail(qe.getMessage());
@@ -174,7 +204,7 @@ public class QATTest {
 
     }
 
-    // @Test
+    @Test
     public void testCompressionDecompression(){
         System.out.println("EXECUTING testCompressionDecompression..");
         for(int i = 0; i < numberOfThreads; i++){
@@ -199,7 +229,7 @@ public class QATTest {
     @Test
     public void testSetupDuplicate(){
         System.out.println("EXECUTING testSetupDuplicate..");
-        QATSession qatSession = new QATSession(QATUtils.ExecutionPaths.QAT_HARDWARE_ONLY,0, QATUtils.CompressionAlgo.DEFLATE,6);
+        QATSession qatSession = new QATSession(QATUtils.ExecutionPaths.HARDWARE,0, QATUtils.CompressionAlgo.DEFLATE,6);
         try {
             qatSession.setup();
         }
@@ -216,7 +246,7 @@ public class QATTest {
         System.out.println("EXECUTING testInvalidCompressionLevel..");
         QATSession qatSession = null;
         try {
-            qatSession = new QATSession(QATUtils.ExecutionPaths.QAT_HARDWARE_ONLY, 0, QATUtils.CompressionAlgo.DEFLATE, 10);
+            qatSession = new QATSession(QATUtils.ExecutionPaths.HARDWARE, 0, QATUtils.CompressionAlgo.DEFLATE, 10);
             fail("Invalid compression level test failed!");
         }
         catch (IllegalArgumentException ie){
@@ -237,7 +267,7 @@ public class QATTest {
     public void testInvalidRetryCount(){
         System.out.println("EXECUTING testInvalidRetryCount..");
         try {
-            QATSession qatSession = new QATSession(QATUtils.ExecutionPaths.QAT_HARDWARE_ONLY, 100, QATUtils.CompressionAlgo.DEFLATE, 6);
+            QATSession qatSession = new QATSession(QATUtils.ExecutionPaths.HARDWARE, 100, QATUtils.CompressionAlgo.DEFLATE, 6);
             fail("Invalid retry count test failed!");
         }
         catch (IllegalArgumentException ie){
@@ -260,7 +290,7 @@ public class QATTest {
         QATSession qatSession = null;
         try{
             try {
-                qatSession = new QATSession(QATUtils.ExecutionPaths.QAT_HARDWARE_ONLY, 0, QATUtils.CompressionAlgo.DEFLATE, 6);
+                qatSession = new QATSession(QATUtils.ExecutionPaths.HARDWARE, 0, QATUtils.CompressionAlgo.DEFLATE, 6);
             }
             catch (QATException qe) {
                 fail(qe.getMessage());
@@ -310,5 +340,5 @@ public class QATTest {
         }
 
     }
-    */
+*/
 }
