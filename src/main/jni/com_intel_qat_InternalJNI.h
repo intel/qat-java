@@ -45,7 +45,7 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_compressByteBuff
  */
 
 JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_compressByteArray(
-    JNIEnv *, jclass, jlong, jbyteArray, jint, jint, jbyteArray, jint);
+    JNIEnv *, jclass, jlong, jbyteArray, jint, jint, jbyteArray, jint, jint);
 
 /*
  * Class:     com_intel_qat_InternalJNI
