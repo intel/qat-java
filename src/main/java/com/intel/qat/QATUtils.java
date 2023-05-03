@@ -6,35 +6,8 @@
 
 package com.intel.qat;
 
-public class QATUtils {
+ class QATUtils { // package private class
 
-    public static enum ExecutionPaths{
-        HARDWARE(0),
-        AUTO(1);
-        private final int executionPathCode;
-        ExecutionPaths(int executionPathCode) {
-            this.executionPathCode = executionPathCode;
-        }
-
-        public int getExecutionPathCode() {
-            return executionPathCode;
-        }
-    }
-
-    public static enum CompressionAlgo{
-        DEFLATE(0), // assign int than string
-        LZ4(1);
-
-        public final int compressionAlgorithm;
-
-        CompressionAlgo(int compressionAlgorithm){
-            this.compressionAlgorithm = compressionAlgorithm;
-        }
-
-        public int getCompressionAlgorithm(){
-            return compressionAlgorithm;
-        }
-    }
     public static String getErrorMessage(int errorCode) { // package visibility only
         switch (errorCode) {
             case Integer.MIN_VALUE:

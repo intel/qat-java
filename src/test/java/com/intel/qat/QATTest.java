@@ -9,6 +9,7 @@ package com.intel.qat;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
@@ -26,7 +27,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.Arrays;
 
 public class QATTest {
-    //TODO what kind of test we need ?
     private int numberOfThreads;
     private File filePath, filesList[];
     private Thread[] threads;
@@ -50,20 +50,22 @@ public class QATTest {
             qatSession = new QATSession();
             System.out.println("compressed buffer is " +qatSession.compressedBuffer.limit());
 
-        String uncompressed = "lorem opsum lorem opsum opsum lorem";
-        byte[] source = uncompressed.getBytes();
-        byte[] uncomp = new byte[source.length];
-        byte[] dest = new byte[2 * source.length];
+            String uncompressed = "lorem opsum lorem opsum opsum lorem";
+            byte[] source = uncompressed.getBytes();
+            byte[] uncomp = new byte[source.length];
+            byte[] dest = new byte[2 * source.length];
 
-        System.out.println("source length " + source.length);
+            System.out.println("source length " + source.length);
 
-        int compressedSize = qatSession.compressByteArray(source,0, source.length, dest,0);
-        assertNotNull(dest);
+            int compressedSize = qatSession.compressByteArray(source,0, source.length, dest,0);
+            assertNotNull(dest);
 
-        int decompressedSize = qatSession.decompressByteArray(dest,0, compressedSize, uncomp, 0);
-        assertNotNull(uncomp);
-        //assertEquals(uncomp.toString().equals(uncompressed), true);
-        qatSession.teardown();
+            int decompressedSize = qatSession.decompressByteArray(dest,0, compressedSize, uncomp, 0);
+            assertNotNull(uncomp);
+            String str = new String(uncomp, StandardCharsets.UTF_8);
+            System.out.println("uncompressed string turns out to be "+ str);
+            assertEquals(str.equals(uncompressed), true);
+            qatSession.teardown();
         }
         catch (QATException ie){
             fail(ie.getMessage());

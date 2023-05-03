@@ -29,7 +29,7 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_teardown
  * Signature: (I)I
  */
 JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_maxCompressedSize
-  (JNIEnv *, jclass, jobject, jlong);
+  (JNIEnv *, jclass, jlong, jlong);
 
 /*
  * Class:     com_intel_qat_InternalJNI

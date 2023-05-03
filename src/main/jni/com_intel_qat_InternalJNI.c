@@ -25,10 +25,10 @@
 #define QZ_TEARDOWN_ERROR "An error occured while tearing down session"
 
 // all this goes to QATSession
-static __thread QzSession_T qz_session;
+//static __thread QzSession_T qz_session;
 //static __thread QzSessionParams_T qz_params;
-static __thread QzSessionParamsDeflate_T deflate_params;
-static __thread QzSessionParamsLZ4_T lz4_params;
+//static __thread QzSessionParamsDeflate_T deflate_params;
+//static __thread QzSessionParamsLZ4_T lz4_params;
 
 static __thread int cpu_id;
 static __thread int numa_id;
@@ -42,9 +42,9 @@ static QzDataFormat_T data_fmt = QZ_DEFLATE_GZIP_EXT;
  */
 
 
-int setupDeflateSession(QzSession_T* sess, int compressionLevel){
+int setupDeflateSession(QzSession_T* qz_session, int compressionLevel){
 
-    //QzSessionParamsDeflate_T deflate_params;
+    QzSessionParamsDeflate_T deflate_params;
 
     int rc = qzGetDefaultsDeflate(&deflate_params);
     if (rc != QZ_OK)
@@ -54,10 +54,10 @@ int setupDeflateSession(QzSession_T* sess, int compressionLevel){
     deflate_params.common_params.comp_lvl = compressionLevel;
     deflate_params.common_params.polling_mode = polling_mode;
 
-    return qzSetupSessionDeflate(&qz_session, &deflate_params);
+    return qzSetupSessionDeflate(qz_session, &deflate_params);
 }
 
-int setupLZ4Session(QzSession_T* sess, int compressionLevel){
+int setupLZ4Session(QzSession_T* qz_session, int compressionLevel){
     QzSessionParamsLZ4_T lz4_params;
 
     int rc = qzGetDefaultsLZ4(&lz4_params);
@@ -67,7 +67,7 @@ int setupLZ4Session(QzSession_T* sess, int compressionLevel){
     lz4_params.common_params.comp_lvl = compressionLevel;
     lz4_params.common_params.polling_mode = polling_mode;
 
-    return qzSetupSessionLZ4(sess, &lz4_params);
+    return qzSetupSessionLZ4(qz_session, &lz4_params);
 }
 
 /*
@@ -76,8 +76,7 @@ int setupLZ4Session(QzSession_T* sess, int compressionLevel){
  * frees native allocated ByteBuffer
  */
 
-void freePinnedMem
-(void* unSrcBuff, void *unDestBuff) {
+void freePinnedMem(void* unSrcBuff, void *unDestBuff) {
 
   if(NULL != unSrcBuff)
     qzFree(unSrcBuff);
@@ -92,25 +91,28 @@ void freePinnedMem
  * Method:    nativeByteBuff
  * Allocate new ByteBuffer using qzMalloc
  */
-int allocatePinnedMem
-(JNIEnv *env, jclass jc, jclass qatSessionClass, jobject qatSessionObj, jlong srcSize, jlong destSize) {
+int allocatePinnedMem (JNIEnv *env, jclass jc, jclass qatSessionClass, jobject qatSessionObj,jint compressionAlgo, jlong srcSize, jlong destSize) {
   int rc;
 
   void* tempSrcAddr = qzMalloc(srcSize, numa_id, true);
   void* tempDestAddr = qzMalloc(destSize, numa_id, true);
 
-  if(NULL == tempSrcAddr || NULL == tempDestAddr)
+  if(tempSrcAddr == NULL || tempDestAddr == NULL)
   {
      freePinnedMem(tempSrcAddr,tempDestAddr);
-     return 1;
+     if(compressionAlgo == 0){
+        return 1;
+     }
+     tempSrcAddr = NULL;
+     tempDestAddr = NULL;
   }
-  else{
-    jfieldID unCompressedBufferField = (*env)->GetFieldID(env,qatSessionClass,"unCompressedBuffer","Ljava/nio/ByteBuffer;");
-    jfieldID compressedBufferField = (*env)->GetFieldID(env,qatSessionClass,"compressedBuffer","Ljava/nio/ByteBuffer;");
 
-    (*env)->SetObjectField(env, qatSessionObj,unCompressedBufferField, (*env)->NewDirectByteBuffer(env,tempSrcAddr,srcSize));
-    (*env)->SetObjectField(env, qatSessionObj,compressedBufferField, (*env)->NewDirectByteBuffer(env,tempDestAddr,destSize));
-  }
+  jfieldID unCompressedBufferField = (*env)->GetFieldID(env,qatSessionClass,"unCompressedBuffer","Ljava/nio/ByteBuffer;");
+  jfieldID compressedBufferField = (*env)->GetFieldID(env,qatSessionClass,"compressedBuffer","Ljava/nio/ByteBuffer;");
+
+  (*env)->SetObjectField(env, qatSessionObj,unCompressedBufferField, (*env)->NewDirectByteBuffer(env,tempSrcAddr,srcSize));
+  (*env)->SetObjectField(env, qatSessionObj,compressedBufferField, (*env)->NewDirectByteBuffer(env,tempDestAddr,destSize));
+
   return QZ_OK;
 }
 
@@ -118,39 +120,41 @@ int allocatePinnedMem
 JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_setup(JNIEnv *env, jclass jc, jobject qatSessionObj
 ,jint softwareBackup, jlong internalBufferSizeInBytes, jint compressionAlgo, jint compressionLevel) {
   int rc;
-  //QzSession_T* qz_session = (QzSession_T*)malloc(sizeof(QzSession_T));
+  QzSession_T* qz_session = (QzSession_T*)malloc(sizeof(QzSession_T));
+  memset(qz_session,0,sizeof(QzSession_T)); // improve that by pin pointing which field structure value
+
   const unsigned char sw_backup = (unsigned char) softwareBackup;
 
   jclass qatSessionClass = (*env)->GetObjectClass(env, qatSessionObj);
 
-  rc = qzInit(&qz_session, sw_backup);
+  rc = qzInit(qz_session, sw_backup);
 
-  //int qzSessionSize = sizeof(qz_session);
   if (rc != QZ_OK && rc != QZ_DUPLICATE){
     throw_exception(env, QZ_HW_INIT_ERROR, rc);
     return;
   }
 
-  if(0 == compressionAlgo)
+  if(compressionAlgo == 0)
   {
-    rc = setupDeflateSession(&qz_session, compressionLevel);
-    //QzSessionParamsDeflate_T* deflate_params = (QzSessionParamsDeflate_T*) malloc(sizeof(QzSessionParamsDeflate_T));
+    rc = setupDeflateSession(qz_session, compressionLevel);
   }
   else
   {
-    rc = setupLZ4Session(&qz_session, compressionLevel);
+    rc = setupLZ4Session(qz_session, compressionLevel);
   }
 
   if(QZ_OK != rc && QZ_DUPLICATE != rc)
-    throw_exception(env, QZ_SETUP_SESSION_ERROR, rc);
+    throw_exception(env, QZ_SETUP_SESSION_ERROR, rc); // qzClose and then throw exception and return explicitly
 
-  //jfieldID qzSessionBufferField = (*env)->GetFieldID(env,qatSessionClass,"qzSession","J");
-  //(*env)->SetLongField(env, qatSessionObj,qzSessionBufferField, (jlong)qz_session);
   //set NUMA id
   cpu_id = sched_getcpu();
   numa_id = numa_node_of_cpu(cpu_id);
 
-  allocatePinnedMem(env,jc, qatSessionClass, qatSessionObj, internalBufferSizeInBytes, qzMaxCompressedLength(internalBufferSizeInBytes,&qz_session));
+  jfieldID qzSessionBufferField = (*env)->GetFieldID(env,qatSessionClass,"qzSession","J");
+  (*env)->SetLongField(env, qatSessionObj,qzSessionBufferField, (jlong)qz_session);
+
+  if(QZ_OK != allocatePinnedMem(env,jc, qatSessionClass, qatSessionObj, compressionAlgo, internalBufferSizeInBytes, qzMaxCompressedLength(internalBufferSizeInBytes,qz_session)))
+    throw_exception(env, QZ_MEMFREE_ERROR,1);
 }
 
 
@@ -164,34 +168,39 @@ JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_setup(JNIEnv *env, jclass 
     JNIEnv *env, jclass obj,jlong qzSession, jobject srcBuffer,jint srcOffset, jint srcLen, jobject destBuffer, jint retryCount) {
   unsigned int srcSize = srcLen;
   unsigned int compressedLength = -1;
-  //QzSession_T* qz_session = (QzSession_T*) qzSession;
-  //QzSession_T* qz_session = (QzSession_T*)(*env)->GetDirectBufferAddress(env, qzSession);
+
+  QzSession_T* qz_session = (QzSession_T*) qzSession;
 
   unsigned char *src =
       (unsigned char *)(*env)->GetDirectBufferAddress(env, srcBuffer); // process it even if it is not direct byte buffer
 
-  if(!src)
+  if(!src){
     throw_exception(env, QZ_BUFFER_ERROR,-1);
+    return 1;
+  }
 
   src+= srcOffset;
   unsigned char *dest_buff =
       (unsigned char *)(*env)->GetDirectBufferAddress(env, destBuffer);
 
-  if(!dest_buff)
+  if(!dest_buff){
     throw_exception(env, QZ_BUFFER_ERROR,-1);
+    return 1;
+  }
 
-  int rc = qzCompress(&qz_session, src, &srcSize, dest_buff,&compressedLength, 1);
+  int rc = qzCompress(qz_session, src, &srcSize, dest_buff,&compressedLength, 1);
 
   if(rc == QZ_NOSW_NO_INST_ATTACH && retryCount > 0){
     while(retryCount > 0 && QZ_OK != rc){
-        rc = qzCompress(&qz_session, src, &srcSize, dest_buff, &compressedLength, 1);
+        rc = qzCompress(qz_session, src, &srcSize, dest_buff, &compressedLength, 1);
         retryCount--;
     }
   }
 
-  if (rc != QZ_OK)
+  if (rc != QZ_OK){
+    throw_exception(env,QZ_COMPRESS_ERROR,rc);
     return rc;
-
+  }
   return compressedLength;
 }
 /*
@@ -205,8 +214,8 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_compressByteArray(
     jint srcLen, jbyteArray compressedArray,jint destOffset, jint retryCount) {
   unsigned int srcSize = srcLen;
   unsigned int compressedLength = -1;
-  //QzSession_T* qz_session = (QzSession_T*) qzSession;
-  //QzSession_T* qz_session = (QzSession_T*)(*env)->GetDirectBufferAddress(env, qzSession);
+  QzSession_T* qz_session = (QzSession_T*) qzSession;
+
 
   unsigned char *src =
       (unsigned char *)(*env)->GetByteArrayElements(env, uncompressedArray, 0);
@@ -216,12 +225,12 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_compressByteArray(
   jint len = (*env)->GetArrayLength(env, compressedArray);
   unsigned char dest_buff[len];
 
-  int rc = qzCompress(&qz_session, src, &srcSize, dest_buff,
+  int rc = qzCompress(qz_session, src, &srcSize, dest_buff,
                       &compressedLength, 1);
 
   if(rc == QZ_NOSW_NO_INST_ATTACH && retryCount > 0){
       while(retryCount > 0 && QZ_OK != rc){
-        rc = qzCompress(&qz_session, src, &srcSize, dest_buff,
+        rc = qzCompress(qz_session, src, &srcSize, dest_buff,
                             &compressedLength, 1);
         retryCount--;
       }
@@ -251,8 +260,7 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_decompressByteBuff(
 
   unsigned int srcSize = srcLen;
   unsigned int uncompressedLength = UINT_MAX;
-  //QzSession_T* qz_session = (QzSession_T*) qzSession;
-  //QzSession_T* qz_session = (QzSession_T*)(*env)->GetDirectBufferAddress(env, qzSession);
+  QzSession_T* qz_session = (QzSession_T*) qzSession;
 
   unsigned char *src =
       (unsigned char *)(*env)->GetDirectBufferAddress(env, srcBuffer);
@@ -267,11 +275,11 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_decompressByteBuff(
   if(!dest_buff)
     return -1;
 
-  int rc = qzDecompress(&qz_session, src, &srcSize, dest_buff, &uncompressedLength);
+  int rc = qzDecompress(qz_session, src, &srcSize, dest_buff, &uncompressedLength);
 
     if(rc == QZ_NOSW_NO_INST_ATTACH && retryCount > 0){
           while(retryCount > 0 && QZ_OK != rc){
-              rc = qzDecompress(&qz_session, src, &srcSize, dest_buff, &uncompressedLength);
+              rc = qzDecompress(qz_session, src, &srcSize, dest_buff, &uncompressedLength);
               retryCount--;
           }
     }
@@ -290,6 +298,7 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_decompressByteBuff(
  JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_decompressByteArray(
      JNIEnv *env, jclass obj, jlong qzSession, jbyteArray compressedArray, jint srcOffset,
      jint srcLen, jbyteArray destArray, jint uncompressedLength,jint retryCount) {
+
    unsigned char *src =
        (unsigned char *)(*env)->GetByteArrayElements(env, compressedArray, 0);
    src += srcOffset;
@@ -297,14 +306,14 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_decompressByteBuff(
    unsigned char dest_buff[uncompressedLength];
    unsigned int srcSize = srcLen;
    unsigned int dest_len = -1;
-   //QzSession_T* qz_session = (QzSession_T*) qzSession;
-   //QzSession_T* qz_session = (QzSession_T*)(*env)->GetDirectBufferAddress(env, qzSession);
 
-   int rc = qzDecompress(&qz_session, src, &srcSize, dest_buff, &dest_len);
+   QzSession_T* qz_session = (QzSession_T*) qzSession;
+
+   int rc = qzDecompress(qz_session, src, &srcSize, dest_buff, &dest_len);
 
    if(rc == QZ_NOSW_NO_INST_ATTACH && retryCount > 0){
      while(retryCount > 0 && QZ_OK != rc){
-        rc = qzDecompress(&qz_session, src, &srcSize, dest_buff, &dest_len);
+        rc = qzDecompress(qz_session, src, &srcSize, dest_buff, &dest_len);
         retryCount--;
      }
    }
@@ -326,12 +335,11 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_decompressByteBuff(
 
 JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_maxCompressedSize(JNIEnv *env,
                                                                jclass jobj,
-                                                               jobject qzSession,
+                                                               jlong qzSession,
                                                                jlong srcSize
                                                                ) {
-  //QzSession_T* qz_session = (QzSession_T*) qzSession;
-  //QzSession_T* sess = (QzSession_T*)(*env)->GetDirectBufferAddress(env, qzSession);
-  return qzMaxCompressedLength(srcSize, &qz_session);
+  QzSession_T* qz_session = (QzSession_T*) qzSession;
+  return qzMaxCompressedLength(srcSize, qz_session);
 }
 
 /*
@@ -343,24 +351,25 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_maxCompressedSize(JNIEnv *
 JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_teardown(JNIEnv *env, jclass jobj, jlong qzSession, jobject srcBuff, jobject destBuff) {
 
 
-  //QzSession_T* qz_session = (QzSession_T*) qzSession;
-  //QzSession_T* qz_session = (QzSession_T*)(*env)->GetDirectBufferAddress(env, qzSession);
+  QzSession_T* qz_session = (QzSession_T*) qzSession;
+
   void *unSrcBuff = (void *)(*env)->GetDirectBufferAddress(env, srcBuff);
   void *unDestBuff = (void *)(*env)->GetDirectBufferAddress(env, destBuff);
-  //setbuf(stdout, NULL);
-  //printf("c: address %ld",qzSession);
+
   freePinnedMem(unSrcBuff, unDestBuff);
 
-  int rc = qzTeardownSession(&qz_session);
+  int rc = qzTeardownSession(qz_session);
   if (rc != QZ_OK){
+    // clean up all other resources
     throw_exception(env,QZ_TEARDOWN_ERROR,rc);
     return 0;
    }
-  //free(qz_session);
-  qzClose(&qz_session);
+  qzFree(qz_session);
+
+  qzClose(qz_session);
 
   if (rc != QZ_OK)
-      return rc;
+      return rc; // throw exception here as well
 
   //free((void*)sess);
   return QZ_OK;
