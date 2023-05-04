@@ -57,14 +57,14 @@ int setupDeflateSession(QzSession_T* qz_session, int compressionLevel){
     return qzSetupSessionDeflate(qz_session, &deflate_params);
 }
 
-int setupLZ4Session(QzSession_T* qz_session, int compressionLevel){
+int setupLZ4Session(QzSession_T* qz_session){
     QzSessionParamsLZ4_T lz4_params;
 
     int rc = qzGetDefaultsLZ4(&lz4_params);
     if (rc != QZ_OK)
       return rc;
 
-    lz4_params.common_params.comp_lvl = compressionLevel;
+    //lz4_params.common_params.comp_lvl = compressionLevel;
     lz4_params.common_params.polling_mode = polling_mode;
 
     return qzSetupSessionLZ4(qz_session, &lz4_params);
@@ -140,7 +140,7 @@ JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_setup(JNIEnv *env, jclass 
   }
   else
   {
-    rc = setupLZ4Session(qz_session, compressionLevel);
+    rc = setupLZ4Session(qz_session);
   }
 
   if(QZ_OK != rc && QZ_DUPLICATE != rc)
