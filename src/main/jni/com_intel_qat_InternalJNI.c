@@ -64,7 +64,6 @@ int setupLZ4Session(QzSession_T* qz_session){
     if (rc != QZ_OK)
       return rc;
 
-    //lz4_params.common_params.comp_lvl = compressionLevel;
     lz4_params.common_params.polling_mode = polling_mode;
 
     return qzSetupSessionLZ4(qz_session, &lz4_params);
@@ -217,16 +216,29 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_compressByteArray(
   QzSession_T* qz_session = (QzSession_T*) qzSession;
 
 
-  unsigned char *src =
-      (unsigned char *)(*env)->GetByteArrayElements(env, uncompressedArray, 0);
-  src += srcOffset;
+  //unsigned char *src = (unsigned char *)(*env)->GetPrimitiveArrayCritical(env, uncompressedArray, 0);
+  unsigned char *src = (unsigned char *)(*env)->GetByteArrayElements(env, uncompressedArray, 0);
+
+  if(src == NULL){
+    throw_exception(env, QZ_COMPRESS_ERROR,1);
+    return 1;
+  }
+  //src += srcOffset;
 
   // QATZip max Compress length
   jint len = (*env)->GetArrayLength(env, compressedArray);
-  unsigned char dest_buff[len];
 
-  int rc = qzCompress(qz_session, src, &srcSize, dest_buff,
-                      &compressedLength, 1);
+  //unsigned char *dest_buff =  (unsigned char *)(*env)->GetPrimitiveArrayCritical(env, compressedArray, 0);
+  unsigned char *dest_buff = (unsigned char *)(*env)->GetByteArrayElements(env, compressedArray, 0);
+
+   if(dest_buff == NULL){
+      throw_exception(env, QZ_COMPRESS_ERROR,1);
+      return 1;
+   }
+
+  //dest_buff += destOffset;
+
+  int rc = qzCompress(qz_session, src, &srcSize, dest_buff, &compressedLength, 1);
 
   if(rc == QZ_NOSW_NO_INST_ATTACH && retryCount > 0){
       while(retryCount > 0 && QZ_OK != rc){
@@ -241,10 +253,10 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_compressByteArray(
     return rc;
   }
 
-  (*env)->ReleaseByteArrayElements(env, uncompressedArray, (signed char *)src,
-                                   0);
-  (*env)->SetByteArrayRegion(env, compressedArray, destOffset, compressedLength,
-                             (signed char *)dest_buff);
+  (*env)->ReleaseByteArrayElements(env, uncompressedArray, (signed char *)src, 0);
+  (*env)->ReleaseByteArrayElements(env, compressedArray, (signed char *)dest_buff, 0);
+   //(*env)->ReleasePrimitiveArrayCritical(env, uncompressedArray, (signed char *)src,0);
+   //(*env)->ReleasePrimitiveArrayCritical(env, compressedArray, (signed char *)dest_buff, 0);
 
   return compressedLength;
 }
@@ -283,8 +295,10 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_decompressByteBuff(
               retryCount--;
           }
     }
-  if (rc != QZ_OK)
-    return rc;
+  if (rc != QZ_OK){
+  throw_exception(env, QZ_COMPRESS_ERROR, rc);
+      return rc;
+  }
 
   return uncompressedLength;
 }
@@ -297,34 +311,50 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_decompressByteBuff(
 
  JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_decompressByteArray(
      JNIEnv *env, jclass obj, jlong qzSession, jbyteArray compressedArray, jint srcOffset,
-     jint srcLen, jbyteArray destArray, jint uncompressedLength,jint retryCount) {
+     jint srcLen, jbyteArray destArray, jint destOffset,jint retryCount) {
 
-   unsigned char *src =
-       (unsigned char *)(*env)->GetByteArrayElements(env, compressedArray, 0);
-   src += srcOffset;
+   //unsigned char *src = (unsigned char *)(*env)->GetPrimitiveArrayCritical(env, compressedArray, 0);
+   unsigned char *src = (unsigned char *)(*env)->GetByteArrayElements(env, compressedArray, 0);
 
-   unsigned char dest_buff[uncompressedLength];
+   if(src == NULL){
+     throw_exception(env, QZ_DECOMPRESS_ERROR,1);
+     return 1;
+   }
+   //src += srcOffset;
+
+   //unsigned char* dest_buff = (unsigned char *)(*env)->GetPrimitiveArrayCritical(env, destArray, 0);
+   unsigned char* dest_buff = (unsigned char *)(*env)->GetByteArrayElements(env, destArray, 0);
+
+
+   if(dest_buff == NULL){
+      throw_exception(env, QZ_DECOMPRESS_ERROR,1);
+      return 1;
+   }
+   //dest_buff += destOffset;
+
    unsigned int srcSize = srcLen;
-   unsigned int dest_len = -1;
+   unsigned int destLen = -1;
 
    QzSession_T* qz_session = (QzSession_T*) qzSession;
 
-   int rc = qzDecompress(qz_session, src, &srcSize, dest_buff, &dest_len);
+   int rc = qzDecompress(qz_session, src, &srcSize, dest_buff, &destLen);
 
    if(rc == QZ_NOSW_NO_INST_ATTACH && retryCount > 0){
      while(retryCount > 0 && QZ_OK != rc){
-        rc = qzDecompress(qz_session, src, &srcSize, dest_buff, &dest_len);
+        rc = qzDecompress(qz_session, src, &srcSize, dest_buff, &destLen);
         retryCount--;
      }
    }
-   if (rc != QZ_OK)
-     return rc;
+   if (rc != QZ_OK){
+       throw_exception(env, QZ_DECOMPRESS_ERROR, rc);
+       return rc;
+     }
 
    (*env)->ReleaseByteArrayElements(env, compressedArray, (signed char *)src, 0);
-   (*env)->SetByteArrayRegion(env, destArray, 0, uncompressedLength,
-                              (signed char *)dest_buff);
-
-   return uncompressedLength;
+   (*env)->ReleaseByteArrayElements(env, destArray, (signed char *)dest_buff,0);
+   //(*env)->ReleasePrimitiveArrayCritical(env, compressedArray, (signed char *)src, 0);
+   //(*env)->ReleasePrimitiveArrayCritical(env, destArray, (signed char *)dest_buff, 0);
+   return destLen;
  }
 
 /*

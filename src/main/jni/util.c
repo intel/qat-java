@@ -2,11 +2,11 @@
  * Copyright (C) 2023 Intel Corporation
  *
  * SPDX-License-Identifier: BSD
- ******************************************************************************/#include <string.h>
-
+ ******************************************************************************/
+#include <string.h>
 #include "util.h"
 
-void throw_exception(JNIEnv *env, const char *arg, jlong status)
+void throw_exception(JNIEnv *env, const char *arg, jlong status) // improve with snprintf_s
 {
     int MAX_LEN = 1024;
     int STATUS_LEN = 50;
