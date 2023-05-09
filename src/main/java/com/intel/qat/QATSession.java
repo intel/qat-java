@@ -157,11 +157,11 @@ public class QATSession {
       byte[] destArray = new byte[dest.remaining()];
       System.out.println("position fo source buffer at "+ src.position() +" and remaining bytes are "+ src.remaining());
       src.get(srcArray,0,src.remaining());
-      System.out.println("content of source buffer is \n"+ new String(srcArray));
+      System.out.println("content of source buffer is \n"+ new String(srcArray) +"\n of length "+ (new String(srcArray)).length() );
       compressedSize = InternalJNI.compressByteArray(qzSession, srcArray, 0, src.remaining(),destArray,0,retryCount);
       System.out.println(" compressed non-direct size "+ compressedSize);
       dest.put(destArray, 0, compressedSize);
-      System.out.println(" put compressed buff " + new String(dest.array()));
+      System.out.println(new String(dest.array()));
     }
     else {
       byte[] srcArray = new byte[src.remaining()];
@@ -235,14 +235,10 @@ public class QATSession {
     } else if (src.hasArray() && dest.hasArray()) {
       System.out.println("decompressed wrapped buffer with remaining destination size" + dest.remaining());
       System.out.println("source position "+ src.position() + " and source limit " + src.remaining());
-      byte[] destArray = new byte[dest.remaining()];
-      byte[] srcArray = new byte[src.remaining()];
+
       System.out.println("position fo source buffer at "+ src.position() +" and remaining bytes are "+ src.remaining());
-      src.get(srcArray, 0,src.remaining());
-      System.out.println(" content of compressed array is \n"+ new String(srcArray, StandardCharsets.UTF_8));
-      decompressedSize = InternalJNI.decompressByteArray(qzSession, srcArray, 0,srcArray.length,destArray,0,retryCount);
+      decompressedSize = InternalJNI.decompressByteArray(qzSession, src.array(), 0, src.remaining(),dest.array(),0,retryCount);
       System.out.println("decompressed size "+ decompressedSize);
-      dest.put(destArray, 0, decompressedSize);
       System.out.println("decompressed wrapped buffer put done");
     }
     else {

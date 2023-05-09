@@ -130,7 +130,7 @@ public class QATTest {
             int compressedSize = qatSession.compress(srcBuffer,destBuffer);
 
             if(compressedSize < 0)
-                fail("testWrappedBuffers compression fails");
+                fail("testIndirectBuffers compression fails");
             assertNotNull(destBuffer);
             System.out.println("---------- Java test: compression of size " + compressedSize);
             System.out.println("---------- Java test: compressedBuffer " + destBuffer.position());
@@ -139,7 +139,7 @@ public class QATTest {
             int decompressedSize = qatSession.decompress(destBuffer,uncompBuffer);
             assertNotNull(uncompBuffer);
 
-            if(decompressedSize < 0)
+            if(decompressedSize <= 0)
                 fail("testWrappedBuffers decompression fails");
 
             String str = new String(uncomp, StandardCharsets.UTF_8);
@@ -172,6 +172,46 @@ public class QATTest {
             String str = new String(uncomp, StandardCharsets.UTF_8);
             System.out.println("resulting string "+ str);
             assertTrue(str.compareTo(uncompressed) == 0);
+            qatSession.teardown();
+        }
+        catch (QATException ie){
+            fail(ie.getMessage());
+        }
+    }
+
+    @Test
+    void test2paths(){
+        System.out.println("EXECUTING test2paths..");
+        QATSession qatSession = null;
+        try{
+            qatSession = new QATSession();
+
+            String uncompressed = "lorem opsum lorem opsum opsum lorem";
+            byte[] source = uncompressed.getBytes();
+            byte[] uncomp = new byte[source.length];
+            byte[] dest = new byte[2 * source.length];
+
+            ByteBuffer uncompressedBuffer = ByteBuffer.allocateDirect(source.length);
+            ByteBuffer compressedBuffer = ByteBuffer.allocateDirect(2 * source.length);
+            uncompressedBuffer.put(source);
+            uncompressedBuffer.flip();
+
+            int compressedSize = qatSession.compress(uncompressedBuffer,compressedBuffer);
+            int byteArrayCompSize = qatSession.compress(source,0,source.length,dest,0);
+            System.out.println(" test2paths: compressed size is "+ compressedSize);
+            assertEquals(compressedSize, byteArrayCompSize);
+
+            compressedBuffer.flip();
+
+            byte[] compByteBufferArray = new byte[compressedBuffer.limit()];
+            compressedBuffer.get(compByteBufferArray);
+
+            for(int i = 0; i < compressedSize; i++){
+                if(dest[i] != compByteBufferArray[i])
+                    fail("compressed data is not same");
+            }
+
+            System.out.println("---------- test done -----------");
             qatSession.teardown();
         }
         catch (QATException ie){
@@ -227,6 +267,8 @@ public class QATTest {
             int compressedSize = qatSession.compress(srcBuff,destBuff);
             assertNotNull(destBuff);
             destBuff.flip();
+            String compstr = new String(destBuff.array(), StandardCharsets.UTF_8);
+            System.out.println(" compressed string after direct bytebuffer compression "+ compstr);
             int decompressedSize = qatSession.decompress(destBuff,unCompBuff);
             assertNotNull(uncomp);
             unCompBuff.flip();
