@@ -16,7 +16,10 @@
 #include <stdbool.h>
 #include "util.h"
 
-#define QZ_HW_INIT_ERROR "An error occured while initializing QAT hardware"
+// remove this
+// instead create enum values like QATUtils mapping
+//keep the custom message as in example below
+#define QZ_HW_INIT_ERROR "QZ_HW_INIT_ERROR: An error occured while initializing QAT hardware"
 #define QZ_SETUP_SESSION_ERROR "An error occured while setting up session"
 #define QZ_MEMFREE_ERROR "An error occured while freeing up pinned memory"
 #define QZ_BUFFER_ERROR "An error occured while reading the buffer"

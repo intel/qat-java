@@ -8,7 +8,7 @@ package com.intel.qat;
 
  class QATUtils { // package private class
 
-    public static String getErrorMessage(int errorCode) { // package visibility only
+    /*public static String getErrorMessage(int errorCode) { // package visibility only
         switch (errorCode) {
             case Integer.MIN_VALUE:
                 return "Session not setup";
@@ -66,7 +66,7 @@ package com.intel.qat;
                 return "QZ_NOT_SUPPORTED";
         }
         return "Invalid code";
-    }
+    }*/
 
 
 }
