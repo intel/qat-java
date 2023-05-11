@@ -16,22 +16,14 @@
 #include <stdbool.h>
 #include "util.h"
 
-// remove this
-// instead create enum values like QATUtils mapping
-//keep the custom message as in example below
-#define QZ_HW_INIT_ERROR "QZ_HW_INIT_ERROR: An error occured while initializing QAT hardware"
+
+#define QZ_HW_INIT_ERROR "An error occured while initializing QAT hardware"
 #define QZ_SETUP_SESSION_ERROR "An error occured while setting up session"
 #define QZ_MEMFREE_ERROR "An error occured while freeing up pinned memory"
 #define QZ_BUFFER_ERROR "An error occured while reading the buffer"
 #define QZ_COMPRESS_ERROR "An error occured while compression"
 #define QZ_DECOMPRESS_ERROR "An error occured while decompression"
 #define QZ_TEARDOWN_ERROR "An error occured while tearing down session"
-
-// all this goes to QATSession
-//static __thread QzSession_T qz_session;
-//static __thread QzSessionParams_T qz_params;
-//static __thread QzSessionParamsDeflate_T deflate_params;
-//static __thread QzSessionParamsLZ4_T lz4_params;
 
 static __thread int cpu_id;
 static __thread int numa_id;
@@ -123,7 +115,7 @@ JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_setup(JNIEnv *env, jclass 
 ,jint softwareBackup, jlong internalBufferSizeInBytes, jint compressionAlgo, jint compressionLevel) {
   int rc;
   QzSession_T* qz_session = (QzSession_T*)malloc(sizeof(QzSession_T));
-  memset(qz_session,0,sizeof(QzSession_T)); // improve that by pin pointing which field structure value
+  memset(qz_session,0,sizeof(QzSession_T));
 
   const unsigned char sw_backup = (unsigned char) softwareBackup;
 
@@ -145,9 +137,11 @@ JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_setup(JNIEnv *env, jclass 
     rc = setupLZ4Session(qz_session);
   }
 
-  if(QZ_OK != rc && QZ_DUPLICATE != rc)
-    throw_exception(env, QZ_SETUP_SESSION_ERROR, rc); // qzClose and then throw exception and return explicitly
-
+  if(QZ_OK != rc && QZ_DUPLICATE != rc){
+    qzClose(qz_session);
+    throw_exception(env, QZ_SETUP_SESSION_ERROR, rc);
+    return;
+  }
   //set NUMA id
   cpu_id = sched_getcpu();
   numa_id = numa_node_of_cpu(cpu_id);
@@ -156,7 +150,7 @@ JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_setup(JNIEnv *env, jclass 
   (*env)->SetLongField(env, qatSessionObj,qzSessionBufferField, (jlong)qz_session);
 
   if(QZ_OK != allocatePinnedMem(env,jc, qatSessionClass, qatSessionObj, compressionAlgo, internalBufferSizeInBytes, qzMaxCompressedLength(internalBufferSizeInBytes,qz_session)))
-    throw_exception(env, QZ_MEMFREE_ERROR,1);
+    throw_exception(env, QZ_HW_INIT_ERROR,INT_MIN);
 }
 
 
@@ -176,16 +170,16 @@ JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_setup(JNIEnv *env, jclass 
   unsigned char *src = (unsigned char *)(*env)->GetDirectBufferAddress(env, srcBuffer);
 
   if(src == NULL){
-    throw_exception(env, QZ_BUFFER_ERROR,-1);
-    return 1;
+    throw_exception(env, QZ_BUFFER_ERROR,INT_MAX);
+    return -1;
   }
   src+= srcOffset;
 
   unsigned char *dest = (unsigned char *)(*env)->GetDirectBufferAddress(env, destBuffer);
 
   if(dest == NULL){
-    throw_exception(env, QZ_BUFFER_ERROR,-1);
-    return 1;
+    throw_exception(env, QZ_BUFFER_ERROR,INT_MAX);
+    return -1;
   }
 
   int rc = qzCompress(qz_session, src, &srcSize, dest,&compressedLength, 1);
@@ -214,14 +208,14 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_compressByteArray(
     jint srcLen, jbyteArray compressedArray,jint destOffset, jint retryCount) {
 
   unsigned int srcSize = srcLen;
-  unsigned int compressedLength = -1;
+  unsigned int compressedLength = 1;
   QzSession_T* qz_session = (QzSession_T*) qzSession;
 
   unsigned char *src = (unsigned char *)(*env)->GetByteArrayElements(env, uncompressedArray, 0);
 
   if(src == NULL){
-    throw_exception(env, QZ_COMPRESS_ERROR,1);
-    return 1;
+    throw_exception(env, QZ_COMPRESS_ERROR,INT_MAX);
+    return -1;
   }
   src += srcOffset;
 
@@ -230,8 +224,8 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_compressByteArray(
   unsigned char *dest = (unsigned char *)(*env)->GetByteArrayElements(env, compressedArray, 0);
 
    if(dest == NULL){
-      throw_exception(env, QZ_COMPRESS_ERROR,1);
-      return 1;
+      throw_exception(env, QZ_COMPRESS_ERROR,INT_MAX);
+      return -1;
    }
 
   dest += destOffset;
@@ -273,8 +267,8 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_decompressByteBuff(
   unsigned char *src = (unsigned char *)(*env)->GetDirectBufferAddress(env, srcBuffer);
 
   if(src == NULL){
-    throw_exception(env, QZ_COMPRESS_ERROR,1);
-    return 1;
+    throw_exception(env, QZ_COMPRESS_ERROR,INT_MAX);
+    return -1;
   }
   src += srcOffset;
 
@@ -282,8 +276,8 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_decompressByteBuff(
       (unsigned char *)(*env)->GetDirectBufferAddress(env, destBuffer);
 
   if(dest == NULL){
-    throw_exception(env, QZ_COMPRESS_ERROR,1);
-    return 1;
+    throw_exception(env, QZ_COMPRESS_ERROR,INT_MAX);
+    return -1;
   }
 
   int rc = qzDecompress(qz_session, src, &srcSize, dest, &uncompressedLength);
@@ -317,16 +311,16 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_decompressByteBuff(
    unsigned int destLen = UINT_MAX;
 
    if(src == NULL){
-     throw_exception(env, QZ_DECOMPRESS_ERROR,1);
-     return 1;
+     throw_exception(env, QZ_DECOMPRESS_ERROR,INT_MAX);
+     return -1;
    }
    src += srcOffset;
 
    unsigned char* dest = (unsigned char *)(*env)->GetByteArrayElements(env, destArray, 0);
 
    if(dest == NULL){
-      throw_exception(env, QZ_DECOMPRESS_ERROR,1);
-      return 1;
+      throw_exception(env, QZ_DECOMPRESS_ERROR,INT_MAX);
+      return -1;
    }
    dest += destOffset;
 

@@ -39,6 +39,8 @@ public class QATTest {
 
     private int filesPerThread,remainingFiles;
     private QATSession intQatSession;
+
+    //TODO: Dont catch Exception rather than specific
     /*Group of tests
      Init
         Default and parametrized constructor with different possible values

@@ -11,6 +11,8 @@ char* getErrorMessage(int errorCode) {
     switch (errorCode) {
         case INT_MIN:
             return "Session not setup";
+        case INT_MAX:
+            return "Invalid input"
         case 0:
             return "QZ_OK";
         case 1:
@@ -69,9 +71,7 @@ char* getErrorMessage(int errorCode) {
 
 void throw_exception(JNIEnv *env, const char *errorMessage, jlong status) // improve with snprintf_s
 {
-    int MAX_LEN = 1024;
-    //int STATUS_LEN = 50;
-    char buff[MAX_LEN];
+    char buff[256];
     jclass Exception = (*env)->FindClass(env,"com/intel/qat/QATException");
 
     /*char statBuffer[STATUS_LEN];
@@ -80,6 +80,6 @@ void throw_exception(JNIEnv *env, const char *errorMessage, jlong status) // imp
     strncat(buf, " Status code is - ", STATUS_LEN);
     snprintf(statBuffer, STATUS_LEN, "%ld", status);
     strncat(buf, statBuffer, STATUS_LEN);*/
-    sprintf(buff,"%s %s %s", getErrorMessage(status)," : ", errorMessage);
+    sprintf_s(buff,sizeof(buff),"%s %s %s", getErrorMessage(status)," : ", errorMessage);
     (*env)->ThrowNew(env,Exception, buff);
 }

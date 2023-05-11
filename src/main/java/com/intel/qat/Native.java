@@ -15,6 +15,7 @@ class Native {
     private static boolean loaded = false;
     private static String extension = "";
 
+    //https://github.com/lz4/lz4-java/pull/204/files - privilege section
     static boolean isLoaded() {
         if (loaded) return true;
         try {

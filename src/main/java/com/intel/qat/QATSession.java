@@ -5,7 +5,6 @@
  ******************************************************************************/
 
 package com.intel.qat;
-import java.nio.BufferOverflowException;
 import java.nio.ByteBuffer;
 import java.nio.ReadOnlyBufferException;
 import java.nio.charset.StandardCharsets;
@@ -31,7 +30,7 @@ public class QATSession {
   private CompressionAlgorithm compressionAlgorithm;
   private int compressionLevel;
   // visible for testing only annotation
-  boolean isPinnedMemAvailable;
+  boolean isPinnedMemAvailable; // make private and have setter which can set this to false
 
   /**
    * code paths for library. Currently, HARDWARE and AUTO(HARDWARE with SOFTWARE fallback) is supported
@@ -408,5 +407,33 @@ public class QATSession {
       remaining -= sourceLimit;
     }
     return totalDecompressedSize;
+  }
+
+  static void cleanUp(long qzSession, ByteBuffer unCompressedBuffer, ByteBuffer compressedBuffer){ // print and check if this was called in cleaner test
+    InternalJNI.teardown(qzSession,unCompressedBuffer,compressedBuffer);
+  }
+
+  public Runnable cleanningAction(){
+    return new QATSessionCleaner(qzSession,unCompressedBuffer,compressedBuffer);
+  }
+  static class QATSessionCleaner implements Runnable{
+    private long qzSession;
+    private ByteBuffer unCompressedBuffer;
+    private ByteBuffer compressedBuffer;
+
+    public QATSessionCleaner(long qzSession, ByteBuffer unCompressedBuffer, ByteBuffer compressedBuffer){
+      this.qzSession = qzSession;
+      this.unCompressedBuffer = unCompressedBuffer;
+      this.compressedBuffer = compressedBuffer;
+    }
+    @Override
+    public void run(){
+        if(qzSession != 0 && unCompressedBuffer != null && compressedBuffer !=null){
+          cleanUp(qzSession,unCompressedBuffer,compressedBuffer);
+          qzSession = 0;
+          unCompressedBuffer = null;
+          compressedBuffer = null;
+        } // put an else for debugging more than once
+    }
   }
 }
