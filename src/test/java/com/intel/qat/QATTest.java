@@ -31,7 +31,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Arrays;
 
-//after each we can do teardown
 public class QATTest {
     private int numberOfThreads;
     private File filePath, filesList[];
@@ -167,7 +166,6 @@ public class QATTest {
     }
     @Test
     void testWrappedBuffers(){
-        System.out.println("testWrappedBuffers started");
         try {
             intQatSession = new QATSession();
             intQatSession.setIsPinnedMemAvailable();
@@ -207,7 +205,6 @@ public class QATTest {
 
     @Test
     void testBackedArrayBuffersWithAllocate(){
-        System.out.println("testBackedArrayBuffersWithAllocate started");
         try {
             intQatSession = new QATSession();
             intQatSession.setIsPinnedMemAvailable();
@@ -228,16 +225,13 @@ public class QATTest {
                 fail("testIndirectBuffers compression fails");
 
             assertNotNull(destBuffer);
-            System.out.println("Compressed string " + new String(destBuffer.array()));
-            System.out.println("test: after compress destBuffer at "+ destBuffer.position()+" with limit "+ destBuffer.limit());
             destBuffer.flip();
-            System.out.println("test: after compress and flip destBuffer at "+ destBuffer.position() + " with limit "+ destBuffer.limit());
             int decompressedSize = intQatSession.decompress(destBuffer,uncompBuffer);
             assertNotNull(uncompBuffer);
 
             if(decompressedSize <= 0)
                 fail("testWrappedBuffers decompression fails");
-            System.out.println(" testBackedArrayBuffersWithAllocate test: decompress successful\n");
+
             String str = new String(uncompBuffer.array(), StandardCharsets.UTF_8);
             assertTrue(str.compareTo(uncompressed) == 0);
         }
@@ -250,7 +244,6 @@ public class QATTest {
 
     @Test
     void testIndirectBuffersReadOnly(){
-        System.out.println("testIndirectBuffersReadOnly started");
         try {
             intQatSession = new QATSession();
             intQatSession.setIsPinnedMemAvailable();
@@ -291,7 +284,6 @@ public class QATTest {
     }
     @Test
     void testCompressionDecompressionWithByteArray(){
-        System.out.println("testCompressionDecompressionWithByteArray started");
         try{
             intQatSession = new QATSession();
             intQatSession.setIsPinnedMemAvailable();
@@ -462,7 +454,6 @@ public class QATTest {
 
             int compressedSize = intQatSession.compress(srcBuff,destBuff);
             assertNotNull(destBuff);
-            System.out.println("compressed buffer at position "+ destBuff.position());
             destBuff.flip();
             int decompressedSize = intQatSession.decompress(destBuff,unCompBuff);
             assertNotNull(uncomp);

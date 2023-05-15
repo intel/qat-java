@@ -70,7 +70,7 @@ char* getErrorMessage(int errorCode) {
     return "Invalid code";
 }
 
-void throw_exception(JNIEnv *env, const char *errorMessage, jlong status) // improve with snprintf_s
+void throw_exception(JNIEnv *env, const char *errorMessage, jlong status)
 {
     char buff[256];
     jclass Exception = (*env)->FindClass(env,"com/intel/qat/QATException");

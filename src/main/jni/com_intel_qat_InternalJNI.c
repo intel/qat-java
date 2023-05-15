@@ -142,7 +142,7 @@ JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_setup(JNIEnv *env, jclass 
     throw_exception(env, QZ_SETUP_SESSION_ERROR, rc);
     return;
   }
-  //set NUMA id
+
   cpu_id = sched_getcpu();
   numa_id = numa_node_of_cpu(cpu_id);
 
@@ -306,7 +306,6 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_decompressByteBuff(
      JNIEnv *env, jclass obj, jlong qzSession, jbyteArray compressedArray, jint srcOffset,
      jint srcLen, jbyteArray destArray, jint destOffset,jint retryCount) {
 
-   //unsigned char *src = (unsigned char *)(*env)->GetPrimitiveArrayCritical(env, compressedArray, 0);
    unsigned char *src = (unsigned char *)(*env)->GetByteArrayElements(env, compressedArray, 0);
    unsigned int destLen = UINT_MAX;
 
@@ -387,8 +386,9 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_teardown(JNIEnv *env, jcla
 
   qzClose(qz_session);
 
-  if (rc != QZ_OK)
-      return rc; // throw exception here as well
-
+  if (rc != QZ_OK){
+    throw_exception(env,QZ_TEARDOWN_ERROR,rc);
+    return 0;
+  }
   return QZ_OK;
 }

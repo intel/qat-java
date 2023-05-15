@@ -9,7 +9,6 @@ import java.nio.ByteBuffer;
 import java.nio.ReadOnlyBufferException;
 import java.nio.charset.StandardCharsets;
 
-// TODO: check if qzSession is bogus, do not allow it rather than throwing exception
 // TODO: Exception messages with constants
 /**
  * Defines APIs for creation of setting up hardware based QAT session(with or without software backup,
@@ -29,7 +28,6 @@ public class QATSession {
   private Mode mode;
   private CompressionAlgorithm compressionAlgorithm;
   private int compressionLevel;
-  // visible for testing only annotation
   private boolean isPinnedMemAvailable;
 
   /**
@@ -45,8 +43,7 @@ public class QATSession {
    */
   public static enum CompressionAlgorithm{
     DEFLATE,
-    LZ4,
-    ZSTD // TODO: if it is under release
+    LZ4
   }
 
   /**
@@ -62,11 +59,10 @@ public class QATSession {
    * @param compressionAlgorithm compression algorithm like LZ4, ZLIB,etc which are supported
    */
 
-  // one more constructor with ONLY compression algorithm
   public QATSession(CompressionAlgorithm compressionAlgorithm){
     this(compressionAlgorithm,DEFAULT_DEFLATE_COMP_LEVEL,Mode.AUTO,DEFAULT_RETRY_COUNT);
   }
-  public QATSession( CompressionAlgorithm compressionAlgorithm,  int compressionLevel){// use this
+  public QATSession( CompressionAlgorithm compressionAlgorithm,  int compressionLevel){
     this(compressionAlgorithm,compressionLevel,Mode.AUTO,DEFAULT_RETRY_COUNT);
   }
 
@@ -105,15 +101,13 @@ public class QATSession {
   /**
    * teardown API destroys the QAT hardware session and free up resources and PINNED memory allocated with setup API call
    */
-  public void teardown() throws QATException{ // change name to cleanUp
+  public void teardown() throws QATException{
     if(!isValid)
       throw new IllegalStateException();
 
     InternalJNI.teardown(qzSession, unCompressedBuffer, compressedBuffer);
     isValid = false;
   }
-
-  //static teardown with three long params - qzsession and other 2 pinned buffers addresses
 
   /**
    * Provides maximum compression length (probable, not exact as this is decided after successful compression) for a given
@@ -122,7 +116,7 @@ public class QATSession {
    * @return maximum compressed length
    */
   public int maxCompressedLength(long srcLen){
-    if(!isValid) // do we need it here ? it increases path length
+    if(!isValid)
       throw new IllegalStateException();
 
     return InternalJNI.maxCompressedSize(qzSession, srcLen);
@@ -135,12 +129,12 @@ public class QATSession {
    * @return non-zero compressed size or throw QATException
    */
 
-  public int compress(ByteBuffer src, ByteBuffer dest){ //unCompressedBuffer.put(src) -> compressedBuffer -> copies to dest
+  public int compress(ByteBuffer src, ByteBuffer dest){
     if(!isValid)
       throw new IllegalStateException();
 
     if ((src == null || dest == null) || (src.position() == src.limit() || dest.position() == dest.limit()))
-      throw new IllegalArgumentException(); // check if this exception is correct if empty buffers are provided
+      throw new IllegalArgumentException();
 
     if (dest.isReadOnly())
       throw new ReadOnlyBufferException();
@@ -148,21 +142,17 @@ public class QATSession {
     int compressedSize = 0;
 
     if (isPinnedMemory()) {
-      System.out.println("Compress: pinned mem available");
       compressedSize = compressByteBufferInLoop(src, dest);
     }
     else if(src.isDirect() && dest.isDirect()){
-      System.out.println("Compress: pinned mem not available, direct byte buffers");
       compressedSize = InternalJNI.compressByteBuff(qzSession, src, src.position(), src.remaining(), dest, retryCount);
       dest.position(compressedSize);
     } else if (src.hasArray() && dest.hasArray()) {
-      System.out.println("Compress: pinned mem not available, wrapped buffer");
       byte[] destArray = new byte[dest.remaining()];
       compressedSize = InternalJNI.compressByteArray(qzSession, src.array(), src.position(), src.remaining(),destArray,0,retryCount);
       dest.put(destArray, 0, compressedSize);
     }
     else{
-      System.out.println("Compress: pinned mem not available, source read only");
       byte[] srcArray = new byte[src.remaining()];
       byte[] destArray = new byte[dest.remaining()];
       src.get(srcArray, src.position(), src.remaining());
@@ -173,7 +163,6 @@ public class QATSession {
     if (compressedSize < 0) {
       throw new QATException("QAT: Compression failed");
     }
-    System.out.println("Compression successful");
     return compressedSize;
   }
   /**
@@ -192,24 +181,20 @@ public class QATSession {
     if(src == null || dest == null || srcLen == 0 || dest.length == 0)
       throw new IllegalArgumentException("empty buffer");
 
-    // add logic to validate srcOffset + srcLen > src.length, ArrayIndexOutOfBoundException
-    // srcOffset < 0 ArrayIndexOutOfBoundException
-    // srcOffset >= src.length ArrayIndexOutOfBoundException
+    if(srcOffset < 0 || (srcOffset + srcLen > src.length) || srcOffset >= src.length)
+      throw new ArrayIndexOutOfBoundsException("Invalid byte array index");
 
     int compressedSize = 0;
 
     if (isPinnedMemory()) {
-      System.out.println("Compress Byte Array: pinned mem available");
       compressedSize = compressByteArrayInLoop(src, srcOffset, srcLen, dest, destOffset);
     } else {
-      System.out.println("Compress Byte array: pinned mem not available");
       compressedSize = InternalJNI.compressByteArray(qzSession, src, srcOffset, srcLen, dest, destOffset, retryCount);
     }
 
     if (compressedSize < 0) {
       throw new QATException("QAT: Compression failed");
     }
-    System.out.println("compress byte array successful");
     return compressedSize;
   }
   /**
@@ -219,12 +204,12 @@ public class QATSession {
    * @return success or throws exception
    */
 
-  public int decompress (ByteBuffer src, ByteBuffer dest){ // keep the name decompress and overload it for ByteBuffer and Bytearray
+  public int decompress (ByteBuffer src, ByteBuffer dest){
     if(!isValid)
       throw new IllegalStateException();
 
     if ((src == null || dest == null) || (src.position() == src.limit() || dest.position() == dest.limit()))
-      throw new IllegalArgumentException(); // check if this exception is correct if empty buffers are provided
+      throw new IllegalArgumentException();
 
     if (dest.isReadOnly())
       throw new ReadOnlyBufferException();
@@ -232,21 +217,17 @@ public class QATSession {
     int decompressedSize = 0;
 
     if (isPinnedMemory()) {
-      System.out.println("decompress: pinned mem available");
       decompressedSize = decompressByteBufferInLoop(src, dest);
     }
     else if(src.isDirect() && dest.isDirect()){
-      System.out.println("decompress direct byte buffer: pinned mem not available");
       decompressedSize = InternalJNI.decompressByteBuff(qzSession, src, src.position(), src.remaining(), dest, retryCount);
       dest.position(decompressedSize);
     } else if (src.hasArray() && dest.hasArray()) {
-      System.out.println("decompress wrapped buffer: pinned mem not available");
       byte[] destArray = new byte[dest.remaining()];
       decompressedSize = InternalJNI.decompressByteArray(qzSession, src.array(), src.position(), src.remaining(),destArray,0,retryCount);
       dest.put(destArray, 0, decompressedSize);
     }
     else {
-      System.out.println("decompress byte array: pinned mem not available");
       byte[] srcArray = new byte[src.remaining()];
       byte[] destArray = new byte[dest.remaining()];
       src.get(srcArray, src.position(), src.remaining());
@@ -257,7 +238,6 @@ public class QATSession {
     if (decompressedSize < 0) {
       throw new QATException("QAT: Compression failed");
     }
-    System.out.println("decompression successful");
     return decompressedSize;
   }
 
@@ -277,9 +257,8 @@ public class QATSession {
     if(src == null || dest == null || srcLen == 0 || dest.length == 0)
       throw new IllegalArgumentException("empty buffer");
 
-    // add logic to validate srcOffset + srcLen > src.length, ArrayIndexOutOfBoundException
-    // srcOffset < 0 ArrayIndexOutOfBoundException
-    // srcOffset >= src.length ArrayIndexOutOfBoundException
+    if(srcOffset < 0 || (srcOffset + srcLen > src.length) || srcOffset >= src.length)
+      throw new ArrayIndexOutOfBoundsException("Invalid byte array index");
 
     int decompressedSize = 0;
 
@@ -308,7 +287,7 @@ public class QATSession {
     this.isPinnedMemAvailable = false;
   }
 
-  private int compressByteBufferInLoop(ByteBuffer srcBuff, ByteBuffer destBuff){ // looping should be done in the C side
+  private int compressByteBufferInLoop(ByteBuffer srcBuff, ByteBuffer destBuff){
     int remaining = srcBuff.remaining();
     int sourceOffsetInLoop = srcBuff.position();
     int destOffsetInLoop = destBuff.position();
@@ -427,7 +406,7 @@ public class QATSession {
     return totalDecompressedSize;
   }
 
-  static void cleanUp(long qzSession, ByteBuffer unCompressedBuffer, ByteBuffer compressedBuffer){ // print and check if this was called in cleaner test
+  static void cleanUp(long qzSession, ByteBuffer unCompressedBuffer, ByteBuffer compressedBuffer){
     InternalJNI.teardown(qzSession,unCompressedBuffer,compressedBuffer);
   }
 
@@ -451,7 +430,10 @@ public class QATSession {
           qzSession = 0;
           unCompressedBuffer = null;
           compressedBuffer = null;
-        } // put an else for debugging more than once
+        }
+        else{
+          System.out.println("DEBUGGING : Cleaner called more than once");
+        }
     }
   }
 }
