@@ -5,6 +5,7 @@
  ******************************************************************************/
 #include <string.h>
 #include <limits.h>
+#include <stdio.h>
 #include "util.h"
 
 char* getErrorMessage(int errorCode) {
@@ -12,7 +13,7 @@ char* getErrorMessage(int errorCode) {
         case INT_MIN:
             return "Session not setup";
         case INT_MAX:
-            return "Invalid input"
+            return "Invalid input";
         case 0:
             return "QZ_OK";
         case 1:
@@ -73,13 +74,6 @@ void throw_exception(JNIEnv *env, const char *errorMessage, jlong status) // imp
 {
     char buff[256];
     jclass Exception = (*env)->FindClass(env,"com/intel/qat/QATException");
-
-    /*char statBuffer[STATUS_LEN];
-    jclass Exception = (*env)->FindClass(env,"com/intel/qat/QATException");
-    strncpy(buf, arg, sizeof(buf) - 1);
-    strncat(buf, " Status code is - ", STATUS_LEN);
-    snprintf(statBuffer, STATUS_LEN, "%ld", status);
-    strncat(buf, statBuffer, STATUS_LEN);*/
     sprintf_s(buff,sizeof(buff),"%s %s %s", getErrorMessage(status)," : ", errorMessage);
     (*env)->ThrowNew(env,Exception, buff);
 }

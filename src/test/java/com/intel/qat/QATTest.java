@@ -167,9 +167,10 @@ public class QATTest {
     }
     @Test
     void testWrappedBuffers(){
+        System.out.println("testWrappedBuffers started");
         try {
             intQatSession = new QATSession();
-
+            intQatSession.setIsPinnedMemAvailable();
             String uncompressed = "lorem opsum lorem opsum opsum lorem";
             byte[] source = uncompressed.getBytes();
             byte[] uncomp = new byte[source.length];
@@ -206,9 +207,10 @@ public class QATTest {
 
     @Test
     void testBackedArrayBuffersWithAllocate(){
+        System.out.println("testBackedArrayBuffersWithAllocate started");
         try {
             intQatSession = new QATSession();
-
+            intQatSession.setIsPinnedMemAvailable();
             String uncompressed = "lorem opsum lorem opsum opsum lorem";
             byte[] source = uncompressed.getBytes();
             byte[] uncomp = new byte[source.length];
@@ -217,8 +219,8 @@ public class QATTest {
             ByteBuffer srcBuffer = ByteBuffer.allocate(source.length);
             ByteBuffer destBuffer = ByteBuffer.allocate(dest.length);
             ByteBuffer uncompBuffer = ByteBuffer.allocate(uncomp.length);
-            srcBuffer.put(source,0,source.length);
 
+            srcBuffer.put(source,0,source.length);
             srcBuffer.flip();
             int compressedSize = intQatSession.compress(srcBuffer,destBuffer);
 
@@ -226,15 +228,16 @@ public class QATTest {
                 fail("testIndirectBuffers compression fails");
 
             assertNotNull(destBuffer);
-
+            System.out.println("Compressed string " + new String(destBuffer.array()));
+            System.out.println("test: after compress destBuffer at "+ destBuffer.position()+" with limit "+ destBuffer.limit());
             destBuffer.flip();
-
+            System.out.println("test: after compress and flip destBuffer at "+ destBuffer.position() + " with limit "+ destBuffer.limit());
             int decompressedSize = intQatSession.decompress(destBuffer,uncompBuffer);
             assertNotNull(uncompBuffer);
 
             if(decompressedSize <= 0)
                 fail("testWrappedBuffers decompression fails");
-
+            System.out.println(" testBackedArrayBuffersWithAllocate test: decompress successful\n");
             String str = new String(uncompBuffer.array(), StandardCharsets.UTF_8);
             assertTrue(str.compareTo(uncompressed) == 0);
         }
@@ -247,10 +250,10 @@ public class QATTest {
 
     @Test
     void testIndirectBuffersReadOnly(){
-
+        System.out.println("testIndirectBuffersReadOnly started");
         try {
             intQatSession = new QATSession();
-
+            intQatSession.setIsPinnedMemAvailable();
             String uncompressed = "lorem opsum lorem opsum opsum lorem";
             byte[] source = uncompressed.getBytes();
             byte[] uncomp = new byte[source.length];
@@ -288,9 +291,10 @@ public class QATTest {
     }
     @Test
     void testCompressionDecompressionWithByteArray(){
+        System.out.println("testCompressionDecompressionWithByteArray started");
         try{
             intQatSession = new QATSession();
-
+            intQatSession.setIsPinnedMemAvailable();
             String uncompressed = "lorem opsum lorem opsum opsum lorem";
             byte[] source = uncompressed.getBytes();
             byte[] uncomp = new byte[source.length];
@@ -314,7 +318,6 @@ public class QATTest {
 
         try{
             intQatSession = new QATSession();
-
             String uncompressed = "lorem opsum lorem opsum opsum lorem";
             byte[] source = uncompressed.getBytes();
             byte[] uncomp = new byte[source.length];
@@ -425,6 +428,41 @@ public class QATTest {
             int compressedSize = intQatSession.compress(srcBuff,destBuff);
             assertNotNull(destBuff);
 
+            destBuff.flip();
+            int decompressedSize = intQatSession.decompress(destBuff,unCompBuff);
+            assertNotNull(uncomp);
+
+            unCompBuff.flip();
+
+            unCompBuff.get(uncomp,0,decompressedSize);
+            String str = new String(uncomp);
+            assertTrue(str.compareTo(uncompressed) == 0);
+        }
+        catch (QATException ie){
+            fail(ie.getMessage());
+        }
+    }
+
+    @Test
+    void testCompressionDecompressionWithDirectByteBuffNoPinnedMem(){
+
+        try{
+            intQatSession = new QATSession();
+            intQatSession.setIsPinnedMemAvailable();
+            String uncompressed = "lorem opsum lorem opsum opsum lorem";
+            byte[] source = uncompressed.getBytes();
+            byte[] uncomp = new byte[source.length];
+
+            ByteBuffer srcBuff = ByteBuffer.allocateDirect(source.length);
+            ByteBuffer destBuff = ByteBuffer.allocateDirect(intQatSession.maxCompressedLength(source.length));
+            ByteBuffer unCompBuff = ByteBuffer.allocateDirect(source.length);
+
+            srcBuff.put(source,0,source.length);
+            srcBuff.flip();
+
+            int compressedSize = intQatSession.compress(srcBuff,destBuff);
+            assertNotNull(destBuff);
+            System.out.println("compressed buffer at position "+ destBuff.position());
             destBuff.flip();
             int decompressedSize = intQatSession.decompress(destBuff,unCompBuff);
             assertNotNull(uncomp);

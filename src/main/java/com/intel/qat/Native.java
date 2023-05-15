@@ -11,6 +11,8 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
 class Native {
     private static boolean loaded = false;
     private static String extension = "";
@@ -19,7 +21,13 @@ class Native {
     static boolean isLoaded() {
         if (loaded) return true;
         try {
-            System.loadLibrary("qat-java");
+        AccessController.doPrivileged(new PrivilegedAction<Void>() {
+          public Void run() {
+              System.loadLibrary("qat-java");
+              return null;
+          }
+        });
+
             loaded = true;
         } catch (UnsatisfiedLinkError e) {
             // Could not load native library from "java.library.path"
@@ -72,7 +80,13 @@ class Native {
             if (isSymbolicLink) {
                 throw new IOException("Failed to load native qat-java library");
             }
-            System.load(tempNativeLib.getAbsolutePath());
+            File finalTempNativeLib = tempNativeLib;
+            AccessController.doPrivileged(new PrivilegedAction<Void>() {
+              public Void run() {
+                  System.load(finalTempNativeLib.getAbsolutePath());
+                  return null;
+              }
+            });
             loaded = true;
         } catch (IOException e) {
             throw new ExceptionInInitializerError("Failed to load native qat-java library");

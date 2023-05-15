@@ -30,7 +30,7 @@ public class QATSession {
   private CompressionAlgorithm compressionAlgorithm;
   private int compressionLevel;
   // visible for testing only annotation
-  boolean isPinnedMemAvailable; // make private and have setter which can set this to false
+  private boolean isPinnedMemAvailable;
 
   /**
    * code paths for library. Currently, HARDWARE and AUTO(HARDWARE with SOFTWARE fallback) is supported
@@ -148,16 +148,21 @@ public class QATSession {
     int compressedSize = 0;
 
     if (isPinnedMemory()) {
+      System.out.println("Compress: pinned mem available");
       compressedSize = compressByteBufferInLoop(src, dest);
     }
     else if(src.isDirect() && dest.isDirect()){
+      System.out.println("Compress: pinned mem not available, direct byte buffers");
       compressedSize = InternalJNI.compressByteBuff(qzSession, src, src.position(), src.remaining(), dest, retryCount);
+      dest.position(compressedSize);
     } else if (src.hasArray() && dest.hasArray()) {
+      System.out.println("Compress: pinned mem not available, wrapped buffer");
       byte[] destArray = new byte[dest.remaining()];
-      compressedSize = InternalJNI.compressByteArray(qzSession, src.array(), src.position(), src.remaining(),dest.array(),0,retryCount);
+      compressedSize = InternalJNI.compressByteArray(qzSession, src.array(), src.position(), src.remaining(),destArray,0,retryCount);
       dest.put(destArray, 0, compressedSize);
     }
     else{
+      System.out.println("Compress: pinned mem not available, source read only");
       byte[] srcArray = new byte[src.remaining()];
       byte[] destArray = new byte[dest.remaining()];
       src.get(srcArray, src.position(), src.remaining());
@@ -168,6 +173,7 @@ public class QATSession {
     if (compressedSize < 0) {
       throw new QATException("QAT: Compression failed");
     }
+    System.out.println("Compression successful");
     return compressedSize;
   }
   /**
@@ -193,15 +199,17 @@ public class QATSession {
     int compressedSize = 0;
 
     if (isPinnedMemory()) {
+      System.out.println("Compress Byte Array: pinned mem available");
       compressedSize = compressByteArrayInLoop(src, srcOffset, srcLen, dest, destOffset);
     } else {
+      System.out.println("Compress Byte array: pinned mem not available");
       compressedSize = InternalJNI.compressByteArray(qzSession, src, srcOffset, srcLen, dest, destOffset, retryCount);
     }
 
     if (compressedSize < 0) {
       throw new QATException("QAT: Compression failed");
     }
-
+    System.out.println("compress byte array successful");
     return compressedSize;
   }
   /**
@@ -223,17 +231,22 @@ public class QATSession {
 
     int decompressedSize = 0;
 
-    if (isPinnedMemory() && src.isDirect() && dest.isDirect()) {
+    if (isPinnedMemory()) {
+      System.out.println("decompress: pinned mem available");
       decompressedSize = decompressByteBufferInLoop(src, dest);
     }
     else if(src.isDirect() && dest.isDirect()){
+      System.out.println("decompress direct byte buffer: pinned mem not available");
       decompressedSize = InternalJNI.decompressByteBuff(qzSession, src, src.position(), src.remaining(), dest, retryCount);
+      dest.position(decompressedSize);
     } else if (src.hasArray() && dest.hasArray()) {
+      System.out.println("decompress wrapped buffer: pinned mem not available");
       byte[] destArray = new byte[dest.remaining()];
-      decompressedSize = InternalJNI.decompressByteArray(qzSession, src.array(), 0, src.remaining(),destArray,0,retryCount);
+      decompressedSize = InternalJNI.decompressByteArray(qzSession, src.array(), src.position(), src.remaining(),destArray,0,retryCount);
       dest.put(destArray, 0, decompressedSize);
     }
     else {
+      System.out.println("decompress byte array: pinned mem not available");
       byte[] srcArray = new byte[src.remaining()];
       byte[] destArray = new byte[dest.remaining()];
       src.get(srcArray, src.position(), src.remaining());
@@ -244,6 +257,7 @@ public class QATSession {
     if (decompressedSize < 0) {
       throw new QATException("QAT: Compression failed");
     }
+    System.out.println("decompression successful");
     return decompressedSize;
   }
 
@@ -288,6 +302,10 @@ public class QATSession {
 
   private boolean isPinnedMemory(){
     return (isPinnedMemAvailable && unCompressedBuffer != null && compressedBuffer != null);
+  }
+
+  void setIsPinnedMemAvailable(){
+    this.isPinnedMemAvailable = false;
   }
 
   private int compressByteBufferInLoop(ByteBuffer srcBuff, ByteBuffer destBuff){ // looping should be done in the C side
