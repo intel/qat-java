@@ -3,11 +3,12 @@
 #
 # SPDX-License-Identifier: MIT
 # ==========================================================================
+# use clang with cmdline option enable address sanitizer
 
 cmake_minimum_required(VERSION 3.16.3) # check minimum required for qat
 project(qat-java)
 set(CMAKE_BUILD_TYPE Release)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -shared -std=c11 -Wall -Wextra -Wpedantic -Werror -fPIC -I${JAVA_HOME}/include -I${JAVA_HOME}/include/linux -lqatzip -lnuma -lpthread") 
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -shared -std=c11 -fsanitize=address -Wall -Wextra -Wpedantic -Werror -fPIC -I${JAVA_HOME}/include -I${JAVA_HOME}/include/linux -lqatzip -lnuma -lpthread")
 set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -lqatzip -lnuma -lpthread -pie")
 
 # include Java packages

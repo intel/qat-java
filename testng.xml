@@ -1,9 +1,0 @@
-<!DOCTYPE suite SYSTEM "http://testng.org/testng-1.0.dtd" >
-
-<suite name="TestAll">
-    <test name="qat-java-basic">
-        <classes>
-            <class name="com.intel.qat.QATTest" />
-        </classes>
-    </test>
-</suite>

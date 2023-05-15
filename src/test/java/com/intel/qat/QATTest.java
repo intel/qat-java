@@ -6,145 +6,799 @@
 
 package com.intel.qat;
 
-import org.testng.annotations.Test;
-
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.ReadOnlyBufferException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.testng.Assert.*;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.Arrays;
+
+//after each we can do teardown
 public class QATTest {
-    //TODO what kind of test we need ?
     private int numberOfThreads;
     private File filePath, filesList[];
     private Thread[] threads;
 
     private int filesPerThread,remainingFiles;
+    private QATSession intQatSession;
 
-    public void QATTest(){
-        this.numberOfThreads = 11;
-        filePath = new File("../resources");
-        filesList = filePath.listFiles();
-        threads = new Thread[numberOfThreads];
-        int filesPerThread = filesList.length / numberOfThreads;
-        int remainingFiles = filesList.length % numberOfThreads;
+    //TODO: Dont catch Exception rather than specific
+    /*Group of tests
+     Init
+        Default and parametrized constructor with different possible values
+     teardown
+        teardown after init
+        teardown after teardown
+     compress
+        byte buffer
+            null buffer
+            read only buffer
+            byte array wrapped buffer
+            direct bytebuffer
+            empty buffer
+        byte array
+            empty array
+            regular array
+        Invalid call after teardown
+     decompress
+        byte buffer
+            null buffer
+            read only buffer
+            byte array wrapped buffer
+            direct bytebuffer
+            empty buffer
+        byte array
+            empty array
+            regular array
+        Invalid call after teardown
+
+    max compressedLength
+            invalid length
+            Invalid call after teardown
+    */
+    @AfterEach
+    public void cleanupSession(){
+        if(intQatSession != null)
+            intQatSession.teardown();
+    }
+    @Test
+    public void testDefaultConstructor(){
+        try {
+            intQatSession = new QATSession();
+        }
+        catch (IllegalArgumentException| QATException ie){
+            fail(ie.getMessage());
+        }
+    }
+    @Test
+    public void testSingleArgConstructor(){
+        try {
+            intQatSession = new QATSession(QATSession.CompressionAlgorithm.LZ4);
+        }
+        catch (IllegalArgumentException| QATException ie){
+            fail(ie.getMessage());
+        }
     }
 
     @Test
-    public void testHardwareSetupTearDown(){
-        System.out.println("EXECUTING testHardwareSetupTearDown..");
-        QATSession qatSession = new QATSession(1000, QATUtils.ExecutionPaths.QAT_HARDWARE_ONLY,0, String.valueOf(QATUtils.CompressionAlgo.DEFLATE),6);
+    public void testTwoArgConstructor(){
         try {
-            qatSession.setup();
+            intQatSession = new QATSession(QATSession.CompressionAlgorithm.DEFLATE,6);
         }
-        catch (QATException qe){
-            fail("QAT session could not be established");
-            return;
+        catch (IllegalArgumentException| QATException ie){
+            fail(ie.getMessage());
         }
+    }
 
+    @Test
+    public void testThreeArgConstructorAuto(){
         try {
+            intQatSession = new QATSession(QATSession.CompressionAlgorithm.DEFLATE,6, QATSession.Mode.AUTO);
+        }
+        catch (IllegalArgumentException| QATException ie){
+            fail(ie.getMessage());
+        }
+    }
+
+    @Test
+    public void testThreeArgConstructorHW(){
+        try {
+            intQatSession = new QATSession(QATSession.CompressionAlgorithm.DEFLATE,6, QATSession.Mode.HARDWARE);
+        }
+        catch (IllegalArgumentException| QATException ie){
+            fail(ie.getMessage());
+        }
+    }
+
+    @Test
+    public void testFourArgConstructorHW(){
+        try {
+            intQatSession = new QATSession(QATSession.CompressionAlgorithm.DEFLATE,6, QATSession.Mode.HARDWARE,QATSession.DEFAULT_RETRY_COUNT);
+        }
+        catch (IllegalArgumentException| QATException ie){
+            fail(ie.getMessage());
+        }
+    }
+
+    @Test
+    public void testTeardown(){
+        QATSession qatSession = null;
+        try {
+            qatSession = new QATSession();
             qatSession.teardown();
-        } catch (QATException qe) {
-            fail("QAT session teardown failed");
-            return;
+        }
+        catch (Exception e){
+            fail(e.getMessage());
+        }
+    }
+
+    @Test
+    public void duplicateTearDown(){
+        QATSession qatSession = null;
+        try {
+            qatSession = new QATSession(QATSession.CompressionAlgorithm.LZ4,0, QATSession.Mode.HARDWARE);
+            qatSession.teardown();
+            qatSession.teardown();
+        }
+        catch (IllegalStateException is){
+            assertTrue(true);
+        }
+        catch (IllegalArgumentException| QATException ie){
+            fail(ie.getMessage());
+        }
+    }
+    @Test
+    void testWrappedBuffers(){
+        System.out.println("testWrappedBuffers started");
+        try {
+            intQatSession = new QATSession();
+            intQatSession.setIsPinnedMemAvailable();
+            String uncompressed = "lorem opsum lorem opsum opsum lorem";
+            byte[] source = uncompressed.getBytes();
+            byte[] uncomp = new byte[source.length];
+            byte[] dest = new byte[intQatSession.maxCompressedLength(source.length)];
+
+            ByteBuffer srcBuffer = ByteBuffer.wrap(source);
+            ByteBuffer destBuffer = ByteBuffer.wrap(dest);
+            ByteBuffer uncompBuffer = ByteBuffer.wrap(uncomp);
+
+            int compressedSize = intQatSession.compress(srcBuffer,destBuffer);
+
+            if(compressedSize < 0)
+                fail("testWrappedBuffers compression fails");
+
+            assertNotNull(destBuffer);
+
+            destBuffer.flip();
+
+            int decompressedSize = intQatSession.decompress(destBuffer,uncompBuffer);
+            assertNotNull(uncompBuffer);
+
+            if(decompressedSize < 0)
+                fail("testWrappedBuffers decompression fails");
+
+            String str = new String(uncomp, StandardCharsets.UTF_8);
+            assertTrue(str.compareTo(uncompressed) == 0);
+        }
+        catch (Exception e){
+            e.getStackTrace();
+            fail(e.getMessage());
         }
         assertTrue(true);
     }
 
     @Test
-    public void testNativeMemory(){
-        System.out.println("EXECUTING testNativeMemory..");
-        QATSession qatSession = new QATSession(1000, QATUtils.ExecutionPaths.QAT_HARDWARE_ONLY,0, String.valueOf(QATUtils.CompressionAlgo.DEFLATE),6);
+    void testBackedArrayBuffersWithAllocate(){
+        System.out.println("testBackedArrayBuffersWithAllocate started");
         try {
-            qatSession.setup();
-        }
-        catch (QATException qe){
-            fail("QAT session could not be established");
-            return;
-        }
-        assertEquals(qatSession.unCompressedBuffer.isDirect(), true);
-        assertEquals(qatSession.compressedBuffer.isDirect(), true);
+            intQatSession = new QATSession();
+            intQatSession.setIsPinnedMemAvailable();
+            String uncompressed = "lorem opsum lorem opsum opsum lorem";
+            byte[] source = uncompressed.getBytes();
+            byte[] uncomp = new byte[source.length];
+            byte[] dest = new byte[intQatSession.maxCompressedLength(source.length)];
 
-        try {
-            qatSession.teardown();
-        } catch (QATException qe) {
-            fail("QAT session teardown failed");
-            return;
+            ByteBuffer srcBuffer = ByteBuffer.allocate(source.length);
+            ByteBuffer destBuffer = ByteBuffer.allocate(dest.length);
+            ByteBuffer uncompBuffer = ByteBuffer.allocate(uncomp.length);
+
+            srcBuffer.put(source,0,source.length);
+            srcBuffer.flip();
+            int compressedSize = intQatSession.compress(srcBuffer,destBuffer);
+
+            if(compressedSize < 0)
+                fail("testIndirectBuffers compression fails");
+
+            assertNotNull(destBuffer);
+            System.out.println("Compressed string " + new String(destBuffer.array()));
+            System.out.println("test: after compress destBuffer at "+ destBuffer.position()+" with limit "+ destBuffer.limit());
+            destBuffer.flip();
+            System.out.println("test: after compress and flip destBuffer at "+ destBuffer.position() + " with limit "+ destBuffer.limit());
+            int decompressedSize = intQatSession.decompress(destBuffer,uncompBuffer);
+            assertNotNull(uncompBuffer);
+
+            if(decompressedSize <= 0)
+                fail("testWrappedBuffers decompression fails");
+            System.out.println(" testBackedArrayBuffersWithAllocate test: decompress successful\n");
+            String str = new String(uncompBuffer.array(), StandardCharsets.UTF_8);
+            assertTrue(str.compareTo(uncompressed) == 0);
+        }
+        catch (Exception e){
+            e.getStackTrace();
+            fail(e.getMessage());
         }
         assertTrue(true);
-
     }
 
     @Test
-    public void testCompressionDecompression(){
-        System.out.println("EXECUTING testCompressionDecompression..");
-        for(int i = 0; i < numberOfThreads; i++){
-            final int thread = i;
-
-            threads[i] = new Thread(){
-                @Override
-                public void run(){
-                    try{
-                        doCompressDecompress(thread);
-                    }
-                    catch(QATException ie){
-                        System.out.println("doCompressDecompress fails " + ie.getMessage());
-                    }
-                }
-            };
-        }
-    }
-
-    @Test
-    public void testSetupDuplicate(){
-        System.out.println("EXECUTING testSetupDuplicate..");
-        QATSession qatSession = new QATSession(1000, QATUtils.ExecutionPaths.QAT_HARDWARE_ONLY,0, String.valueOf(QATUtils.CompressionAlgo.DEFLATE),6);
+    void testIndirectBuffersReadOnly(){
+        System.out.println("testIndirectBuffersReadOnly started");
         try {
-            qatSession.setup();
-            qatSession.setup();
+            intQatSession = new QATSession();
+            intQatSession.setIsPinnedMemAvailable();
+            String uncompressed = "lorem opsum lorem opsum opsum lorem";
+            byte[] source = uncompressed.getBytes();
+            byte[] uncomp = new byte[source.length];
+            byte[] dest = new byte[intQatSession.maxCompressedLength(source.length)];
+
+            ByteBuffer srcBuffer = ByteBuffer.allocate(source.length);
+            ByteBuffer destBuffer = ByteBuffer.allocate(dest.length);
+            ByteBuffer uncompBuffer = ByteBuffer.allocate(uncomp.length);
+
+            srcBuffer.put(source,0,source.length);
+            srcBuffer.flip();
+
+            int compressedSize = intQatSession.compress(srcBuffer.asReadOnlyBuffer(),destBuffer);
+
+            if(compressedSize < 0)
+                fail("testIndirectBuffers compression fails");
+
+            assertNotNull(destBuffer);
+
+            destBuffer.flip();
+            int decompressedSize = intQatSession.decompress(destBuffer.asReadOnlyBuffer(),uncompBuffer);
+            assertNotNull(uncompBuffer);
+
+            if(decompressedSize <= 0)
+                fail("testWrappedBuffers decompression fails");
+
+            String str = new String(uncompBuffer.array(), StandardCharsets.UTF_8);
+            assertTrue(str.compareTo(uncompressed) == 0);
         }
-        catch (QATException qe){
-            assertEquals(1, QATUtils.getErrorMessage(Integer.parseInt(qe.getMessage())));
+        catch (Exception e){
+            e.getStackTrace();
+            fail(e.getMessage());
         }
-        fail("Session duplicate test got failed");
+        assertTrue(true);
+    }
+    @Test
+    void testCompressionDecompressionWithByteArray(){
+        System.out.println("testCompressionDecompressionWithByteArray started");
+        try{
+            intQatSession = new QATSession();
+            intQatSession.setIsPinnedMemAvailable();
+            String uncompressed = "lorem opsum lorem opsum opsum lorem";
+            byte[] source = uncompressed.getBytes();
+            byte[] uncomp = new byte[source.length];
+            byte[] dest = new byte[intQatSession.maxCompressedLength(source.length)];
+
+            int compressedSize = intQatSession.compress(source,0, source.length, dest,0);
+            assertNotNull(dest);
+
+            int decompressedSize = intQatSession.decompress(dest,0, compressedSize, uncomp, 0);
+            assertNotNull(uncomp);
+            String str = new String(uncomp, StandardCharsets.UTF_8);
+            assertTrue(str.compareTo(uncompressed) == 0);
+        }
+        catch (QATException ie){
+            fail(ie.getMessage());
+        }
+    }
+
+    @Test
+    void testCompressByteArrayWithByteBuff(){
+
+        try{
+            intQatSession = new QATSession();
+            String uncompressed = "lorem opsum lorem opsum opsum lorem";
+            byte[] source = uncompressed.getBytes();
+            byte[] uncomp = new byte[source.length];
+            byte[] dest = new byte[intQatSession.maxCompressedLength(source.length)];
+
+            ByteBuffer uncompressedBuffer = ByteBuffer.allocateDirect(source.length);
+            ByteBuffer compressedBuffer = ByteBuffer.allocateDirect(dest.length);
+            uncompressedBuffer.put(source);
+            uncompressedBuffer.flip();
+
+            int compressedSize = intQatSession.compress(uncompressedBuffer,compressedBuffer);
+            int byteArrayCompSize = intQatSession.compress(source,0,source.length,dest,0);
+
+            assertEquals(compressedSize, byteArrayCompSize);
+
+            compressedBuffer.flip();
+
+            byte[] compByteBufferArray = new byte[compressedBuffer.limit()];
+            compressedBuffer.get(compByteBufferArray);
+
+            for(int i = 0; i < compressedSize; i++){
+                if(dest[i] != compByteBufferArray[i])
+                    fail("compressed data is not same");
+            }
+        }
+        catch (QATException ie){
+            fail(ie.getMessage());
+        }
+    }
+
+    @Test
+    void testComppressionDecompressionHardwareMode(){
+        try{
+            intQatSession = new QATSession(QATSession.CompressionAlgorithm.DEFLATE,6, QATSession.Mode.HARDWARE,0);
+
+            String uncompressed = "lorem opsum lorem opsum opsum lorem";
+            byte[] source = uncompressed.getBytes();
+            byte[] uncomp = new byte[source.length];
+            byte[] dest = new byte[intQatSession.maxCompressedLength(source.length)];
+
+            int compressedSize = intQatSession.compress(source,0, source.length, dest,0);
+            assertNotNull(dest);
+
+            int decompressedSize = intQatSession.decompress(dest,0, compressedSize, uncomp, 0);
+            assertNotNull(uncomp);
+            String str = new String(uncomp, StandardCharsets.UTF_8);
+
+            assertEquals(str.equals(uncompressed), true);
+        }
+        catch (QATException ie){
+            fail(ie.getMessage());
+        }
+    }
+
+    @Test
+    void testCompressionWithInsufficientDestBuff(){
+        try{
+            intQatSession = new QATSession(QATSession.CompressionAlgorithm.DEFLATE,6, QATSession.Mode.HARDWARE,0);
+
+            String uncompressed = "lorem opsum lorem opsum opsum lorem";
+            byte[] source = new byte[uncompressed.getBytes().length];
+            byte[] uncomp = new byte[source.length];
+            byte[] dest = new byte[source.length/10];
+
+            int compressedSize = intQatSession.compress(source,0, source.length, dest,0);
+        }
+        catch (Exception e){
+            assertTrue(true);
+        }
+    }
+
+    @Test
+    void testDecompressionWithInsufficientDestBuff(){
+        try{
+            intQatSession = new QATSession(QATSession.CompressionAlgorithm.DEFLATE,6, QATSession.Mode.HARDWARE,0);
+
+            String uncompressed = "lorem opsum lorem opsum opsum lorem";
+            byte[] source = new byte[uncompressed.getBytes().length];
+            byte[] uncomp = new byte[source.length/2];
+            byte[] dest = new byte[source.length];
+
+            int compressedSize = intQatSession.compress(source,0, source.length, dest,0);
+            int decompressedSize = intQatSession.decompress(dest,0,dest.length,uncomp,0);
+            fail("testInvalidDecompressionHardwareMode failed");
+        }
+        catch (Exception e){
+            assertTrue(true);
+        }
+    }
+
+    @Test
+    void testCompressionDecompressionWithDirectByteBuff(){
+
+        try{
+            intQatSession = new QATSession();
+
+            String uncompressed = "lorem opsum lorem opsum opsum lorem";
+            byte[] source = uncompressed.getBytes();
+            byte[] uncomp = new byte[source.length];
+
+            ByteBuffer srcBuff = ByteBuffer.allocateDirect(source.length);
+            ByteBuffer destBuff = ByteBuffer.allocateDirect(intQatSession.maxCompressedLength(source.length));
+            ByteBuffer unCompBuff = ByteBuffer.allocateDirect(source.length);
+
+            srcBuff.put(source,0,source.length);
+            srcBuff.flip();
+
+            int compressedSize = intQatSession.compress(srcBuff,destBuff);
+            assertNotNull(destBuff);
+
+            destBuff.flip();
+            int decompressedSize = intQatSession.decompress(destBuff,unCompBuff);
+            assertNotNull(uncomp);
+
+            unCompBuff.flip();
+
+            unCompBuff.get(uncomp,0,decompressedSize);
+            String str = new String(uncomp);
+            assertTrue(str.compareTo(uncompressed) == 0);
+        }
+        catch (QATException ie){
+            fail(ie.getMessage());
+        }
+    }
+
+    @Test
+    void testCompressionDecompressionWithDirectByteBuffNoPinnedMem(){
+
+        try{
+            intQatSession = new QATSession();
+            intQatSession.setIsPinnedMemAvailable();
+            String uncompressed = "lorem opsum lorem opsum opsum lorem";
+            byte[] source = uncompressed.getBytes();
+            byte[] uncomp = new byte[source.length];
+
+            ByteBuffer srcBuff = ByteBuffer.allocateDirect(source.length);
+            ByteBuffer destBuff = ByteBuffer.allocateDirect(intQatSession.maxCompressedLength(source.length));
+            ByteBuffer unCompBuff = ByteBuffer.allocateDirect(source.length);
+
+            srcBuff.put(source,0,source.length);
+            srcBuff.flip();
+
+            int compressedSize = intQatSession.compress(srcBuff,destBuff);
+            assertNotNull(destBuff);
+            System.out.println("compressed buffer at position "+ destBuff.position());
+            destBuff.flip();
+            int decompressedSize = intQatSession.decompress(destBuff,unCompBuff);
+            assertNotNull(uncomp);
+
+            unCompBuff.flip();
+
+            unCompBuff.get(uncomp,0,decompressedSize);
+            String str = new String(uncomp);
+            assertTrue(str.compareTo(uncompressed) == 0);
+        }
+        catch (QATException ie){
+            fail(ie.getMessage());
+        }
+    }
+
+    @Test
+    void testCompressWithNullByteBuff(){
+        try{
+            intQatSession = new QATSession();
+
+            int compressedSize = intQatSession.compress(null,null);
+            fail("testCompressWithNullByteBuff fails");
+        }
+        catch (IllegalArgumentException ie){
+            assertTrue(true);
+        }
+    }
+
+    @Test
+    void testCompressWithNullByteArray(){
+        try{
+            intQatSession = new QATSession();
+            int compressedSize = intQatSession.compress(null,0,100,null,0);
+        }
+        catch (IllegalArgumentException ie){
+            assertTrue(true);
+        }
+    }
+
+    @Test
+    void testDecompressWithNullByteBuff(){
+        try{
+            intQatSession = new QATSession();
+            int compressedSize = intQatSession.decompress(null,null);
+            fail("testDecompressWithNullByteBuff fails");
+        }
+        catch (IllegalArgumentException ie){
+            assertTrue(true);
+        }
+    }
+
+    @Test
+    void testDecompressWithNullByteArray(){
+        try{
+            intQatSession = new QATSession();
+            int compressedSize = intQatSession.decompress(null,0,100,null,0);
+            fail("testDecompressWithNullByteArray fails");
+        }
+        catch (IllegalArgumentException ie){
+            assertTrue(true);
+        }
+    }
+
+    @Test
+    void testCompressionReadOnlyDestination(){
+        try{
+            intQatSession = new QATSession();
+
+            String uncompressed = "lorem opsum lorem opsum opsum lorem";
+            byte[] source = uncompressed.getBytes();
+            byte[] uncomp = new byte[source.length];
+
+            ByteBuffer srcBuff = ByteBuffer.allocateDirect(source.length);
+            ByteBuffer destBuff = ByteBuffer.allocateDirect(intQatSession.maxCompressedLength(source.length));
+            ByteBuffer unCompBuff = ByteBuffer.allocateDirect(source.length);
+
+            srcBuff.put(source,0,source.length);
+            srcBuff.flip();
+            int compressedSize = intQatSession.compress(srcBuff,destBuff.asReadOnlyBuffer());
+            fail("testCompressionReadOnlyDestination failed");
+        }
+        catch (ReadOnlyBufferException ie){
+            assertTrue(true);
+        }
+    }
+
+    @Test
+    void testDecompressionReadOnlyDestination(){
+        try{
+            intQatSession = new QATSession();
+
+            String uncompressed = "lorem opsum lorem opsum opsum lorem";
+            byte[] source = uncompressed.getBytes();
+            byte[] uncomp = new byte[source.length];
+
+            ByteBuffer srcBuff = ByteBuffer.allocateDirect(source.length);
+            ByteBuffer destBuff = ByteBuffer.allocateDirect(intQatSession.maxCompressedLength(source.length));
+            ByteBuffer unCompBuff = ByteBuffer.allocateDirect(source.length);
+
+            srcBuff.put(source,0,source.length);
+            srcBuff.flip();
+
+            int compressedSize = intQatSession.compress(srcBuff,destBuff);
+            destBuff.flip();
+            int decompressedSize = intQatSession.decompress(destBuff,unCompBuff.asReadOnlyBuffer());
+            fail("testDecompressionReadOnlyDestination failed");
+        }
+        catch (ReadOnlyBufferException ie){
+            assertTrue(true);
+        }
+    }
+
+
+    @Test
+    void testCompDecompDefaultModeReadOnlyByteBuff(){
+        try{
+            intQatSession = new QATSession();
+
+            String uncompressed = "lorem opsum lorem opsum opsum lorem";
+            byte[] source = uncompressed.getBytes();
+            byte[] uncomp = new byte[source.length];
+
+            ByteBuffer srcBuffRW = ByteBuffer.allocateDirect(source.length);
+            ByteBuffer destBuff = ByteBuffer.allocateDirect(2*source.length);
+            ByteBuffer unCompBuff = ByteBuffer.allocateDirect(source.length);
+            srcBuffRW.put(source,0,source.length);
+            srcBuffRW.flip();
+
+            ByteBuffer srcBuffRO = srcBuffRW.asReadOnlyBuffer();
+            int compressedSize = intQatSession.compress(srcBuffRO,destBuff);
+            assertNotNull(destBuff);
+            destBuff.flip();
+            int decompressedSize = intQatSession.decompress(destBuff,unCompBuff);
+            assertNotNull(uncomp);
+            unCompBuff.flip();
+            unCompBuff.get(uncomp,0,decompressedSize);
+            String str = new String(uncomp, StandardCharsets.UTF_8);
+
+            assertEquals(str.equals(uncompressed), true);
+        }
+        catch (QATException ie){
+            fail(ie.getMessage());
+        }
+    }
+
+
+    @Test
+    public void testNativeByteBuffer(){
+        try {
+            intQatSession = new QATSession();
+            assertNotNull(intQatSession.unCompressedBuffer);
+            assertNotNull(intQatSession.compressedBuffer);
+            assertTrue(intQatSession.unCompressedBuffer.isDirect());
+            assertTrue(intQatSession.unCompressedBuffer.isDirect());
+        }
+        catch (IllegalArgumentException | QATException ie){
+            fail(ie.getMessage());
+        }
+        catch (Exception e){
+            fail(e.getMessage());
+        }
+        assertTrue(true);
+    }
+
+    @Test
+    public void multipleQATSessions(){
+        try{
+            QATSession[] qatSessions = new QATSession[10];
+
+            for(int i = 0; i < qatSessions.length; i++){
+                qatSessions[i] = new QATSession();
+            }
+            for(int i = 0; i < qatSessions.length; i++){
+                assertTrue(qatSessions[i].compressedBuffer.isDirect());
+            }
+            for(int i = 0; i < qatSessions.length; i++) {
+                qatSessions[i].teardown();
+            }
+            assertTrue(true);
+        }
+        catch (Exception e){
+            fail(e.getMessage());
+        }
+    }
+
+
+
+
+    @Test
+    public void testIllegalStateException(){
+        QATSession qatSession = null;
+        String uncompressed = "lorem opsum lorem opsum opsum lorem";
+        byte[] source = uncompressed.getBytes();
+        byte[] uncomp = new byte[source.length];
+        byte[] dest = new byte[2 * source.length];
+
+        try {
+            qatSession = new QATSession(QATSession.CompressionAlgorithm.LZ4,0, QATSession.Mode.HARDWARE);
+            qatSession.teardown();
+            qatSession.compress(source,0,source.length,dest,0);
+            fail("testIllegalStateException fails");
+        }
+        catch (IllegalStateException is){
+            assertTrue(true);
+        }
     }
 
     @Test
     public void testInvalidCompressionLevel(){
-        System.out.println("EXECUTING testInvalidCompressionLevel..");
         try {
-            QATSession qatSession = new QATSession(1000, QATUtils.ExecutionPaths.QAT_HARDWARE_ONLY, 0, "deflate", 10);
-            fail("Invalid compression level test failed!");
+            intQatSession = new QATSession(QATSession.CompressionAlgorithm.DEFLATE, 10, QATSession.Mode.AUTO,6);
+            fail("testInvalidCompressionLevel failed");
         }
         catch (IllegalArgumentException ie){
-            System.out.println("illegal argument exception");
             assertTrue(true);
         }
-        catch (Exception e){
-            System.out.println("general exception");
-            assertTrue(true);
-        }
-
-
-
     }
 
     @Test
     public void testInvalidRetryCount(){
-        System.out.println("EXECUTING testInvalidRetryCount..");
         try {
-            QATSession qatSession = new QATSession(1000, QATUtils.ExecutionPaths.QAT_HARDWARE_ONLY, 100, "deflate", 6);
-            fail("Invalid retry count test failed!");
+            intQatSession = new QATSession(QATSession.CompressionAlgorithm.DEFLATE, 10, QATSession.Mode.AUTO,-1);
+            fail("testInvalidRetryCount failed");
         }
         catch (IllegalArgumentException ie){
             assertTrue(true);
         }
 
     }
+
+    @Test
+    public void compressByteArrayPostTearDown(){
+        QATSession qatSession = null;
+        try {
+            qatSession = new QATSession();
+            String uncompressed = "lorem opsum lorem opsum opsum lorem";
+            byte[] source = uncompressed.getBytes();
+            byte[] uncomp = new byte[source.length];
+            byte[] dest = new byte[2 * source.length];
+
+            qatSession.teardown();
+            qatSession.compress(source,0,source.length,dest,0);
+            fail("compressByteArrayPostTearDown failed");
+        }
+        catch (IllegalStateException ie){
+            assertTrue(true);
+        }
+    }
+
+    @Test
+    public void compressByteBufferPostTearDown(){
+        QATSession qatSession = null;
+        try {
+            qatSession = new QATSession();
+            String uncompressed = "lorem opsum lorem opsum opsum lorem";
+            byte[] source = uncompressed.getBytes();
+            byte[] uncomp = new byte[source.length];
+
+            ByteBuffer srcBuff = ByteBuffer.allocateDirect(source.length);
+            ByteBuffer destBuff = ByteBuffer.allocateDirect(qatSession.maxCompressedLength(source.length));
+            ByteBuffer unCompBuff = ByteBuffer.allocateDirect(source.length);
+
+            srcBuff.put(source,0,source.length);
+            srcBuff.flip();
+
+            qatSession.teardown();
+            qatSession.compress(srcBuff,destBuff);
+            fail("compressByteBufferPostTearDown failed");
+        }
+        catch (IllegalStateException ie){
+            assertTrue(true);
+        }
+    }
+
+    @Test
+    public void decompressByteArrayPostTearDown(){
+        QATSession qatSession = null;
+        try {
+            qatSession = new QATSession();
+            String uncompressed = "lorem opsum lorem opsum opsum lorem";
+            byte[] source = uncompressed.getBytes();
+            byte[] uncomp = new byte[source.length];
+            byte[] dest = new byte[2 * source.length];
+            qatSession.compress(source,0,source.length,dest,0);
+
+            qatSession.teardown();
+            qatSession.decompress(source,0,source.length,dest,0);
+            fail("decompressByteArrayPostTearDown failed");
+        }
+        catch (IllegalStateException ie){
+            assertTrue(true);
+        }
+    }
+
+    @Test
+    public void decompressByteBufferPostTearDown(){
+        QATSession qatSession = null;
+        try {
+            qatSession = new QATSession();
+            String uncompressed = "lorem opsum lorem opsum opsum lorem";
+            byte[] source = uncompressed.getBytes();
+            byte[] uncomp = new byte[source.length];
+
+            ByteBuffer srcBuff = ByteBuffer.allocateDirect(source.length);
+            ByteBuffer destBuff = ByteBuffer.allocateDirect(qatSession.maxCompressedLength(source.length));
+            ByteBuffer unCompBuff = ByteBuffer.allocateDirect(source.length);
+
+            srcBuff.put(source,0,source.length);
+            srcBuff.flip();
+
+            qatSession.compress(srcBuff,destBuff);
+
+            destBuff.flip();
+            qatSession.teardown();
+            qatSession.decompress(destBuff,unCompBuff);
+            fail("compressByteBufferPostTearDown failed");
+        }
+        catch (IllegalStateException ie){
+            assertTrue(true);
+        }
+    }
+
+    @Test
+    public void maxCompressedLengthPostTeardown(){
+        QATSession qatSession = null;
+        try {
+            qatSession = new QATSession();
+            qatSession.teardown();
+            qatSession.maxCompressedLength(100);
+            fail("maxCompressedLengthPostTeardown failed");
+        }
+        catch (IllegalStateException ie){
+            assertTrue(true);
+        }
+    }
+    /*
     private void doCompressDecompress(int thread) throws QATException{
         List<File> inFiles = new ArrayList<>();
 
@@ -156,20 +810,16 @@ public class QATTest {
             for(int j = filesList.length - remainingFiles; j < filesList.length; j++)
                 inFiles.add(filesList[j]);
         }
-        QATSession qatSession = new QATSession(1000, QATUtils.ExecutionPaths.QAT_HARDWARE_ONLY,0, String.valueOf(QATUtils.CompressionAlgo.DEFLATE),6);
+        QATSession qatSession = null;
         try{
-            // init session with QAT hardware
             try {
-                qatSession.setup();
+                qatSession = new QATSession(QATUtils.ExecutionPaths.HARDWARE, 0, QATUtils.CompressionAlgo.DEFLATE, 6);
             }
-            catch (QATException qe){
-                System.out.println("setup session failed");
-                return;
+            catch (QATException qe) {
+                fail(qe.getMessage());
             }
 
             for(File file: inFiles){
-                qatSession.unCompressedBuffer.clear();
-                qatSession.compressedBuffer.clear();
 
                 byte[] srcArray = new byte[0];
                 try {
@@ -182,34 +832,22 @@ public class QATTest {
                 int maxCompressedLength =
                         qatSession.maxCompressedLength(srcArray.length);
 
+                byte[] destArray = new byte[maxCompressedLength];
                 //source and destination byte buffer
-
-                if(!qatSession.unCompressedBuffer.isDirect() || !qatSession.compressedBuffer.isDirect()){
-                    System.out.println("ERROR: src or dest byte buffer is not direct\n");
-                    return;
-                }
-                qatSession.unCompressedBuffer.put(srcArray);
-                qatSession.compressedBuffer.flip();
-
-                int compressedLength = qatSession.compressByteBuff(qatSession.unCompressedBuffer,0,
-                        qatSession.unCompressedBuffer.limit(),
-                        qatSession.compressedBuffer);
+                int compressedLength = qatSession.compressByteArray(srcArray,0,srcArray.length, destArray,0);
 
                 if (compressedLength < 0) {
                     System.out.println("unsuccessful compression.. exiting");
                 }
 
-                qatSession.compressedBuffer.flip();
-                qatSession.unCompressedBuffer.clear();
-                int uncompressedLength2 = qatSession.decompressByteBuff(qatSession.compressedBuffer,0,
-                        compressedLength, qatSession.unCompressedBuffer);
+                int uncompressedLength2 = qatSession.decompressByteArray(destArray,0, compressedLength, srcArray,0);
 
                 assertNotEquals(uncompressedLength2,0);
                 assertEquals(uncompressedLength2, srcArray.length);
 
-
                 byte[] arrtoWrite = new byte[uncompressedLength2];
-                qatSession.unCompressedBuffer.get(arrtoWrite,0,uncompressedLength2);
+                arrtoWrite = Arrays.copyOf(srcArray, uncompressedLength2);
+
                 try (FileOutputStream fos = new FileOutputStream("../resources/res" + file.getName().replaceFirst("[.][^.]+$", "") +"-output.txt")) {
                     fos.write(arrtoWrite);
                 }
@@ -225,5 +863,5 @@ public class QATTest {
         }
 
     }
-
+*/
 }
