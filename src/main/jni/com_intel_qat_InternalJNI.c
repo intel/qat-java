@@ -142,7 +142,6 @@ JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_setup(JNIEnv *env, jclass 
     throw_exception(env, QZ_SETUP_SESSION_ERROR, rc);
     return;
   }
-
   cpu_id = sched_getcpu();
   numa_id = numa_node_of_cpu(cpu_id);
 

@@ -41,11 +41,10 @@ public class QATSession {
   /**
    * Compression Algorithm for library.
    */
-  public static enum CompressionAlgorithm{
-    DEFLATE,
-    LZ4
+  public static enum CompressionAlgorithm {
+      DEFLATE,
+      LZ4
   }
-
   /**
    * default constructor to assign default code path as AUTO(with software fallback option), no retries, ZLIB as default compression algo
    * and compression level 6 which is ZLIB default compression level
@@ -53,19 +52,12 @@ public class QATSession {
   public QATSession(){
     this(CompressionAlgorithm.DEFLATE,DEFAULT_DEFLATE_COMP_LEVEL, Mode.AUTO, DEFAULT_RETRY_COUNT);
   }
-
-  /**
-   *
-   * @param compressionAlgorithm compression algorithm like LZ4, ZLIB,etc which are supported
-   */
-
   public QATSession(CompressionAlgorithm compressionAlgorithm){
     this(compressionAlgorithm,DEFAULT_DEFLATE_COMP_LEVEL,Mode.AUTO,DEFAULT_RETRY_COUNT);
   }
   public QATSession( CompressionAlgorithm compressionAlgorithm,  int compressionLevel){
     this(compressionAlgorithm,compressionLevel,Mode.AUTO,DEFAULT_RETRY_COUNT);
   }
-
   public QATSession( CompressionAlgorithm compressionAlgorithm,  int compressionLevel, Mode mode){
     this(compressionAlgorithm,compressionLevel,mode,DEFAULT_RETRY_COUNT);
   }
@@ -148,7 +140,13 @@ public class QATSession {
       compressedSize = InternalJNI.compressByteBuff(qzSession, src, src.position(), src.remaining(), dest, retryCount);
       dest.position(compressedSize);
     } else if (src.hasArray() && dest.hasArray()) {
-      byte[] destArray = new byte[dest.remaining()];
+      compressedSize = compressByteBufferInLoop(src, dest);
+    }
+    else if(src.isDirect() && dest.isDirect()){
+      compressedSize = InternalJNI.compressByteBuff(qzSession, src, src.position(), src.remaining(), dest, retryCount);
+      dest.position(compressedSize);
+    } else if (src.hasArray() && dest.hasArray()) {
+        byte[] destArray = new byte[dest.remaining()];
       compressedSize = InternalJNI.compressByteArray(qzSession, src.array(), src.position(), src.remaining(),destArray,0,retryCount);
       dest.put(destArray, 0, compressedSize);
     }
@@ -223,6 +221,12 @@ public class QATSession {
       decompressedSize = InternalJNI.decompressByteBuff(qzSession, src, src.position(), src.remaining(), dest, retryCount);
       dest.position(decompressedSize);
     } else if (src.hasArray() && dest.hasArray()) {
+      decompressedSize = decompressByteBufferInLoop(src, dest);
+    }
+    else if(src.isDirect() && dest.isDirect()){
+      decompressedSize = InternalJNI.decompressByteBuff(qzSession, src, src.position(), src.remaining(), dest, retryCount);
+      dest.position(decompressedSize);
+    } else if (src.hasArray() && dest.hasArray()) {
       byte[] destArray = new byte[dest.remaining()];
       decompressedSize = InternalJNI.decompressByteArray(qzSession, src.array(), src.position(), src.remaining(),destArray,0,retryCount);
       dest.put(destArray, 0, decompressedSize);
@@ -286,7 +290,6 @@ public class QATSession {
   void setIsPinnedMemAvailable(){
     this.isPinnedMemAvailable = false;
   }
-
   private int compressByteBufferInLoop(ByteBuffer srcBuff, ByteBuffer destBuff){
     int remaining = srcBuff.remaining();
     int sourceOffsetInLoop = srcBuff.position();
