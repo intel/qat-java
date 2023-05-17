@@ -16,8 +16,17 @@ import java.nio.charset.StandardCharsets;
  */
 public class QATSession {
 
+  /**
+   * Default compression is set to 6, this is to align with default compression mode chosen as ZLIB
+   */
   public static final  int DEFAULT_DEFLATE_COMP_LEVEL = 6;
+  /**
+   * Default PINNED memory allocated is set as 480 KB. This accelerates HW based compression/decompression
+   */
   private final static long DEFAULT_INTERNAL_BUFFER_SIZE_IN_BYTES = 491520L;
+  /**
+   * If retryCount is set as 0, it means no retries in compress/decompress, non-zero value means there will be retries
+   */
   public final static int DEFAULT_RETRY_COUNT = 0;
 
   private boolean isValid;
@@ -34,7 +43,14 @@ public class QATSession {
    * code paths for library. Currently, HARDWARE and AUTO(HARDWARE with SOFTWARE fallback) is supported
    */
   public static enum Mode{
+    /**
+     * Hardware ONLY Path, QAT session fails if this is chosen and HW is not available
+     */
     HARDWARE,
+
+    /**
+     * Hardware based QAT session optionally switches to software in case of HW failure
+     */
     AUTO;
   }
 
@@ -42,8 +58,15 @@ public class QATSession {
    * Compression Algorithm for library.
    */
   public static enum CompressionAlgorithm {
-      DEFLATE,
-      LZ4
+    /**
+     * ZLIB compression
+     */
+    DEFLATE,
+
+    /**
+     * LZ4 compression
+     */
+    LZ4
   }
   /**
    * default constructor to assign default code path as AUTO(with software fallback option), no retries, ZLIB as default compression algo
@@ -52,17 +75,35 @@ public class QATSession {
   public QATSession(){
     this(CompressionAlgorithm.DEFLATE,DEFAULT_DEFLATE_COMP_LEVEL, Mode.AUTO, DEFAULT_RETRY_COUNT);
   }
+
+  /**
+   * Sets defined compression algroithm, others are set to their respective default value
+   * @param compressionAlgorithm CompressionAlgorithm enum value
+   */
   public QATSession(CompressionAlgorithm compressionAlgorithm){
     this(compressionAlgorithm,DEFAULT_DEFLATE_COMP_LEVEL,Mode.AUTO,DEFAULT_RETRY_COUNT);
   }
+
+  /**
+   * Sets defined Compression algorithm along with compression level, others are set to their default value
+   * @param compressionAlgorithm CompressionAlgorithm enum value
+   * @param compressionLevel Compression Level
+   */
   public QATSession( CompressionAlgorithm compressionAlgorithm,  int compressionLevel){
     this(compressionAlgorithm,compressionLevel,Mode.AUTO,DEFAULT_RETRY_COUNT);
   }
+
+  /**
+   * Sets defined Compression algorithm along with compression level and chosen code path mode from Mode enum, others are set to their default value
+   * @param compressionAlgorithm CompressionAlgorithm enum value
+   * @param compressionLevel Compression Level
+   * @param mode Mode enum value
+   */
   public QATSession( CompressionAlgorithm compressionAlgorithm,  int compressionLevel, Mode mode){
     this(compressionAlgorithm,compressionLevel,mode,DEFAULT_RETRY_COUNT);
   }
   /**
-   *
+   * sets the parameter supplied by user or through other constructor with varying params
    * @param mode HARDWARE and auto
    * @param retryCount how many times a Hardware based compress/decompress call should be tried before failing compression/decompression
    * @param compressionAlgorithm compression algorithm like LZ4, ZLIB,etc which are supported
@@ -169,6 +210,7 @@ public class QATSession {
    * @param srcOffset source offset
    * @param srcLen source length
    * @param dest destination bytearray
+   * @param destOffset destination offset
    * @return success or throws exception
    */
 
@@ -251,6 +293,7 @@ public class QATSession {
    * @param srcOffset source offset
    * @param srcLen source length
    * @param dest destination bytearray
+   * @param destOffset destination offset
    * @return success or throws exception
    */
 
@@ -410,9 +453,14 @@ public class QATSession {
   }
 
   static void cleanUp(long qzSession, ByteBuffer unCompressedBuffer, ByteBuffer compressedBuffer){
+    System.out.println("------------------------- CLEANER CALLED ---------------------------------");
     InternalJNI.teardown(qzSession,unCompressedBuffer,compressedBuffer);
   }
 
+  /**
+   * This method is called by GC when doing cleaning action
+   * @return Runnable to be used in cleaner register
+   */
   public Runnable cleanningAction(){
     return new QATSessionCleaner(qzSession,unCompressedBuffer,compressedBuffer);
   }

@@ -7,7 +7,17 @@ package com.intel.qat;
 
 import java.nio.ByteBuffer;
 
+/**
+ * Class with static native function declaration
+ */
 public class InternalJNI {
+  /**
+   * This class contains static native method interface declarations required by JNI.
+   */
+  private InternalJNI(){}
+  /**
+   * loads libqatzip.so while loading through static block
+   */
   static {Native.loadLibrary();}
 
   static native void setup(QATSession qatSessionObject, int softwareBackup, long internalBufferSizeInBytes, int compressionAlgo, int compressionLevel);

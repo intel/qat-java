@@ -25,40 +25,6 @@ public class QATTest {
     private int filesPerThread,remainingFiles;
     private QATSession intQatSession;
 
-    //TODO: Dont catch Exception rather than specific
-    /*Group of tests
-     Init
-        Default and parametrized constructor with different possible values
-     teardown
-        teardown after init
-        teardown after teardown
-     compress
-        byte buffer
-            null buffer
-            read only buffer
-            byte array wrapped buffer
-            direct bytebuffer
-            empty buffer
-        byte array
-            empty array
-            regular array
-        Invalid call after teardown
-     decompress
-        byte buffer
-            null buffer
-            read only buffer
-            byte array wrapped buffer
-            direct bytebuffer
-            empty buffer
-        byte array
-            empty array
-            regular array
-        Invalid call after teardown
-
-    max compressedLength
-            invalid length
-            Invalid call after teardown
-    */
     @AfterEach
     public void cleanupSession(){
         if(intQatSession != null)
@@ -130,7 +96,7 @@ public class QATTest {
             qatSession = new QATSession();
             qatSession.teardown();
         }
-        catch (Exception e){
+        catch (QATException e){
             fail(e.getMessage());
         }
     }
@@ -182,7 +148,7 @@ public class QATTest {
             String str = new String(uncomp, StandardCharsets.UTF_8);
             assertTrue(str.compareTo(uncompressed) == 0);
         }
-        catch (Exception e){
+        catch (QATException|IllegalStateException|IllegalArgumentException|ReadOnlyBufferException e){
             e.getStackTrace();
             fail(e.getMessage());
         }
@@ -222,7 +188,7 @@ public class QATTest {
             String str = new String(uncompBuffer.array(), StandardCharsets.UTF_8);
             assertTrue(str.compareTo(uncompressed) == 0);
         }
-        catch (Exception e){
+        catch (QATException|IllegalStateException|IllegalArgumentException|ArrayIndexOutOfBoundsException e){
             e.getStackTrace();
             fail(e.getMessage());
         }
@@ -263,7 +229,7 @@ public class QATTest {
             String str = new String(uncompBuffer.array(), StandardCharsets.UTF_8);
             assertTrue(str.compareTo(uncompressed) == 0);
         }
-        catch (Exception e){
+        catch (QATException|IllegalStateException|IllegalArgumentException|ReadOnlyBufferException e){
             e.getStackTrace();
             fail(e.getMessage());
         }
@@ -287,8 +253,8 @@ public class QATTest {
             String str = new String(uncomp, StandardCharsets.UTF_8);
             assertTrue(str.compareTo(uncompressed) == 0);
         }
-        catch (QATException ie){
-            fail(ie.getMessage());
+        catch (QATException|IllegalStateException|IllegalArgumentException|ArrayIndexOutOfBoundsException e){
+            fail(e.getMessage());
         }
     }
 
@@ -363,7 +329,7 @@ public class QATTest {
 
             int compressedSize = intQatSession.compress(source,0, source.length, dest,0);
         }
-        catch (Exception e){
+        catch (QATException e){
             assertTrue(true);
         }
     }
@@ -382,7 +348,7 @@ public class QATTest {
             int decompressedSize = intQatSession.decompress(dest,0,dest.length,uncomp,0);
             fail("testInvalidDecompressionHardwareMode failed");
         }
-        catch (Exception e){
+        catch (QATException e){
             assertTrue(true);
         }
     }
@@ -599,9 +565,6 @@ public class QATTest {
         }
         catch (IllegalArgumentException | QATException ie){
             fail(ie.getMessage());
-        }
-        catch (Exception e){
-            fail(e.getMessage());
         }
         assertTrue(true);
     }

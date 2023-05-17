@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: MIT
 # ==========================================================================
+# use clang-format for both C and Java code
+#install clang
 # use clang with cmdline option enable address sanitizer
 
 cmake_minimum_required(VERSION 3.16.3) # check minimum required for qat

@@ -385,9 +385,5 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_teardown(JNIEnv *env, jcla
 
   qzClose(qz_session);
 
-  if (rc != QZ_OK){
-    throw_exception(env,QZ_TEARDOWN_ERROR,rc);
-    return 0;
-  }
   return QZ_OK;
 }
