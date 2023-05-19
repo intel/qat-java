@@ -137,9 +137,8 @@ public class QATSession {
   public void teardown() throws QATException{
     if(!isValid)
       throw new IllegalStateException();
-
-    InternalJNI.teardown(qzSession, unCompressedBuffer, compressedBuffer);
     isValid = false;
+    InternalJNI.teardown(qzSession, unCompressedBuffer, compressedBuffer);
   }
 
   /**
