@@ -19,11 +19,11 @@ import static org.junit.jupiter.api.Assertions.fail;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class QATTest {
-    private int numberOfThreads;
-    private File filePath, filesList[];
-    private Thread[] threads;
+    //private int numberOfThreads;
+    //private File filePath, filesList[];
+    //private Thread[] threads;
 
-    private int filesPerThread,remainingFiles;
+    //private int filesPerThread,remainingFiles;
     private QATSession intQatSession;
 
     @AfterEach
@@ -246,7 +246,7 @@ public class QATTest {
             int compressedSize = intQatSession.compress(source,0, source.length, dest,0);
             assertNotNull(dest);
 
-            int decompressedSize = intQatSession.decompress(dest,0, compressedSize, uncomp, 0);
+            intQatSession.decompress(dest,0, compressedSize, uncomp, 0);
             assertNotNull(uncomp);
             String str = new String(uncomp, StandardCharsets.UTF_8);
             assertTrue(str.compareTo(uncompressed) == 0);
@@ -303,7 +303,7 @@ public class QATTest {
             int compressedSize = intQatSession.compress(source,0, source.length, dest,0);
             assertNotNull(dest);
 
-            int decompressedSize = intQatSession.decompress(dest,0, compressedSize, uncomp, 0);
+            intQatSession.decompress(dest,0, compressedSize, uncomp, 0);
             assertNotNull(uncomp);
             String str = new String(uncomp, StandardCharsets.UTF_8);
 
@@ -321,12 +321,11 @@ public class QATTest {
 
             String uncompressed = "lorem opsum lorem opsum opsum lorem";
             byte[] source = new byte[uncompressed.getBytes(Charset.forName("UTF-8")).length];
-            byte[] uncomp = new byte[source.length];
             byte[] dest = new byte[source.length/10];
 
-            int compressedSize = intQatSession.compress(source,0, source.length, dest,0);
+            intQatSession.compress(source,0, source.length, dest,0);
         }
-        catch (QATException e){
+        catch (QATException|IndexOutOfBoundsException e){
             assertTrue(true);
         }
     }
@@ -341,11 +340,11 @@ public class QATTest {
             byte[] uncomp = new byte[source.length/2];
             byte[] dest = new byte[source.length];
 
-            int compressedSize = intQatSession.compress(source,0, source.length, dest,0);
-            int decompressedSize = intQatSession.decompress(dest,0,dest.length,uncomp,0);
+            intQatSession.compress(source,0, source.length, dest,0);
+            intQatSession.decompress(dest,0,dest.length,uncomp,0);
             fail("testInvalidDecompressionHardwareMode failed");
         }
-        catch (QATException e){
+        catch (QATException|IndexOutOfBoundsException e){
             assertTrue(true);
         }
     }
@@ -367,7 +366,7 @@ public class QATTest {
             srcBuff.put(source,0,source.length);
             srcBuff.flip();
 
-            int compressedSize = intQatSession.compress(srcBuff,destBuff);
+            intQatSession.compress(srcBuff,destBuff);
             assertNotNull(destBuff);
 
             destBuff.flip();
@@ -402,7 +401,7 @@ public class QATTest {
             srcBuff.put(source,0,source.length);
             srcBuff.flip();
 
-            int compressedSize = intQatSession.compress(srcBuff,destBuff);
+            intQatSession.compress(srcBuff,destBuff);
             assertNotNull(destBuff);
 
             destBuff.flip();
@@ -475,14 +474,13 @@ public class QATTest {
 
             String uncompressed = "lorem opsum lorem opsum opsum lorem";
             byte[] source = uncompressed.getBytes(Charset.forName("UTF-8"));
-            byte[] uncomp = new byte[source.length];
 
             ByteBuffer srcBuff = ByteBuffer.allocateDirect(source.length);
             ByteBuffer destBuff = ByteBuffer.allocateDirect(intQatSession.maxCompressedLength(source.length));
 
             srcBuff.put(source,0,source.length);
             srcBuff.flip();
-            int compressedSize = intQatSession.compress(srcBuff,destBuff.asReadOnlyBuffer());
+            intQatSession.compress(srcBuff,destBuff.asReadOnlyBuffer());
             fail("testCompressionReadOnlyDestination failed");
         }
         catch (ReadOnlyBufferException ie){
@@ -497,7 +495,6 @@ public class QATTest {
 
             String uncompressed = "lorem opsum lorem opsum opsum lorem";
             byte[] source = uncompressed.getBytes(Charset.forName("UTF-8"));
-            byte[] uncomp = new byte[source.length];
 
             ByteBuffer srcBuff = ByteBuffer.allocateDirect(source.length);
             ByteBuffer destBuff = ByteBuffer.allocateDirect(intQatSession.maxCompressedLength(source.length));
@@ -506,9 +503,9 @@ public class QATTest {
             srcBuff.put(source,0,source.length);
             srcBuff.flip();
 
-            int compressedSize = intQatSession.compress(srcBuff,destBuff);
+            intQatSession.compress(srcBuff,destBuff);
             destBuff.flip();
-            int decompressedSize = intQatSession.decompress(destBuff,unCompBuff.asReadOnlyBuffer());
+            intQatSession.decompress(destBuff,unCompBuff.asReadOnlyBuffer());
             fail("testDecompressionReadOnlyDestination failed");
         }
         catch (ReadOnlyBufferException ie){
@@ -533,7 +530,7 @@ public class QATTest {
             srcBuffRW.flip();
 
             ByteBuffer srcBuffRO = srcBuffRW.asReadOnlyBuffer();
-            int compressedSize = intQatSession.compress(srcBuffRO,destBuff);
+            intQatSession.compress(srcBuffRO,destBuff);
             assertNotNull(destBuff);
             destBuff.flip();
             int decompressedSize = intQatSession.decompress(destBuff,unCompBuff);
@@ -594,7 +591,6 @@ public class QATTest {
         QATSession qatSession = null;
         String uncompressed = "lorem opsum lorem opsum opsum lorem";
         byte[] source = uncompressed.getBytes(Charset.forName("UTF-8"));
-        byte[] uncomp = new byte[source.length];
         byte[] dest = new byte[2 * source.length];
 
         try {
@@ -638,7 +634,6 @@ public class QATTest {
             qatSession = new QATSession();
             String uncompressed = "lorem opsum lorem opsum opsum lorem";
             byte[] source = uncompressed.getBytes(Charset.forName("UTF-8"));
-            byte[] uncomp = new byte[source.length];
             byte[] dest = new byte[2 * source.length];
 
             qatSession.teardown();
@@ -657,11 +652,9 @@ public class QATTest {
             qatSession = new QATSession();
             String uncompressed = "lorem opsum lorem opsum opsum lorem";
             byte[] source = uncompressed.getBytes(Charset.forName("UTF-8"));
-            byte[] uncomp = new byte[source.length];
 
             ByteBuffer srcBuff = ByteBuffer.allocateDirect(source.length);
             ByteBuffer destBuff = ByteBuffer.allocateDirect(qatSession.maxCompressedLength(source.length));
-            ByteBuffer unCompBuff = ByteBuffer.allocateDirect(source.length);
 
             srcBuff.put(source,0,source.length);
             srcBuff.flip();

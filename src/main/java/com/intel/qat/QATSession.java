@@ -451,6 +451,18 @@ public class QATSession {
     return totalDecompressedSize;
   }
 
+  /**
+   * Coverity SpotBugs scan report unwritten-public-field fix: provide private setter for the buffers
+   * @param unCompressedBuffer
+   */
+  private void setUnCompressedBuffer(ByteBuffer unCompressedBuffer) {
+    this.unCompressedBuffer = unCompressedBuffer;
+  }
+
+  private void setCompressedBuffer(ByteBuffer compressedBuffer) {
+    this.compressedBuffer = compressedBuffer;
+  }
+
   static void cleanUp(long qzSession, ByteBuffer unCompressedBuffer, ByteBuffer compressedBuffer){
     System.out.println("------------------------- CLEANER CALLED ---------------------------------");
     InternalJNI.teardown(qzSession,unCompressedBuffer,compressedBuffer);
