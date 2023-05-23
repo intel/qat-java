@@ -74,6 +74,6 @@ void throw_exception(JNIEnv *env, const char *errorMessage, jlong status)
 {
     char buff[256];
     jclass Exception = (*env)->FindClass(env,"com/intel/qat/QATException");
-    sprintf_s(buff,sizeof(buff),"%s %s %s", getErrorMessage(status)," : ", errorMessage);
+    snprintf(buff,sizeof(buff),"%s %s %s", getErrorMessage(status)," : ", errorMessage);
     (*env)->ThrowNew(env,Exception, buff);
 }

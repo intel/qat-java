@@ -7,10 +7,14 @@
 package com.intel.qat;
 
 import java.io.File;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ReadOnlyBufferException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -725,6 +729,92 @@ public class QATTest {
         }
         catch (IllegalStateException ie){
             assertTrue(true);
+        }
+    }
+
+    @Test
+    public void testChunkedCompressionWithByteArray(){
+        try{
+            intQatSession = new QATSession(QATSession.CompressionAlgorithm.DEFLATE,6, QATSession.Mode.HARDWARE);
+            byte[] src = Files.readAllBytes(Path.of("src/main/resources/book2"));
+            String book2 = new String(src, StandardCharsets.UTF_8);
+            byte[] dest = new byte[intQatSession.maxCompressedLength(src.length)];
+            byte[] unCompressed = new byte[src.length];
+
+            int compressedSize = intQatSession.compress(src,0,src.length, dest,0);
+            int decompressedSize = intQatSession.decompress(dest,0,compressedSize,unCompressed,0);
+
+            assertTrue(compressedSize > 0);
+            assertEquals(decompressedSize,src.length);
+
+            assertTrue(book2.compareTo(new String(unCompressed, Charset.defaultCharset())) == 0);
+
+        }
+        catch (QATException | IOException e){
+            fail(e.getMessage());
+        }
+    }
+
+    @Test
+    public void testChunkedCompressionWithByteBuff(){
+        try{
+            intQatSession = new QATSession(QATSession.CompressionAlgorithm.DEFLATE,6, QATSession.Mode.HARDWARE);
+            byte[] src = Files.readAllBytes(Path.of("src/main/resources/book2"));
+            String book2 = new String(src, StandardCharsets.UTF_8);
+            byte[] unCompressed = new byte[src.length];
+
+            ByteBuffer srcBuffer = ByteBuffer.allocateDirect(src.length);
+            ByteBuffer compressedBuffer = ByteBuffer.allocateDirect(intQatSession.maxCompressedLength(src.length));
+            ByteBuffer decompressedBuffer = ByteBuffer.allocateDirect(src.length);
+
+            srcBuffer.put(src);
+            srcBuffer.flip();
+
+            int compressedSize = intQatSession.compress(srcBuffer,compressedBuffer);
+            compressedBuffer.flip();
+            int decompressedSize = intQatSession.decompress(compressedBuffer,decompressedBuffer);
+            decompressedBuffer.flip();
+            decompressedBuffer.get(unCompressed,0,decompressedSize);
+            assertTrue(compressedSize > 0);
+            assertEquals(decompressedSize,src.length);
+
+            assertTrue(book2.compareTo(new String(unCompressed, Charset.defaultCharset())) == 0);
+
+        }
+        catch (QATException | IOException e){
+            fail(e.getMessage());
+        }
+    }
+
+    @Test
+    public void testChunkedCompressionWithWrappedByteBuff(){
+        try{
+            intQatSession = new QATSession(QATSession.CompressionAlgorithm.DEFLATE,6, QATSession.Mode.HARDWARE);
+            byte[] src = Files.readAllBytes(Path.of("src/main/resources/book2"));
+            String book2 = new String(src, StandardCharsets.UTF_8);
+            byte[] unCompressed = new byte[src.length];
+
+            ByteBuffer srcBuffer = ByteBuffer.allocate(src.length);
+            ByteBuffer compressedBuffer = ByteBuffer.allocate(intQatSession.maxCompressedLength(src.length));
+            ByteBuffer decompressedBuffer = ByteBuffer.allocate(src.length);
+
+            srcBuffer.put(src);
+            srcBuffer.flip();
+
+            int compressedSize = intQatSession.compress(srcBuffer,compressedBuffer);
+            compressedBuffer.flip();
+            int decompressedSize = intQatSession.decompress(compressedBuffer,decompressedBuffer);
+
+            decompressedBuffer.flip();
+            decompressedBuffer.get(unCompressed,0,decompressedSize);
+            assertTrue(compressedSize > 0);
+            assertEquals(decompressedSize,src.length);
+
+            assertTrue(book2.compareTo(new String(unCompressed, Charset.defaultCharset())) == 0);
+
+        }
+        catch (QATException | IOException e){
+            fail(e.getMessage());
         }
     }
     /*
