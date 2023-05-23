@@ -180,12 +180,6 @@ public class QATSession {
       compressedSize = InternalJNI.compressByteBuff(qzSession, src, src.position(), src.remaining(), dest, retryCount);
       dest.position(compressedSize);
     } else if (src.hasArray() && dest.hasArray()) {
-      compressedSize = compressByteBufferInLoop(src, dest);
-    }
-    else if(src.isDirect() && dest.isDirect()){
-      compressedSize = InternalJNI.compressByteBuff(qzSession, src, src.position(), src.remaining(), dest, retryCount);
-      dest.position(compressedSize);
-    } else if (src.hasArray() && dest.hasArray()) {
         byte[] destArray = new byte[dest.remaining()];
       compressedSize = InternalJNI.compressByteArray(qzSession, src.array(), src.position(), src.remaining(),destArray,0,retryCount);
       dest.put(destArray, 0, compressedSize);
@@ -256,12 +250,6 @@ public class QATSession {
     int decompressedSize = 0;
 
     if (isPinnedMemory()) {
-      decompressedSize = decompressByteBufferInLoop(src, dest);
-    }
-    else if(src.isDirect() && dest.isDirect()){
-      decompressedSize = InternalJNI.decompressByteBuff(qzSession, src, src.position(), src.remaining(), dest, retryCount);
-      dest.position(decompressedSize);
-    } else if (src.hasArray() && dest.hasArray()) {
       decompressedSize = decompressByteBufferInLoop(src, dest);
     }
     else if(src.isDirect() && dest.isDirect()){
@@ -469,9 +457,9 @@ public class QATSession {
     this.compressedBuffer = compressedBuffer;
   }
 
-  static void cleanUp(long qzSession, ByteBuffer unCompressedBuffer, ByteBuffer compressedBuffer){
+  static void cleanUp(long qzSessionReference, ByteBuffer unCompressedBufferReference, ByteBuffer compressedBufferReference){
     System.out.println("------------------------- CLEANER CALLED ---------------------------------");
-    InternalJNI.teardown(qzSession,unCompressedBuffer,compressedBuffer);
+    InternalJNI.teardown(qzSessionReference,unCompressedBufferReference,compressedBufferReference);
   }
 
   /**
@@ -479,7 +467,7 @@ public class QATSession {
    * @return Runnable to be used in cleaner register
    */
   public Runnable cleanningAction(){
-    return new QATSessionCleaner(qzSession,unCompressedBuffer,compressedBuffer);
+    return new QATSessionCleaner(this.qzSession,this.unCompressedBuffer,this.compressedBuffer);
   }
   static class QATSessionCleaner implements Runnable{
     private long qzSession;

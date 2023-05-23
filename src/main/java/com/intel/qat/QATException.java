@@ -18,14 +18,4 @@ public class QATException extends RuntimeException {
     public QATException(String message) {
         super(message);
     }
-
-    /**
-     * Constructs a new QATException with the specified message and cause.
-     *
-     * @param message error message
-     * @param cause   the cause
-     */
-    public QATException(String message, Throwable cause) {
-        super(message, cause);
-    }
 }
