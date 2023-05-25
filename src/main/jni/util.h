@@ -6,8 +6,8 @@
 
 #include <jni.h>
 
-#ifndef _Included_com_intel_qat_InternalJNI
-#define _Included_com_intel_qat_InternalJNI
+#ifndef util_h
+#define util_h
 #ifdef __cplusplus
 extern "C" {
 #endif
