@@ -8,12 +8,14 @@ package com.intel.qat;
 
 import java.io.File;
 import java.io.IOException;
+import java.lang.ref.Cleaner;
 import java.nio.ByteBuffer;
 import java.nio.ReadOnlyBufferException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Random;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -22,8 +24,16 @@ import static org.junit.jupiter.api.Assertions.fail;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class QATTest {
-   
+    //private int numberOfThreads;
+    //private File filePath, filesList[];
+    //private Thread[] threads;
+
+    //private int filesPerThread,remainingFiles;
     private QATSession intQatSession;
+    private static final Cleaner cleaner = Cleaner.create();
+    private Cleaner.Cleanable cleanable;
+
+    private final Random RANDOM = new Random();
 
     @AfterEach
     public void cleanupSession(){
@@ -812,4 +822,164 @@ public class QATTest {
             fail(e.getMessage());
         }
     }
+
+    @Test
+    public void testInvalidDCompressionOffsets() {
+        try{
+            intQatSession = new QATSession(QATSession.CompressionAlgorithm.DEFLATE,6, QATSession.Mode.HARDWARE);
+            byte[] src = new byte[100];
+            RANDOM.nextBytes(src);
+            String book2 = new String(src, StandardCharsets.UTF_8);
+            byte[] dest = new byte[intQatSession.maxCompressedLength(src.length)];
+            byte[] unCompressed = new byte[src.length];
+
+            intQatSession.setIsPinnedMemAvailable();
+
+            intQatSession.compress(src,-1,src.length,dest,0);
+            int decompressedSize = intQatSession.decompress(dest,0,dest.length,unCompressed,0);
+
+            fail();
+        }
+        catch (QATException|ArrayIndexOutOfBoundsException e){
+            assertTrue(true);
+        }
+    }
+
+    @Test
+    public void testInvalidDCompressionLargeOffsets() {
+        try{
+            intQatSession = new QATSession(QATSession.CompressionAlgorithm.DEFLATE,6, QATSession.Mode.HARDWARE);
+            byte[] src = new byte[100];
+            RANDOM.nextBytes(src);
+            String book2 = new String(src, StandardCharsets.UTF_8);
+            byte[] dest = new byte[intQatSession.maxCompressedLength(src.length)];
+            byte[] unCompressed = new byte[src.length];
+
+            intQatSession.setIsPinnedMemAvailable();
+
+            intQatSession.compress(src,src.length+1,src.length,dest,0);
+            int decompressedSize = intQatSession.decompress(dest,0,dest.length,unCompressed,0);
+
+            fail();
+        }
+        catch (QATException|ArrayIndexOutOfBoundsException e){
+            assertTrue(true);
+        }
+    }
+
+    @Test
+    public void testInvalidDDecompressionOffsets() {
+        try{
+            intQatSession = new QATSession(QATSession.CompressionAlgorithm.DEFLATE,6, QATSession.Mode.HARDWARE);
+            byte[] src = new byte[100];
+            RANDOM.nextBytes(src);
+            String book2 = new String(src, StandardCharsets.UTF_8);
+            byte[] dest = new byte[intQatSession.maxCompressedLength(src.length)];
+            byte[] unCompressed = new byte[src.length];
+
+            intQatSession.setIsPinnedMemAvailable();
+
+            intQatSession.compress(src,0,src.length,dest,0);
+            int decompressedSize = intQatSession.decompress(dest,-1,dest.length,unCompressed,0);
+
+            fail();
+        }
+        catch (QATException|ArrayIndexOutOfBoundsException e){
+            assertTrue(true);
+        }
+    }
+
+    @Test
+    public void testInvalidDDecompressionLargeOffsets() {
+        try{
+            intQatSession = new QATSession(QATSession.CompressionAlgorithm.DEFLATE,6, QATSession.Mode.HARDWARE);
+            byte[] src = new byte[100];
+            RANDOM.nextBytes(src);
+            String book2 = new String(src, StandardCharsets.UTF_8);
+            byte[] dest = new byte[intQatSession.maxCompressedLength(src.length)];
+            byte[] unCompressed = new byte[src.length];
+
+            intQatSession.setIsPinnedMemAvailable();
+
+            intQatSession.compress(src,0,src.length,dest,0);
+            int decompressedSize = intQatSession.decompress(dest,dest.length+1,dest.length,unCompressed,0);
+
+            fail();
+        }
+        catch (QATException|ArrayIndexOutOfBoundsException e){
+            assertTrue(true);
+        }
+    }
+    @Test
+    public void testCleaner(){
+        QATSession qatSession = new QATSession();
+        this.cleanable = cleaner.register(qatSession, qatSession.cleanningAction());
+        cleanable.clean();
+    }
+    /*
+    private void doCompressDecompress(int thread) throws QATException{
+        List<File> inFiles = new ArrayList<>();
+
+        for(int i = filesPerThread * thread; i < filesPerThread * (thread + 1);i++){
+            inFiles.add(filesList[i]);
+        }
+
+        if(thread == numberOfThreads - 1 && remainingFiles > 0){
+            for(int j = filesList.length - remainingFiles; j < filesList.length; j++)
+                inFiles.add(filesList[j]);
+        }
+        QATSession qatSession = null;
+        try{
+            try {
+                qatSession = new QATSession(QATUtils.ExecutionPaths.HARDWARE, 0, QATUtils.CompressionAlgo.DEFLATE, 6);
+            }
+            catch (QATException qe) {
+                fail(qe.getMessage());
+            }
+
+            for(File file: inFiles){
+
+                byte[] srcArray = new byte[0];
+                try {
+                    srcArray = Files.readAllBytes(file.toPath());
+                } catch (IOException e) {
+                    throw new QATException(e.getMessage());
+                }
+
+                // get max compressed Length
+                int maxCompressedLength =
+                        qatSession.maxCompressedLength(srcArray.length);
+
+                byte[] destArray = new byte[maxCompressedLength];
+                //source and destination byte buffer
+                int compressedLength = qatSession.compressByteArray(srcArray,0,srcArray.length, destArray,0);
+
+                if (compressedLength < 0) {
+                    System.out.println("unsuccessful compression.. exiting");
+                }
+
+                int uncompressedLength2 = qatSession.decompressByteArray(destArray,0, compressedLength, srcArray,0);
+
+                assertNotEquals(uncompressedLength2,0);
+                assertEquals(uncompressedLength2, srcArray.length);
+
+                byte[] arrtoWrite = new byte[uncompressedLength2];
+                arrtoWrite = Arrays.copyOf(srcArray, uncompressedLength2);
+
+                try (FileOutputStream fos = new FileOutputStream("../resources/res" + file.getName().replaceFirst("[.][^.]+$", "") +"-output.txt")) {
+                    fos.write(arrtoWrite);
+                }
+                catch (Exception e){
+                    fail("uncompressed data failed to write");
+                }
+            }
+
+            qatSession.teardown();
+        }
+        catch(QATException e) {
+            System.out.println("Runtime Exception message: " + e.getMessage());
+        }
+
+    }
+*/
 }
