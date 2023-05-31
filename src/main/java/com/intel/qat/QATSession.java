@@ -481,7 +481,7 @@ public class QATSession {
     }
     @Override
     public void run(){
-        if(qzSession != 0 && unCompressedBuffer != null && compressedBuffer !=null){
+        if(qzSession != 0){
           cleanUp(qzSession,unCompressedBuffer,compressedBuffer);
           qzSession = 0;
           unCompressedBuffer = null;
