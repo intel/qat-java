@@ -364,7 +364,7 @@ public class QATSession {
       int sourceLimit = Math.min(unCompressedBufferLimit,remaining);
       unCompressedBuffer.put(src, sourceOffsetInLoop, sourceLimit);
       unCompressedBuffer.flip();
-
+.
       compressedSize = InternalJNI.compressByteBuff(qzSession, unCompressedBuffer, 0, sourceLimit, compressedBuffer, retryCount);
 
       if(compressedSize < 0)
@@ -439,7 +439,7 @@ public class QATSession {
         throw new QATException("Decompression fails");
 
       decompressedBuffer.get(dest,destOffsetInLoop,decompressedSize);
-      
+
       totalDecompressedSize += decompressedSize;
       sourceOffsetInLoop += sourceLimit;
       destOffsetInLoop += decompressedSize;
@@ -486,7 +486,8 @@ public class QATSession {
     }
     @Override
     public void run(){
-        if(qzSession != 0 && unCompressedBuffer != null && compressedBuffer !=null){
+      
+        if(qzSession != 0){
           cleanUp(qzSession,unCompressedBuffer,compressedBuffer);
           qzSession = 0;
           unCompressedBuffer = null;
