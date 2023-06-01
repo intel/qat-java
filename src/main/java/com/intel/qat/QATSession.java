@@ -364,7 +364,7 @@ public class QATSession {
       int sourceLimit = Math.min(unCompressedBufferLimit,remaining);
       unCompressedBuffer.put(src, sourceOffsetInLoop, sourceLimit);
       unCompressedBuffer.flip();
-.
+
       compressedSize = InternalJNI.compressByteBuff(qzSession, unCompressedBuffer, 0, sourceLimit, compressedBuffer, retryCount);
 
       if(compressedSize < 0)
