@@ -383,6 +383,9 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_teardown(JNIEnv *env, jcla
 
   freePinnedMem(unSrcBuff, unDestBuff);
 
+  if(qz_session == NULL)
+    return QZ_OK;
+
   int rc = qzTeardownSession(qz_session);
   if (rc != QZ_OK){
     throw_exception(env,QZ_TEARDOWN_ERROR,rc);

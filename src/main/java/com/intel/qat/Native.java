@@ -13,6 +13,10 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
+
+/**
+ * Class for loading system library - libqat-java.so
+ */
 class Native {
     private static boolean loaded = false;
     private static String extension = "";
@@ -20,12 +24,12 @@ class Native {
     static boolean isLoaded() {
         if (loaded) return true;
         try {
-        AccessController.doPrivileged(new PrivilegedAction<Void>() {
-          public Void run() {
-              System.loadLibrary("qat-java");
-              return null;
-          }
-        });
+            AccessController.doPrivileged(new PrivilegedAction<Void>() {
+              public Void run() {
+                  System.loadLibrary("qat-java");
+                  return null;
+              }
+            });
 
             loaded = true;
         } catch (UnsatisfiedLinkError e) {
@@ -61,7 +65,7 @@ class Native {
             if (in == null) {
                 throw new UnsupportedOperationException("Unsupported OS/arch, cannot find " + libName + ". Please try building from source.");
             }
-            // To avoid race condition with other concurrently running Java processes using qpl-java create the .lck file first.
+            // To avoid race condition with other concurrently running Java processes using qat-java create the .lck file first.
 
             tempNativeLibLock = File.createTempFile("libqpl-java", extension + ".lck"); // TODO:// check file permission with ls -lh
             tempNativeLib = new File(tempNativeLibLock.getAbsolutePath().replaceFirst(".lck$", ""));
