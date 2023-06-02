@@ -128,6 +128,8 @@ public class QATSession {
 
   private void setup() throws QATException{
     InternalJNI.setup(this,mode.ordinal(), DEFAULT_INTERNAL_BUFFER_SIZE_IN_BYTES, compressionAlgorithm.ordinal(), this.compressionLevel);
+    if(unCompressedBuffer == null || compressedBuffer == null)
+      System.out.println("------------ DEBUG: PINNED MEMORY WAS NOT ALLOCATED -----------");
     isValid = true;
   }
 
@@ -458,7 +460,6 @@ public class QATSession {
   }
 
   static void cleanUp(long qzSessionReference, ByteBuffer unCompressedBufferReference, ByteBuffer compressedBufferReference){
-    System.out.println("------------------------- CLEANER CALLED ---------------------------------");
     InternalJNI.teardown(qzSessionReference,unCompressedBufferReference,compressedBufferReference);
   }
 
@@ -467,7 +468,7 @@ public class QATSession {
    * @return Runnable to be used in cleaner register
    */
   public Runnable cleanningAction(){
-    return new QATSessionCleaner(this.qzSession,this.unCompressedBuffer,this.compressedBuffer);
+    return new QATSessionCleaner(qzSession,unCompressedBuffer,compressedBuffer);
   }
   static class QATSessionCleaner implements Runnable{
     private long qzSession;

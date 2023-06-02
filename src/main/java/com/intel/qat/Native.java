@@ -65,7 +65,7 @@ class Native {
                 throw new UnsupportedOperationException("Unsupported OS/arch, cannot find " + libName + ". Please try building from source.");
             }
             // To avoid race condition with other concurrently running Java processes using qpl-java create the .lck file first.
-            tempNativeLibLock = File.createTempFile("libqpl-java", extension + ".lck");
+            tempNativeLibLock = File.createTempFile("libqpl-java", extension + ".lck"); // TODO:// check file permission with ls -lh
             tempNativeLib = new File(tempNativeLibLock.getAbsolutePath().replaceFirst(".lck$", ""));
             try (FileOutputStream out = new FileOutputStream(tempNativeLib)) {
                 byte[] buf = new byte[4096];
