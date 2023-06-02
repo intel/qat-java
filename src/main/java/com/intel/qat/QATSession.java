@@ -182,7 +182,8 @@ public class QATSession {
       compressedSize = InternalJNI.compressByteBuff(qzSession, src, src.position(), src.remaining(), dest, retryCount);
       dest.position(compressedSize);
     } else if (src.hasArray() && dest.hasArray()) {
-        byte[] destArray = new byte[dest.remaining()];
+
+      byte[] destArray = new byte[dest.remaining()];
       compressedSize = InternalJNI.compressByteArray(qzSession, src.array(), src.position(), src.remaining(),destArray,0,retryCount);
       dest.put(destArray, 0, compressedSize);
     }
@@ -366,6 +367,7 @@ public class QATSession {
       int sourceLimit = Math.min(unCompressedBufferLimit,remaining);
       unCompressedBuffer.put(src, sourceOffsetInLoop, sourceLimit);
       unCompressedBuffer.flip();
+
       compressedSize = InternalJNI.compressByteBuff(qzSession, unCompressedBuffer, 0, sourceLimit, compressedBuffer, retryCount);
 
       if(compressedSize < 0)
@@ -391,6 +393,7 @@ public class QATSession {
     int totalDecompressedSize = 0;
     int compressedBufferLimit = compressedBuffer.limit();
     ByteBuffer decompressedBuffer = ByteBuffer.allocateDirect(destBuff.remaining());
+
     while (remaining > 0) {
       decompressedBuffer.clear();
       compressedBuffer.clear();
@@ -422,6 +425,7 @@ public class QATSession {
     int decompressedSize = 0;
     int totalDecompressedSize = 0;
     int compressedBufferLimit = compressedBuffer.limit();
+
     ByteBuffer decompressedBuffer = ByteBuffer.allocateDirect(dest.length);
     while (remaining > 0) {
       decompressedBuffer.clear();
@@ -470,6 +474,7 @@ public class QATSession {
   public Runnable cleanningAction(){
     return new QATSessionCleaner(qzSession,unCompressedBuffer,compressedBuffer);
   }
+
   static class QATSessionCleaner implements Runnable{
     private long qzSession;
     private ByteBuffer unCompressedBuffer;

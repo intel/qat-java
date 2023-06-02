@@ -34,6 +34,7 @@ public class QATTest {
     private Cleaner.Cleanable cleanable;
 
     private final Random RANDOM = new Random();
+
     @AfterEach
     public void cleanupSession(){
         if(intQatSession != null)

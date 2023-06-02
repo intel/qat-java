@@ -5,7 +5,6 @@
  ******************************************************************************/
 
 #include <jni.h>
-
 #ifndef util_h
 #define util_h
 #ifdef __cplusplus

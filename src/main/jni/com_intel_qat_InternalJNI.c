@@ -369,9 +369,7 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_maxCompressedSize(JNIEnv *
  * teardown QAT session and release QAT hardware resources
  */
 
-// TODO: test if native teardown was called multiple times
 JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_teardown(JNIEnv *env, jclass jobj, jlong qzSession, jobject srcBuff, jobject destBuff) {
-
 
   QzSession_T* qz_session = (QzSession_T*) qzSession;
   void *unSrcBuff = NULL;

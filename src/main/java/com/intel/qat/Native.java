@@ -17,7 +17,6 @@ class Native {
     private static boolean loaded = false;
     private static String extension = "";
 
-    //https://github.com/lz4/lz4-java/pull/204/files - privilege section
     static boolean isLoaded() {
         if (loaded) return true;
         try {
@@ -30,8 +29,6 @@ class Native {
 
             loaded = true;
         } catch (UnsatisfiedLinkError e) {
-            // Could not load native library from "java.library.path"
-            // Next, try loading from the jar
             loaded = false;
         }
         return loaded;
@@ -65,6 +62,7 @@ class Native {
                 throw new UnsupportedOperationException("Unsupported OS/arch, cannot find " + libName + ". Please try building from source.");
             }
             // To avoid race condition with other concurrently running Java processes using qpl-java create the .lck file first.
+
             tempNativeLibLock = File.createTempFile("libqpl-java", extension + ".lck"); // TODO:// check file permission with ls -lh
             tempNativeLib = new File(tempNativeLibLock.getAbsolutePath().replaceFirst(".lck$", ""));
             try (FileOutputStream out = new FileOutputStream(tempNativeLib)) {
