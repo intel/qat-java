@@ -128,6 +128,8 @@ public class QATSession {
 
   private void setup() throws QATException{
     InternalJNI.setup(this,mode.ordinal(), DEFAULT_INTERNAL_BUFFER_SIZE_IN_BYTES, compressionAlgorithm.ordinal(), this.compressionLevel);
+    if(unCompressedBuffer == null || compressedBuffer == null)
+      System.out.println("------------ DEBUG: PINNED MEMORY WAS NOT ALLOCATED -----------");
     isValid = true;
   }
 
@@ -180,6 +182,7 @@ public class QATSession {
       compressedSize = InternalJNI.compressByteBuff(qzSession, src, src.position(), src.remaining(), dest, retryCount);
       dest.position(compressedSize);
     } else if (src.hasArray() && dest.hasArray()) {
+
       byte[] destArray = new byte[dest.remaining()];
       compressedSize = InternalJNI.compressByteArray(qzSession, src.array(), src.position(), src.remaining(),destArray,0,retryCount);
       dest.put(destArray, 0, compressedSize);
@@ -397,7 +400,6 @@ public class QATSession {
       int sourceLimit = Math.min(compressedBufferLimit,remaining);
       compressedBuffer.put(srcBuff.slice().limit(sourceLimit));
       compressedBuffer.flip();
-
       decompressedSize = InternalJNI.decompressByteBuff(qzSession, compressedBuffer, 0, sourceLimit, decompressedBuffer, retryCount);
 
       if(decompressedSize < 0)
@@ -412,7 +414,6 @@ public class QATSession {
       destOffsetInLoop += decompressedSize;
       remaining -= sourceLimit;
     }
-
     decompressedBuffer.clear();
     compressedBuffer.clear();
     return totalDecompressedSize;
@@ -463,7 +464,6 @@ public class QATSession {
   }
 
   static void cleanUp(long qzSessionReference, ByteBuffer unCompressedBufferReference, ByteBuffer compressedBufferReference){
-    System.out.println("------------------------- CLEANER CALLED ---------------------------------");
     InternalJNI.teardown(qzSessionReference,unCompressedBufferReference,compressedBufferReference);
   }
 
@@ -472,8 +472,9 @@ public class QATSession {
    * @return Runnable to be used in cleaner register
    */
   public Runnable cleanningAction(){
-    return new QATSessionCleaner(this.qzSession,this.unCompressedBuffer,this.compressedBuffer);
-  }
+
+  return new QATSessionCleaner(qzSession,unCompressedBuffer,compressedBuffer);
+
   static class QATSessionCleaner implements Runnable{
     private long qzSession;
     private ByteBuffer unCompressedBuffer;
@@ -486,7 +487,6 @@ public class QATSession {
     }
     @Override
     public void run(){
-      
         if(qzSession != 0){
           cleanUp(qzSession,unCompressedBuffer,compressedBuffer);
           qzSession = 0;

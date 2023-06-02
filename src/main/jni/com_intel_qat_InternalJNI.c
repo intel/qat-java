@@ -72,10 +72,10 @@ int setupLZ4Session(QzSession_T* qz_session){
 
 void freePinnedMem(void* unSrcBuff, void *unDestBuff) {
 
-  if(NULL != unSrcBuff)
+  if(unSrcBuff != NULL)
     qzFree(unSrcBuff);
 
-  if(NULL != unDestBuff)
+  if(unDestBuff != NULL)
     qzFree(unDestBuff);
 
 }
@@ -104,8 +104,11 @@ int allocatePinnedMem (JNIEnv *env, jclass jc, jclass qatSessionClass, jobject q
   jfieldID unCompressedBufferField = (*env)->GetFieldID(env,qatSessionClass,"unCompressedBuffer","Ljava/nio/ByteBuffer;");
   jfieldID compressedBufferField = (*env)->GetFieldID(env,qatSessionClass,"compressedBuffer","Ljava/nio/ByteBuffer;");
 
-  (*env)->SetObjectField(env, qatSessionObj,unCompressedBufferField, (*env)->NewDirectByteBuffer(env,tempSrcAddr,srcSize));
-  (*env)->SetObjectField(env, qatSessionObj,compressedBufferField, (*env)->NewDirectByteBuffer(env,tempDestAddr,destSize));
+  if(tempSrcAddr != NULL)
+    (*env)->SetObjectField(env, qatSessionObj,unCompressedBufferField, (*env)->NewDirectByteBuffer(env,tempSrcAddr,srcSize));
+
+  if(tempDestAddr != NULL)
+    (*env)->SetObjectField(env, qatSessionObj,compressedBufferField, (*env)->NewDirectByteBuffer(env,tempDestAddr,destSize));
 
   return QZ_OK;
 }
@@ -366,13 +369,18 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_maxCompressedSize(JNIEnv *
  * teardown QAT session and release QAT hardware resources
  */
 
+
 JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_teardown(JNIEnv *env, jclass jobj, jlong qzSession, jobject srcBuff, jobject destBuff) {
 
-
   QzSession_T* qz_session = (QzSession_T*) qzSession;
+  void *unSrcBuff = NULL;
+  void *unDestBuff = NULL;
 
-  void *unSrcBuff = (void *)(*env)->GetDirectBufferAddress(env, srcBuff);
-  void *unDestBuff = (void *)(*env)->GetDirectBufferAddress(env, destBuff);
+  if(srcBuff != NULL)
+   unSrcBuff = (*env)->GetDirectBufferAddress(env, srcBuff);
+
+  if(destBuff != NULL)
+   unDestBuff = (*env)->GetDirectBufferAddress(env, destBuff);
 
   freePinnedMem(unSrcBuff, unDestBuff);
 
