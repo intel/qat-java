@@ -264,7 +264,29 @@ public class QATTest {
             fail(e.getMessage());
         }
     }
+    @Test
+    void testCompressionDecompressionWithByteArrayLZ4(){
+        try{
+            intQatSession = new QATSession(QATSession.CompressionAlgorithm.LZ4);
+            intQatSession.setIsPinnedMemAvailable();
+            String uncompressed = "lorem opsum lorem opsum opsum lorem";
+            byte[] source = uncompressed.getBytes(Charset.forName("UTF-8"));
+            byte[] uncomp = new byte[source.length];
+            byte[] dest = new byte[intQatSession.maxCompressedLength(source.length)];
 
+            int compressedSize = intQatSession.compress(source,0, source.length, dest,0);
+            assertNotNull(dest);
+
+            intQatSession.decompress(dest,0, compressedSize, uncomp, 0);
+            assertNotNull(uncomp);
+            String str = new String(uncomp, StandardCharsets.UTF_8);
+            System.out.println("lz4 decompressed uncompressed String " + str);
+            assertTrue(str.compareTo(uncompressed) == 0);
+        }
+        catch (QATException|IllegalStateException|IllegalArgumentException|ArrayIndexOutOfBoundsException e){
+            fail(e.getMessage());
+        }
+    }
     @Test
     void testCompressByteArrayWithByteBuff(){
 
@@ -795,6 +817,38 @@ public class QATTest {
     public void testChunkedCompressionWithWrappedByteBuff(){
         try{
             intQatSession = new QATSession(QATSession.CompressionAlgorithm.DEFLATE,6, QATSession.Mode.HARDWARE);
+            byte[] src = Files.readAllBytes(Path.of("src/main/resources/book2"));
+            String book2 = new String(src, StandardCharsets.UTF_8);
+            byte[] unCompressed = new byte[src.length];
+
+            ByteBuffer srcBuffer = ByteBuffer.allocate(src.length);
+            ByteBuffer compressedBuffer = ByteBuffer.allocate(intQatSession.maxCompressedLength(src.length));
+            ByteBuffer decompressedBuffer = ByteBuffer.allocate(src.length);
+
+            srcBuffer.put(src);
+            srcBuffer.flip();
+
+            int compressedSize = intQatSession.compress(srcBuffer,compressedBuffer);
+            compressedBuffer.flip();
+            int decompressedSize = intQatSession.decompress(compressedBuffer,decompressedBuffer);
+
+            decompressedBuffer.flip();
+            decompressedBuffer.get(unCompressed,0,decompressedSize);
+            assertTrue(compressedSize > 0);
+            assertEquals(decompressedSize,src.length);
+
+            assertTrue(book2.compareTo(new String(unCompressed, Charset.defaultCharset())) == 0);
+
+        }
+        catch (QATException | IOException e){
+            fail(e.getMessage());
+        }
+    }
+
+    @Test
+    public void testChunkedCompressionWithWrappedByteBuffLZ4(){
+        try{
+            intQatSession = new QATSession(QATSession.CompressionAlgorithm.LZ4,6, QATSession.Mode.HARDWARE);
             byte[] src = Files.readAllBytes(Path.of("src/main/resources/book2"));
             String book2 = new String(src, StandardCharsets.UTF_8);
             byte[] unCompressed = new byte[src.length];

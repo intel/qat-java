@@ -26,7 +26,7 @@ class Native {
         try {
             AccessController.doPrivileged(new PrivilegedAction<Void>() {
               public Void run() {
-                  System.loadLibrary("qat-java");
+                  System.loadLibrary("qat-java"); // Could not load native library from "java.library.path", try loading from jar
                   return null;
               }
             });
@@ -67,7 +67,7 @@ class Native {
             }
             // To avoid race condition with other concurrently running Java processes using qat-java create the .lck file first.
 
-            tempNativeLibLock = File.createTempFile("libqpl-java", extension + ".lck"); // TODO:// check file permission with ls -lh
+            tempNativeLibLock = File.createTempFile("libqat-java", extension + ".lck"); // TODO:// check file permission with ls -lh
             tempNativeLib = new File(tempNativeLibLock.getAbsolutePath().replaceFirst(".lck$", ""));
             try (FileOutputStream out = new FileOutputStream(tempNativeLib)) {
                 byte[] buf = new byte[4096];

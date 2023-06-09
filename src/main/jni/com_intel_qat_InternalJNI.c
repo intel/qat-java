@@ -140,6 +140,10 @@ JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_setup(JNIEnv *env, jclass 
     rc = setupLZ4Session(qz_session);
   }
 
+  if(compressionAlgo == 1 && QZ_OK != rc){
+    throw_exception(env, "LZ4 session not setup", rc);
+    return;
+  }
   if(QZ_OK != rc && QZ_DUPLICATE != rc){
     qzClose(qz_session);
     throw_exception(env, QZ_SETUP_SESSION_ERROR, rc);

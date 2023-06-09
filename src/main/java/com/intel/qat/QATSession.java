@@ -136,11 +136,11 @@ public class QATSession {
   /**
    * teardown API destroys the QAT hardware session and free up resources and PINNED memory allocated with setup API call
    */
-  public void teardown() throws QATException{
+  void teardown() throws QATException{
     if(!isValid)
       throw new IllegalStateException();
-    isValid = false;
     InternalJNI.teardown(qzSession, unCompressedBuffer, compressedBuffer);
+    isValid = false;
   }
 
   /**
@@ -449,18 +449,6 @@ public class QATSession {
     unCompressedBuffer.clear();
     compressedBuffer.clear();
     return totalDecompressedSize;
-  }
-
-  /**
-   * Coverity SpotBugs scan report unwritten-public-field fix: provide private setter for the buffers
-   * @param unCompressedBuffer
-   */
-  private void setUnCompressedBuffer(ByteBuffer unCompressedBuffer) {
-    this.unCompressedBuffer = unCompressedBuffer;
-  }
-
-  private void setCompressedBuffer(ByteBuffer compressedBuffer) {
-    this.compressedBuffer = compressedBuffer;
   }
 
   static void cleanUp(long qzSessionReference, ByteBuffer unCompressedBufferReference, ByteBuffer compressedBufferReference){
