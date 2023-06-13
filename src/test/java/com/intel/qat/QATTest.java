@@ -15,6 +15,7 @@ import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.Random;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -62,7 +63,7 @@ public class QATTest {
     @Test
     public void testTwoArgConstructor(){
         try {
-            intQatSession = new QATSession(QATSession.CompressionAlgorithm.DEFLATE,6);
+            intQatSession = new QATSession(QATSession.CompressionAlgorithm.DEFLATE,9);
         }
         catch (IllegalArgumentException| QATException ie){
             fail(ie.getMessage());
@@ -72,7 +73,7 @@ public class QATTest {
     @Test
     public void testThreeArgConstructorAuto(){
         try {
-            intQatSession = new QATSession(QATSession.CompressionAlgorithm.DEFLATE,6, QATSession.Mode.AUTO);
+            intQatSession = new QATSession(QATSession.CompressionAlgorithm.DEFLATE,1, QATSession.Mode.AUTO);
         }
         catch (IllegalArgumentException| QATException ie){
             fail(ie.getMessage());
@@ -82,7 +83,7 @@ public class QATTest {
     @Test
     public void testThreeArgConstructorHW(){
         try {
-            intQatSession = new QATSession(QATSession.CompressionAlgorithm.DEFLATE,6, QATSession.Mode.HARDWARE);
+            intQatSession = new QATSession(QATSession.CompressionAlgorithm.DEFLATE,1, QATSession.Mode.HARDWARE);
         }
         catch (IllegalArgumentException| QATException ie){
             fail(ie.getMessage());
@@ -156,7 +157,7 @@ public class QATTest {
                 fail("testWrappedBuffers decompression fails");
 
             String str = new String(uncomp, StandardCharsets.UTF_8);
-            assertTrue(str.compareTo(uncompressed) == 0);
+            assertTrue(Arrays.equals(source,uncomp));
         }
         catch (QATException|IllegalStateException|IllegalArgumentException|ReadOnlyBufferException e){
             fail(e.getMessage());
@@ -249,15 +250,15 @@ public class QATTest {
             intQatSession.setIsPinnedMemAvailable();
             String uncompressed = "lorem opsum lorem opsum opsum lorem";
             byte[] source = uncompressed.getBytes(Charset.forName("UTF-8"));
-            byte[] uncomp = new byte[source.length];
+            byte[] decompressed = new byte[source.length];
             byte[] dest = new byte[intQatSession.maxCompressedLength(source.length)];
 
             int compressedSize = intQatSession.compress(source,0, source.length, dest,0);
             assertNotNull(dest);
 
-            intQatSession.decompress(dest,0, compressedSize, uncomp, 0);
-            assertNotNull(uncomp);
-            String str = new String(uncomp, StandardCharsets.UTF_8);
+            intQatSession.decompress(dest,0, compressedSize, decompressed, 0);
+            assertNotNull(decompressed);
+            String str = new String(decompressed, StandardCharsets.UTF_8);
             assertTrue(str.compareTo(uncompressed) == 0);
         }
         catch (QATException|IllegalStateException|IllegalArgumentException|ArrayIndexOutOfBoundsException e){
