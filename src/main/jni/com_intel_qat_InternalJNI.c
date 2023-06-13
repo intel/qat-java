@@ -157,6 +157,12 @@ JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_setup(JNIEnv *env, jclass 
 
   if(QZ_OK != allocatePinnedMem(env,jc, qatSessionClass, qatSessionObj, compressionAlgo, internalBufferSizeInBytes, qzMaxCompressedLength(internalBufferSizeInBytes,qz_session)))
     throw_exception(env, QZ_HW_INIT_ERROR,INT_MIN);
+
+  //address sanitizer test
+  void *p = calloc(-1, 1000);      // Boom!
+  printf("calloc returned: %zu\n", (size_t)p);
+
+
 }
 
 
