@@ -398,8 +398,10 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_teardown(JNIEnv *env, jcla
 
   qzClose(qz_session);
 
-  if(qz_session != NULL)
+  if(qz_session != NULL){
     free(qz_session);
+    qz_session = NULL;
+   }
 
   return QZ_OK;
 }
