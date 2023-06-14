@@ -9,7 +9,7 @@
 
 cmake_minimum_required(VERSION 3.16.3) # check minimum required for qat
 project(qat-java)
-#set(CMAKE_BUILD_TYPE Release)
+set(CMAKE_BUILD_TYPE Release)
 set (CMAKE_C_COMPILER "/usr/bin/clang")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -shared -std=c11 -Wall -Wextra -Wpedantic -fPIC -fstack-protector-strong -I${JAVA_HOME}/include -I${JAVA_HOME}/include/linux -lqatzip -lnuma -lpthread")
 set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -lqatzip -lnuma -lpthread -pie")

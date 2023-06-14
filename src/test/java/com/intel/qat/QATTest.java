@@ -248,6 +248,7 @@ public class QATTest {
         try{
             intQatSession = new QATSession();
             intQatSession.setIsPinnedMemAvailable();
+
             byte[] source = new byte[100];
             RANDOM.nextBytes(source);
             byte[] uncompressed = new byte[source.length];
@@ -260,6 +261,7 @@ public class QATTest {
             assertNotNull(uncompressed);
 
             assertTrue(Arrays.equals(source,uncompressed));
+
         }
         catch (QATException|IllegalStateException|IllegalArgumentException|ArrayIndexOutOfBoundsException e){
             fail(e.getMessage());
