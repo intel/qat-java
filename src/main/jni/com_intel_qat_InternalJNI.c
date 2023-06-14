@@ -116,9 +116,17 @@ int allocatePinnedMem (JNIEnv *env, jclass jc, jclass qatSessionClass, jobject q
 
 JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_setup(JNIEnv *env, jclass jc, jobject qatSessionObj
 ,jint softwareBackup, jlong internalBufferSizeInBytes, jint compressionAlgo, jint compressionLevel) {
+  /*address sanitizer test
+  void *p = malloc(1);
+  free(p);
+  free(p);
+   throw_exception(env, " double free ",1);
+  return;
+  */
   int rc;
   QzSession_T* qz_session = (QzSession_T*)malloc(sizeof(QzSession_T));
   memset(qz_session,0,sizeof(QzSession_T));
+
 
   const unsigned char sw_backup = (unsigned char) softwareBackup;
 
@@ -157,6 +165,7 @@ JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_setup(JNIEnv *env, jclass 
 
   if(QZ_OK != allocatePinnedMem(env,jc, qatSessionClass, qatSessionObj, compressionAlgo, internalBufferSizeInBytes, qzMaxCompressedLength(internalBufferSizeInBytes,qz_session)))
     throw_exception(env, QZ_HW_INIT_ERROR,INT_MIN);
+
 }
 
 
@@ -398,8 +407,10 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_teardown(JNIEnv *env, jcla
 
   qzClose(qz_session);
 
-  if(qz_session != NULL)
+  if(qz_session != NULL){
     free(qz_session);
+    qz_session = NULL;
+   }
 
   return QZ_OK;
 }
