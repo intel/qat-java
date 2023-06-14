@@ -11,7 +11,7 @@ cmake_minimum_required(VERSION 3.16.3) # check minimum required for qat
 project(qat-java)
 #set(CMAKE_BUILD_TYPE Release)
 set (CMAKE_C_COMPILER "/usr/bin/clang")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=fuzzer-no-link,address -shared -std=c11 -Wall -Wextra -Wpedantic -Werror -fPIC -fstack-protector-strong -I${JAVA_HOME}/include -I${JAVA_HOME}/include/linux -lqatzip -lnuma -lpthread")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -shared -std=c11 -Wall -Wextra -Wpedantic -fPIC -fstack-protector-strong -I${JAVA_HOME}/include -I${JAVA_HOME}/include/linux -lqatzip -lnuma -lpthread")
 set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -lqatzip -lnuma -lpthread -pie")
 
 # Build options
@@ -20,14 +20,13 @@ option(SANITIZE_MEMORY "Enables memory sanitizing" OFF)
 # Print user's settings
 message(STATUS "Memory sanitizing build: ${SANITIZE_MEMORY}")
 
-#if (SANITIZE_MEMORY)
-#       message("------------- SANITIZE MEMORY -------------");
-#	   set (CMAKE_C_COMPILER "/usr/bin/clang")
-#	   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=fuzzer-no-link,address")
-#else()
-#	   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c11 -D_FORTIFY_SOURCE=2")
+if (SANITIZE_MEMORY)
+	   set (CMAKE_C_COMPILER "/usr/bin/clang")
+	   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=fuzzer-no-link,address")
+else()
+	   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c11 -D_FORTIFY_SOURCE=2")
 
-#endif ()
+endif ()
 
 # include Java packages
 FIND_PACKAGE(Java REQUIRED)
