@@ -179,19 +179,19 @@ public class QATSession {
       compressedSize = compressByteBufferInLoop(src, dest);
     }
     else if(src.isDirect() && dest.isDirect()){
-      compressedSize = InternalJNI.compressByteBuff(qzSession, src, src.position(), src.remaining(), dest, retryCount);
+      compressedSize = InternalJNI.compressByteBuff(qzSession, src, src.position(), src.remaining(), dest, retryCount,1);
       dest.position(compressedSize);
     } else if (src.hasArray() && dest.hasArray()) {
 
       byte[] destArray = new byte[dest.remaining()];
-      compressedSize = InternalJNI.compressByteArray(qzSession, src.array(), src.position(), src.remaining(),destArray,0,retryCount);
+      compressedSize = InternalJNI.compressByteArray(qzSession, src.array(), src.position(), src.remaining(),destArray,0,retryCount,1);
       dest.put(destArray, 0, compressedSize);
     }
     else{
       byte[] srcArray = new byte[src.remaining()];
       byte[] destArray = new byte[dest.remaining()];
       src.get(srcArray, src.position(), src.remaining());
-      compressedSize = InternalJNI.compressByteArray(qzSession, srcArray, 0, srcArray.length, destArray, 0, retryCount);
+      compressedSize = InternalJNI.compressByteArray(qzSession, srcArray, 0, srcArray.length, destArray, 0, retryCount,1);
       dest.put(destArray,dest.position(),compressedSize);
     }
 
@@ -225,7 +225,7 @@ public class QATSession {
     if (isPinnedMemory()) {
       compressedSize = compressByteArrayInLoop(src, srcOffset, srcLen, dest, destOffset);
     } else {
-      compressedSize = InternalJNI.compressByteArray(qzSession, src, srcOffset, srcLen, dest, destOffset, retryCount);
+      compressedSize = InternalJNI.compressByteArray(qzSession, src, srcOffset, srcLen, dest, destOffset, retryCount,1);
     }
 
     if (compressedSize < 0) {
@@ -337,12 +337,15 @@ public class QATSession {
       int sourceLimit = Math.min(unCompressedBufferLimit,remaining);
       unCompressedBuffer.put(srcBuff.slice().limit(sourceLimit));
       unCompressedBuffer.flip();
-      //System.out.println(" ----------- compressByteBufferInLoop ------------");
-      compressedSize = InternalJNI.compressByteBuff(qzSession, unCompressedBuffer, 0, sourceLimit, compressedBuffer, retryCount);
-      //System.out.println(" compressing "+ sourceLimit + " amount of data compressed" + compressedSize);
+
+      if(remaining <= sourceLimit) {
+        compressedSize = InternalJNI.compressByteBuff(qzSession, unCompressedBuffer, 0, sourceLimit, compressedBuffer, retryCount, 1);
+      }
+      else {
+        compressedSize = InternalJNI.compressByteBuff(qzSession, unCompressedBuffer, 0, sourceLimit, compressedBuffer, retryCount, 0);
+      }
       compressedBuffer.limit(compressedSize);
       destBuff.put(compressedBuffer);
-      //System.out.println(" destBuff new position " + destBuff.position());
       totalCompressedSize += compressedSize;
 
       sourceOffsetInLoop += sourceLimit;
@@ -362,26 +365,32 @@ public class QATSession {
     int compressedSize = 0;
     int totalCompressedSize = 0;
     int unCompressedBufferLimit = unCompressedBuffer.limit();
-
     while (remaining > 0) {
       unCompressedBuffer.clear();
       compressedBuffer.clear();
+
       int sourceLimit = Math.min(unCompressedBufferLimit,remaining);
       unCompressedBuffer.put(src, sourceOffsetInLoop, sourceLimit);
       unCompressedBuffer.flip();
 
-      compressedSize = InternalJNI.compressByteBuff(qzSession, unCompressedBuffer, 0, sourceLimit, compressedBuffer, retryCount);
+      if(remaining <= sourceLimit) {
+        compressedSize = InternalJNI.compressByteBuff(qzSession, unCompressedBuffer, 0, sourceLimit, compressedBuffer, retryCount, 1);
+      }
+      else{
+          compressedSize = InternalJNI.compressByteBuff(qzSession, unCompressedBuffer, 0, sourceLimit, compressedBuffer, retryCount, 0);
+      }
 
       if(compressedSize < 0)
         throw new QATException("Compression Byte buffer fails");
 
       compressedBuffer.get(dest,destOffsetInLoop,compressedSize);
-
       totalCompressedSize += compressedSize;
       sourceOffsetInLoop += sourceLimit;
       destOffsetInLoop += compressedSize;
       remaining -= sourceLimit;
+      compressedBuffer.position(destOffsetInLoop);
     }
+
     unCompressedBuffer.clear();
     compressedBuffer.clear();
     return totalCompressedSize;
@@ -394,20 +403,18 @@ public class QATSession {
     int decompressedSize = 0;
     int totalDecompressedSize = 0;
 
-    //System.out.println(" compressed source buffer position and limit are " + srcBuff.position() +", "+ srcBuff.limit());
-    ByteBuffer tmpCompressedBuffer = ByteBuffer.allocateDirect(srcBuff.limit());
+    //ByteBuffer tmpCompressedBuffer = ByteBuffer.allocateDirect(srcBuff.limit());
     ByteBuffer tmpDecompressedBuffer = ByteBuffer.allocateDirect(destBuff.limit());
-    int compressedBufferLimit = tmpCompressedBuffer.limit();
+    int compressedBufferLimit = compressedBuffer.limit();
 
     while (remaining > 0) {
       tmpDecompressedBuffer.clear();
-      tmpCompressedBuffer.clear();
+      compressedBuffer.clear();
       int sourceLimit = Math.min(compressedBufferLimit,remaining);
-      tmpCompressedBuffer.put(srcBuff.slice().limit(sourceLimit));
-      tmpCompressedBuffer.flip();
-      //System.out.println(" --------------- decompress loop ----------");
-      //System.out.println("going to decompress buffer of size " + sourceLimit);
-      decompressedSize = InternalJNI.decompressByteBuff(qzSession, tmpCompressedBuffer, 0, sourceLimit, tmpDecompressedBuffer, retryCount);
+      compressedBuffer.put(srcBuff.slice().limit(sourceLimit));
+      compressedBuffer.flip();
+
+      decompressedSize = InternalJNI.decompressByteBuff(qzSession, compressedBuffer, 0, sourceLimit, tmpDecompressedBuffer, retryCount);
 
       if(decompressedSize < 0)
         throw new QATException("Decompression fails");
@@ -432,16 +439,16 @@ public class QATSession {
     int decompressedSize = 0;
     int totalDecompressedSize = 0;
     int compressedBufferLimit = compressedBuffer.limit();
-    ByteBuffer tmpcompressedBuffer = ByteBuffer.allocateDirect(srcLen);
+    //ByteBuffer tmpcompressedBuffer = ByteBuffer.allocateDirect(srcLen);
     ByteBuffer tmpdecompressedBuffer = ByteBuffer.allocateDirect(dest.length);
     while (remaining > 0) {
-      tmpcompressedBuffer.clear();
       tmpdecompressedBuffer.clear();
+      compressedBuffer.clear();
       int sourceLimit = Math.min(compressedBufferLimit, remaining);
-      tmpcompressedBuffer.put(src, sourceOffsetInLoop, sourceLimit);
-      tmpcompressedBuffer.flip();
+      compressedBuffer.put(src, sourceOffsetInLoop, sourceLimit);
+      compressedBuffer.flip();
 
-      decompressedSize = InternalJNI.decompressByteBuff(qzSession, tmpcompressedBuffer, 0, sourceLimit, tmpdecompressedBuffer, retryCount);
+      decompressedSize = InternalJNI.decompressByteBuff(qzSession, compressedBuffer, 0, sourceLimit, tmpdecompressedBuffer, retryCount);
 
       if(decompressedSize < 0)
         throw new QATException("Decompression fails");
@@ -453,8 +460,8 @@ public class QATSession {
       destOffsetInLoop += decompressedSize;
       remaining -= sourceLimit;
     }
-    tmpcompressedBuffer.clear();
     tmpdecompressedBuffer.clear();
+    compressedBuffer.clear();
     return totalDecompressedSize;
   }
 

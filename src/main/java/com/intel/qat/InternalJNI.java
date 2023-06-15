@@ -24,8 +24,8 @@ public class InternalJNI {
 
   static native int teardown(long qzSession, ByteBuffer unCompressedBuffer, ByteBuffer compressedBuffer);
   static native int maxCompressedSize(long qzSession, long sourceSize);
-  static native int compressByteBuff(long qzSession, ByteBuffer src, int srcOffset, int srcLen, ByteBuffer dest, int retryCount);
-  static native int compressByteArray(long qzSession, byte[] src, int srcOffset, int srcLen, byte[] dest, int destOffset, int retryCount);
+  static native int compressByteBuff(long qzSession, ByteBuffer src, int srcOffset, int srcLen, ByteBuffer dest, int retryCount, int last);
+  static native int compressByteArray(long qzSession, byte[] src, int srcOffset, int srcLen, byte[] dest, int destOffset, int retryCount, int last);
   static native int decompressByteBuff(long qzSession, ByteBuffer src, int srcOffset, int srcLen, ByteBuffer dest, int retryCount);
   static native int decompressByteArray(long qzSession, byte[] src, int srcOffset, int srcLen, byte[] dest, int destOffset, int retryCount);
 }

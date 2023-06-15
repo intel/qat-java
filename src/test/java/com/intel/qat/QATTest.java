@@ -767,13 +767,13 @@ public class QATTest {
             byte[] unCompressed = new byte[src.length];
 
             int compressedSize = intQatSession.compress(src,0,src.length, dest,0);
-            System.out.println(" compressed size" + compressedSize);
+
             int decompressedSize = intQatSession.decompress(dest,0,compressedSize,unCompressed,0);
 
             assertTrue(compressedSize > 0);
             assertEquals(decompressedSize,src.length);
 
-            assertTrue(book2.compareTo(new String(unCompressed, Charset.defaultCharset())) == 0);
+            assertTrue(book2.compareTo(new String(unCompressed, StandardCharsets.UTF_8)) == 0);
 
         }
         catch (QATException | IOException e){
@@ -807,7 +807,7 @@ public class QATTest {
             assertTrue(book2.compareTo(new String(unCompressed, Charset.defaultCharset())) == 0);
 
         }
-        catch (QATException | IOException e){
+        catch (QATException | IOException|IllegalArgumentException e){
             fail(e.getMessage());
         }
     }
@@ -848,19 +848,17 @@ public class QATTest {
     public void testChunkedCompressionWithWrappedByteBuffLZ4(){
         try{
             intQatSession = new QATSession(QATSession.CompressionAlgorithm.LZ4);
-            byte[] src = Files.readAllBytes(Path.of("src/main/resources/book2"));
+            byte[] src = Files.readAllBytes(Path.of("src/main/resources/book1"));
             String book2 = new String(src, StandardCharsets.UTF_8);
             byte[] unCompressed = new byte[src.length];
 
             ByteBuffer srcBuffer = ByteBuffer.allocate(src.length);
             ByteBuffer compressedBuffer = ByteBuffer.allocate(intQatSession.maxCompressedLength(src.length));
             ByteBuffer decompressedBuffer = ByteBuffer.allocate(src.length);
-            //System.out.println("TEST: compressed buffer initially of limit " + compressedBuffer.limit());
             srcBuffer.put(src);
             srcBuffer.flip();
 
             int compressedSize = intQatSession.compress(srcBuffer,compressedBuffer);
-            //System.out.println("TEST: compressed Buffer Position "+ compressedBuffer.position() + " and limit "+ compressedBuffer.limit());
             compressedBuffer.flip();
             int decompressedSize = intQatSession.decompress(compressedBuffer,decompressedBuffer);
 

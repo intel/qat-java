@@ -30,6 +30,8 @@ static __thread int numa_id;
 static QzPollingMode_T polling_mode = QZ_BUSY_POLLING;
 static QzDataFormat_T data_fmt = QZ_DEFLATE_GZIP_EXT;
 
+static const int DEFLATE = 0;
+static const int LZ4 = 1;
 /*
  * Class:     com_intel_qat_InternalJNI
  * Method:    setupHardware
@@ -139,7 +141,7 @@ JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_setup(JNIEnv *env, jclass 
     return;
   }
 
-  if(compressionAlgo == 0)
+  if(compressionAlgo == DEFLATE)
   {
     rc = setupDeflateSession(qz_session, compressionLevel);
   }
@@ -148,7 +150,7 @@ JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_setup(JNIEnv *env, jclass 
     rc = setupLZ4Session(qz_session);
   }
 
-  if(compressionAlgo == 1 && QZ_OK != rc){
+  if(compressionAlgo == DEFLATE && QZ_OK != rc){
     throw_exception(env, "LZ4 session not setup", rc);
     return;
   }
@@ -176,7 +178,8 @@ JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_setup(JNIEnv *env, jclass 
  * compress ByteBuffer
  */
  jint JNICALL Java_com_intel_qat_InternalJNI_compressByteBuff(
-    JNIEnv *env, jclass obj,jlong qzSession, jobject srcBuffer,jint srcOffset, jint srcLen, jobject destBuffer, jint retryCount) {
+    JNIEnv *env, jclass obj,jlong qzSession, jobject srcBuffer,jint srcOffset, jint srcLen, jobject destBuffer,
+    jint retryCount, jint last) {
   unsigned int srcSize = srcLen;
   unsigned int compressedLength = -1;
 
@@ -197,11 +200,11 @@ JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_setup(JNIEnv *env, jclass 
     return -1;
   }
 
-  int rc = qzCompress(qz_session, src, &srcSize, dest,&compressedLength, 1);
+  int rc = qzCompress(qz_session, src, &srcSize, dest,&compressedLength, (unsigned int) last);
 
   if(rc == QZ_NOSW_NO_INST_ATTACH && retryCount > 0){
     while(retryCount > 0 && QZ_OK != rc){
-        rc = qzCompress(qz_session, src, &srcSize, dest, &compressedLength, 1);
+        rc = qzCompress(qz_session, src, &srcSize, dest, &compressedLength, (unsigned int) last);
         retryCount--;
     }
   }
@@ -220,13 +223,15 @@ JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_setup(JNIEnv *env, jclass 
 
 JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_compressByteArray(
     JNIEnv *env, jclass obj, jlong qzSession, jbyteArray uncompressedArray, jint srcOffset,
-    jint srcLen, jbyteArray compressedArray,jint destOffset, jint retryCount) {
+    jint srcLen, jbyteArray compressedArray,jint destOffset, jint retryCount,int last) {
 
   unsigned int srcSize = srcLen;
   unsigned int compressedLength = 1;
+  jboolean is_copy_src = false;
+
   QzSession_T* qz_session = (QzSession_T*) qzSession;
 
-  unsigned char *src = (unsigned char *)(*env)->GetByteArrayElements(env, uncompressedArray, 0);
+  unsigned char *src = (unsigned char *)(*env)->GetByteArrayElements(env, uncompressedArray, &is_copy_src);
 
   if(src == NULL){
     throw_exception(env, QZ_COMPRESS_ERROR,INT_MAX);
@@ -236,7 +241,7 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_compressByteArray(
 
   compressedLength = (unsigned int)(*env)->GetArrayLength(env, compressedArray);
 
-  unsigned char *dest = (unsigned char *)(*env)->GetByteArrayElements(env, compressedArray, 0);
+  unsigned char *dest = (unsigned char *)(*env)->GetByteArrayElements(env, compressedArray, &is_copy_src);
 
    if(dest == NULL){
       throw_exception(env, QZ_COMPRESS_ERROR,INT_MAX);
@@ -245,12 +250,12 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_compressByteArray(
 
   dest += destOffset;
 
-  int rc = qzCompress(qz_session, src, &srcSize, dest, &compressedLength, 1);
+  int rc = qzCompress(qz_session, src, &srcSize, dest, &compressedLength, (unsigned int)last);
 
   if(rc == QZ_NOSW_NO_INST_ATTACH && retryCount > 0){
       while(retryCount > 0 && QZ_OK != rc){
         rc = qzCompress(qz_session, src, &srcSize, dest,
-                            &compressedLength, 1);
+                            &compressedLength, (unsigned int)last);
         retryCount--;
       }
   }
@@ -321,7 +326,7 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_decompressByteBuff(
      JNIEnv *env, jclass obj, jlong qzSession, jbyteArray compressedArray, jint srcOffset,
      jint srcLen, jbyteArray destArray, jint destOffset,jint retryCount) {
 
-   unsigned char *src = (unsigned char *)(*env)->GetByteArrayElements(env, compressedArray, 0);
+   unsigned char *src = (unsigned char *)(*env)->GetByteArrayElements(env, compressedArray, 0); //label
    unsigned int destLen = UINT_MAX;
 
    if(src == NULL){
@@ -330,7 +335,7 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_decompressByteBuff(
    }
    src += srcOffset;
 
-   unsigned char* dest = (unsigned char *)(*env)->GetByteArrayElements(env, destArray, 0);
+   unsigned char* dest = (unsigned char *)(*env)->GetByteArrayElements(env, destArray, 0); // label
 
    if(dest == NULL){
       throw_exception(env, QZ_DECOMPRESS_ERROR,INT_MAX);

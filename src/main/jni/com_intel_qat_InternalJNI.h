@@ -37,7 +37,7 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_maxCompressedSize
  * Signature: (Ljava/nio/ByteBuffer;IILjava/nio/ByteBuffer;)I
  */
 JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_compressByteBuff
-  (JNIEnv *, jclass, jlong, jobject, jint, jint, jobject, jint);
+  (JNIEnv *, jclass, jlong, jobject, jint, jint, jobject, jint, jint);
 /*
  * Class:     com_intel_qat_InternalJNI
  * Method:    compressByteArray
@@ -45,7 +45,7 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_compressByteBuff
  */
 
 JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_compressByteArray(
-    JNIEnv *, jclass, jlong, jbyteArray, jint, jint, jbyteArray, jint, jint);
+    JNIEnv *, jclass, jlong, jbyteArray, jint, jint, jbyteArray, jint, jint, jint);
 
 /*
  * Class:     com_intel_qat_InternalJNI
