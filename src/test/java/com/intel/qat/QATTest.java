@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 public class QATTest {
     //private int numberOfThreads;
@@ -82,6 +83,7 @@ public class QATTest {
 
     @Test
     public void testThreeArgConstructorHW(){
+        assumeTrue(QATTestSuite.FORCE_HARDWARE);
         try {
             intQatSession = new QATSession(QATSession.CompressionAlgorithm.DEFLATE,1, QATSession.Mode.HARDWARE);
         }
@@ -92,6 +94,7 @@ public class QATTest {
 
     @Test
     public void testFourArgConstructorHW(){
+        assumeTrue(QATTestSuite.FORCE_HARDWARE);
         try {
             intQatSession = new QATSession(QATSession.CompressionAlgorithm.DEFLATE,6, QATSession.Mode.HARDWARE,QATSession.DEFAULT_RETRY_COUNT);
         }
@@ -114,6 +117,7 @@ public class QATTest {
 
     @Test
     public void duplicateTearDown(){
+        assumeTrue(QATTestSuite.FORCE_HARDWARE);
         QATSession qatSession = null;
         try {
             qatSession = new QATSession(QATSession.CompressionAlgorithm.LZ4,0, QATSession.Mode.HARDWARE);
@@ -324,6 +328,7 @@ public class QATTest {
 
     @Test
     void testComppressionDecompressionHardwareMode(){
+        assumeTrue(QATTestSuite.FORCE_HARDWARE);
         try{
             intQatSession = new QATSession(QATSession.CompressionAlgorithm.DEFLATE,6, QATSession.Mode.HARDWARE,0);
 
@@ -347,6 +352,23 @@ public class QATTest {
     @Test
     void testCompressionWithInsufficientDestBuff(){
         try{
+            intQatSession = new QATSession(QATSession.CompressionAlgorithm.DEFLATE,6, QATSession.Mode.AUTO,0);
+
+            byte[] source = new byte[100];
+            RANDOM.nextBytes(source);
+            byte[] dest = new byte[source.length/10];
+
+            intQatSession.compress(source,0, source.length, dest,0);
+        }
+        catch (QATException|IndexOutOfBoundsException e){
+            assertTrue(true);
+        }
+    }
+
+    @Test
+    void testCompressionWithInsufficientDestBuffHW(){
+        assumeTrue(QATTestSuite.FORCE_HARDWARE);
+        try{
             intQatSession = new QATSession(QATSession.CompressionAlgorithm.DEFLATE,6, QATSession.Mode.HARDWARE,0);
 
             byte[] source = new byte[100];
@@ -362,6 +384,7 @@ public class QATTest {
 
     @Test
     void testDecompressionWithInsufficientDestBuff(){
+        assumeTrue(QATTestSuite.FORCE_HARDWARE);
         try{
             intQatSession = new QATSession(QATSession.CompressionAlgorithm.DEFLATE,6, QATSession.Mode.HARDWARE,0);
 
@@ -614,10 +637,27 @@ public class QATTest {
     }
 
 
-
-
     @Test
     public void testIllegalStateException(){
+        QATSession qatSession = null;
+        byte[] source = new byte[100];
+        RANDOM.nextBytes(source);
+        byte[] dest = new byte[2 * source.length];
+
+        try {
+            qatSession = new QATSession(QATSession.CompressionAlgorithm.LZ4,0, QATSession.Mode.AUTO);
+            qatSession.teardown();
+            qatSession.compress(source,0,source.length,dest,0);
+            fail("testIllegalStateException fails");
+        }
+        catch (IllegalStateException is){
+            assertTrue(true);
+        }
+    }
+
+    @Test
+    public void testIllegalStateExceptionHW(){
+        assumeTrue(QATTestSuite.FORCE_HARDWARE);
         QATSession qatSession = null;
         byte[] source = new byte[100];
         RANDOM.nextBytes(source);
@@ -760,7 +800,7 @@ public class QATTest {
     @Test
     public void testChunkedCompressionWithByteArray(){
         try{
-            intQatSession = new QATSession(QATSession.CompressionAlgorithm.DEFLATE,6, QATSession.Mode.HARDWARE);
+            intQatSession = new QATSession(QATSession.CompressionAlgorithm.DEFLATE,6, QATSession.Mode.AUTO);
             byte[] src = Files.readAllBytes(Path.of("src/main/resources/book2"));
             String book2 = new String(src, StandardCharsets.UTF_8);
             byte[] dest = new byte[intQatSession.maxCompressedLength(src.length)];
@@ -784,7 +824,7 @@ public class QATTest {
     @Test
     public void testChunkedCompressionWithByteBuff(){
         try{
-            intQatSession = new QATSession(QATSession.CompressionAlgorithm.DEFLATE,6, QATSession.Mode.HARDWARE);
+            intQatSession = new QATSession(QATSession.CompressionAlgorithm.DEFLATE,6, QATSession.Mode.AUTO);
             byte[] src = Files.readAllBytes(Path.of("src/main/resources/book2"));
             String book2 = new String(src, StandardCharsets.UTF_8);
             byte[] unCompressed = new byte[src.length];
@@ -815,7 +855,7 @@ public class QATTest {
     @Test
     public void testChunkedCompressionWithWrappedByteBuff(){
         try{
-            intQatSession = new QATSession(QATSession.CompressionAlgorithm.DEFLATE,6, QATSession.Mode.HARDWARE);
+            intQatSession = new QATSession(QATSession.CompressionAlgorithm.DEFLATE,6, QATSession.Mode.AUTO);
             byte[] src = Files.readAllBytes(Path.of("src/main/resources/book2"));
             String book2 = new String(src, StandardCharsets.UTF_8);
             byte[] unCompressed = new byte[src.length];
@@ -877,6 +917,29 @@ public class QATTest {
 
     @Test
     public void testInvalidDCompressionOffsets() {
+        try{
+            intQatSession = new QATSession(QATSession.CompressionAlgorithm.DEFLATE,6, QATSession.Mode.AUTO);
+            byte[] src = new byte[100];
+            RANDOM.nextBytes(src);
+            String book2 = new String(src, StandardCharsets.UTF_8);
+            byte[] dest = new byte[intQatSession.maxCompressedLength(src.length)];
+            byte[] unCompressed = new byte[src.length];
+
+            intQatSession.setIsPinnedMemAvailable();
+
+            intQatSession.compress(src,-1,src.length,dest,0);
+            int decompressedSize = intQatSession.decompress(dest,0,dest.length,unCompressed,0);
+
+            fail();
+        }
+        catch (QATException|ArrayIndexOutOfBoundsException e){
+            assertTrue(true);
+        }
+    }
+
+    @Test
+    public void testInvalidDCompressionOffsetsHW() {
+        assumeTrue(QATTestSuite.FORCE_HARDWARE);
         try{
             intQatSession = new QATSession(QATSession.CompressionAlgorithm.DEFLATE,6, QATSession.Mode.HARDWARE);
             byte[] src = new byte[100];
