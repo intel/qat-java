@@ -254,9 +254,7 @@ public class QATSession {
 
     if (isPinnedMemory()) {
       if(src.isDirect() && dest.isDirect()) {
-        System.out.println("before direct bytebuffer decompress source size = "+ src.remaining());
         decompressedSize = InternalJNI.decompressByteBuffInLoop(qzSession, src, src.position(), src.remaining(), compressedBuffer, compressedBuffer.limit(), unCompressedBuffer, unCompressedBuffer.limit(), dest, dest.position(), dest.remaining(), retryCount);
-        System.out.println("after direct bytebuffer decompress decompressed size = "+ decompressedSize);
         dest.position(decompressedSize);
       }
       else if (src.hasArray() && dest.hasArray()) {
@@ -269,7 +267,6 @@ public class QATSession {
           decompressedSize = InternalJNI.decompressByteArray(qzSession, srcArray, 0, srcArray.length, dest.array(), 0, retryCount);
           dest.position(decompressedSize);
       }
-      System.out.println("decompress bytebuffer decompressedSize:  "+decompressedSize );
     }
     else if(src.isDirect() && dest.isDirect()){
       decompressedSize = InternalJNI.decompressByteBuff(qzSession, src, src.position(), src.remaining(), dest, retryCount);
