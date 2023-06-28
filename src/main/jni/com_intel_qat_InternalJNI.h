@@ -65,6 +65,13 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_decompressByteBuff
 JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_decompressByteArray(
      JNIEnv *, jclass, jlong, jbyteArray, jint, jint, jbyteArray, jint,jint);
 
+JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_decompressByteBuffInLoop
+  (JNIEnv *, jclass, jlong, jobject, jint, jint,jobject,jint, jobject, jint,jobject,jint,jint,jint);
+
+JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_decompressByteArrayInLoop
+  (JNIEnv *, jclass, jlong, jbyteArray, jint, jint,jobject,jint, jobject, jint,jbyteArray,jint,jint,jint);
+
+
 #ifdef __cplusplus
 }
 #endif

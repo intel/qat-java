@@ -28,4 +28,8 @@ public class InternalJNI {
   static native int compressByteArray(long qzSession, byte[] src, int srcOffset, int srcLen, byte[] dest, int destOffset, int retryCount, int last);
   static native int decompressByteBuff(long qzSession, ByteBuffer src, int srcOffset, int srcLen, ByteBuffer dest, int retryCount);
   static native int decompressByteArray(long qzSession, byte[] src, int srcOffset, int srcLen, byte[] dest, int destOffset, int retryCount);
+
+  static native int decompressByteBuffInLoop(long qzSession, ByteBuffer src, int srcOffset, int srcLen,ByteBuffer compBuff, int compBuffLen, ByteBuffer uncompBuff, int uncompBuffLen, ByteBuffer dest, int destOffset, int destLen, int retryCount);
+  static native int decompressByteArrayInLoop(long qzSession, byte[] src, int srcOffset, int srcLen,ByteBuffer compBuff, int compBuffLen, ByteBuffer uncompBuff, int uncompBuffLen, byte[] dest, int destOffset, int destLen, int retryCount);
+
 }

@@ -366,6 +366,146 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_decompressByteBuff(
    return destLen;
  }
 
+JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_decompressByteBuffInLoop(
+    JNIEnv *env, jclass obj, jlong qzSession,
+    jobject srcBuffer, jint srcOffset, jint srcLen,
+    jobject compressedBuffer,jint compressedBufferLength,
+    jobject unCompressedBuffer, jint unCompressedBufferLength,
+    jobject destBuffer, jint destOffset, jint destLen,
+    jint retryCount) {
+	  unsigned char *src = (unsigned char *)(*env)->GetDirectBufferAddress(env, srcBuffer);
+	  if(src == NULL){
+		throw_exception(env, QZ_DECOMPRESS_ERROR,INT_MAX);
+		return -1;
+	  }
+  	  unsigned char *dest = (unsigned char *)(*env)->GetDirectBufferAddress(env, destBuffer);
+	  if(dest == NULL){
+		throw_exception(env, QZ_DECOMPRESS_ERROR,INT_MAX);
+		return -1;
+	  }
+	  return decompressInLoop(env, obj,qzSession,src, srcOffset, srcLen,compressedBuffer, compressedBufferLength,
+    				unCompressedBuffer, unCompressedBufferLength, dest, destOffset, destLen, retryCount);
+
+}
+
+JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_decompressByteArrayInLoop(
+    JNIEnv *env, jclass obj, jlong qzSession,
+    jbyteArray srcBuffer, jint srcOffset, jint srcLen,
+    jobject compressedBuffer,jint compressedBufferLength,
+    jobject unCompressedBuffer, jint unCompressedBufferLength,
+    jbyteArray destBuffer, jint destOffset, jint destLen,
+    jint retryCount) {
+      bool isCopy;
+	  unsigned char *src = (unsigned char *)(*env)->GetByteArrayElements(env, srcBuffer, &isCopy);
+	  if(src == NULL){
+		throw_exception(env, QZ_DECOMPRESS_ERROR,INT_MAX);
+		return -1;
+	  }
+  	  unsigned char *dest = (unsigned char *)(*env)->GetByteArrayElements(env, destBuffer, &isCopy);
+	  if(dest == NULL){
+		throw_exception(env, QZ_DECOMPRESS_ERROR,INT_MAX);
+		return -1;
+	  }
+	  int decompressedSize = decompressInLoop(env, obj,qzSession,src, srcOffset, srcLen, compressedBuffer, compressedBufferLength,
+    				 unCompressedBuffer, unCompressedBufferLength, dest, destOffset, destLen, retryCount);
+
+      (*env)->ReleaseByteArrayElements(env, srcBuffer, (signed char *)src, 0);
+      (*env)->ReleaseByteArrayElements(env, destBuffer, (signed char *)dest, 0);
+
+       return decompressedSize;
+    }
+
+
+int decompressInLoop(JNIEnv *env, jclass obj,jlong qzSession,unsigned char *src, int srcOffset, int srcLen,jobject compressedBuffer,jint compressedBufferLength,
+    jobject unCompressedBuffer, jint unCompressedBufferLength,  unsigned char *dest, int destOffset, jint destLen,jint retryCount){
+
+  unsigned int totalSrcSize;
+  unsigned int uncompressedLength = unCompressedBufferLength;
+  unsigned int compressedBufferLengthRunning = compressedBufferLength;
+  unsigned int uncompressedLengthRunning = uncompressedLength;
+
+  unsigned char *comp = (unsigned char *)(*env)->GetDirectBufferAddress(env, compressedBuffer);
+  unsigned char *uncomp = (unsigned char *)(*env)->GetDirectBufferAddress(env, unCompressedBuffer);
+
+  QzSession_T* qz_session = (QzSession_T*) qzSession;
+  int totalDecompressed = 0;
+  int totalConsumed = 0;
+  int srcLenRunning = srcLen;
+
+
+    if(src == NULL){
+        throw_exception(env, QZ_DECOMPRESS_ERROR,INT_MAX);
+        return -1;
+    }
+
+  src += srcOffset; // not needed to do here, can be done before this function call
+
+  if(dest == NULL){
+        throw_exception(env, QZ_DECOMPRESS_ERROR,INT_MAX);
+    	return -1;
+  }
+  dest += destOffset; // not needed to do here, can be done before this function call
+
+/*
+  int minRemaining = compressedBufferLength > srcLen? srcLen: compressedBufferLength;
+  memcpy(comp,src,minRemaining);
+
+  int rc = qzDecompress(qz_session, comp, &compressedBufferLengthRunning, uncomp, &uncompressedLengthRunning); // merge it to loop
+
+  if(rc == QZ_NOSW_NO_INST_ATTACH && retryCount > 0){
+        while(retryCount > 0 && QZ_OK != rc){
+            rc = qzDecompress(qz_session, comp, &compressedBufferLength, uncomp, &uncompressedLengthRunning);
+            retryCount--;
+        }
+  }
+  if (rc != QZ_OK && rc!= QZ_BUF_ERROR && rc!= QZ_DATA_ERROR){
+        throw_exception(env, QZ_DECOMPRESS_ERROR, rc);
+        return rc;
+  }
+
+  memcpy(dest,uncomp,uncompressedLengthRunning);
+  totalDecompressed += uncompressedLengthRunning;
+  src += compressedBufferLengthRunning;
+  dest += uncompressedLengthRunning;
+  totalConsumed = compressedBufferLengthRunning;
+  srcLenRunning -= compressedBufferLengthRunning;
+
+  return totalDecompressed;
+*/
+
+
+	while(totalConsumed < srcLen){
+	      int remaining = (srcLen - totalConsumed) < compressedBufferLength? (srcLen - totalConsumed): compressedBufferLength;
+          memcpy(comp, src, remaining);
+
+          compressedBufferLengthRunning = remaining;
+		  uncompressedLengthRunning = uncompressedLength;
+
+		  int rc = qzDecompress(qz_session, comp, &compressedBufferLengthRunning, uncomp, &uncompressedLengthRunning);
+
+    	  if(rc == QZ_NOSW_NO_INST_ATTACH && retryCount > 0){
+          	while(retryCount > 0 && QZ_OK != rc){
+              	rc = qzDecompress(qz_session, comp, &compressedBufferLengthRunning, uncomp, &uncompressedLengthRunning);
+                retryCount--;
+          	}
+    	  }
+
+  		  if (rc != QZ_OK && rc!= QZ_BUF_ERROR && rc!= QZ_DATA_ERROR){
+  			    throw_exception(env, QZ_DECOMPRESS_ERROR, rc);
+      			return rc;
+  	      }
+		  totalConsumed += compressedBufferLengthRunning;
+	      totalDecompressed += uncompressedLengthRunning;
+		  src += compressedBufferLengthRunning;
+		  memcpy(dest,uncomp,uncompressedLengthRunning);
+	  	  dest += uncompressedLengthRunning;
+		  uncompressedLengthRunning = uncompressedLength;
+	}
+
+  return totalDecompressed ; // should not be greater than destLen
+}
+
+
 /*
  * Class:     com_intel_qat_InternalJNI
  * Method:    maxCompressedSize
