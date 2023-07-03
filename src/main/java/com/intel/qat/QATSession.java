@@ -251,21 +251,31 @@ public class QATSession {
       throw new ReadOnlyBufferException();
 
     int decompressedSize = 0;
+    int[] result = new int[2];
 
     if (isPinnedMemory()) {
       if(src.isDirect() && dest.isDirect()) {
-        decompressedSize = InternalJNI.decompressByteBuffInLoop(qzSession, src, src.position(), src.remaining(), compressedBuffer, compressedBuffer.limit(), unCompressedBuffer, unCompressedBuffer.limit(), dest, dest.position(), dest.remaining(), retryCount);
-        dest.position(decompressedSize);
+        result = InternalJNI.decompressByteBuffInLoop(qzSession, src, src.position(), src.remaining(), compressedBuffer, compressedBuffer.limit(), unCompressedBuffer, unCompressedBuffer.limit(), dest, dest.position(), dest.remaining(), retryCount);
+        System.out.println(" source modified : " + result[0] + " destination modified at "+result[1]);
+        dest.position(dest.position() + result[1]);
+        src.position(src.position() + result[0]);
+        return result[1];
       }
       else if (src.hasArray() && dest.hasArray()) {
-        decompressedSize = InternalJNI.decompressByteArrayInLoop(qzSession,src.array(),src.position(),src.remaining(),compressedBuffer, compressedBuffer.limit(), unCompressedBuffer, unCompressedBuffer.limit(),dest.array(),dest.position(), dest.remaining(),retryCount);
-        dest.position(decompressedSize);
+        byte[] destArray = dest.array();
+        result = InternalJNI.decompressByteArrayInLoop(qzSession,src.array(),src.position(),src.remaining(),compressedBuffer, compressedBuffer.limit(), unCompressedBuffer, unCompressedBuffer.limit(),destArray,dest.position(), dest.remaining(),retryCount);
+        src.position(src.position() + result[0]);
+        dest.put(destArray,0, result[1]);
+        //dest.position(result[1]);
+        return result[1];
       }
       else{
           byte[] srcArray = new byte[src.remaining()];
           src.get(srcArray, src.position(), src.remaining());
-          decompressedSize = InternalJNI.decompressByteArray(qzSession, srcArray, 0, srcArray.length, dest.array(), 0, retryCount);
-          dest.position(decompressedSize);
+          result = InternalJNI.decompressByteArrayInLoop(qzSession, srcArray, 0, srcArray.length, compressedBuffer, compressedBuffer.limit(), unCompressedBuffer, unCompressedBuffer.limit(), dest.array(), dest.position(), dest.remaining(),retryCount);
+          src.position(src.position() + result[0]);
+          dest.position(dest.position() + result[1]);
+          return result[1];
       }
     }
     else if(src.isDirect() && dest.isDirect()){
@@ -311,9 +321,11 @@ public class QATSession {
       throw new ArrayIndexOutOfBoundsException("Invalid byte array index");
 
     int decompressedSize = 0;
+    int[] result = new int[2];
 
     if (isPinnedMemory()) {
-      decompressedSize = InternalJNI.decompressByteArrayInLoop(qzSession,src,srcOffset,srcLen,compressedBuffer, compressedBuffer.limit(), unCompressedBuffer, unCompressedBuffer.limit(), dest,destOffset,dest.length,retryCount);
+      result = InternalJNI.decompressByteArrayInLoop(qzSession,src,srcOffset,srcLen,compressedBuffer, compressedBuffer.limit(), unCompressedBuffer, unCompressedBuffer.limit(), dest,destOffset,dest.length,retryCount);
+      return result[1];
     } else {
       decompressedSize = InternalJNI.decompressByteArray(qzSession, src, srcOffset, srcLen, dest, destOffset, retryCount);
     }
