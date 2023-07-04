@@ -217,7 +217,7 @@ public class QATSession {
     if(src == null || dest == null || srcLen == 0 || dest.length == 0)
       throw new IllegalArgumentException("empty buffer");
 
-    if(srcOffset < 0 || (srcOffset + srcLen > src.length) || srcOffset >= src.length)
+    if(srcOffset < 0 || (srcLen > src.length) || srcOffset >= src.length)
       throw new ArrayIndexOutOfBoundsException("Invalid byte array index");
 
     int compressedSize = 0;
@@ -317,7 +317,7 @@ public class QATSession {
     if(src == null || dest == null || srcLen == 0 || dest.length == 0)
       throw new IllegalArgumentException("empty buffer");
 
-    if(srcOffset < 0 || (srcOffset + srcLen > src.length) || srcOffset >= src.length)
+    if(srcOffset < 0 || (srcLen > src.length) || srcOffset >= src.length)
       throw new ArrayIndexOutOfBoundsException("Invalid byte array index");
 
     int decompressedSize = 0;

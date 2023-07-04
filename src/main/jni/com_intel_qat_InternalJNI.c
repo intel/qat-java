@@ -479,14 +479,14 @@ JNIEXPORT jintArray JNICALL Java_com_intel_qat_InternalJNI_decompressByteArrayIn
 	  dest += destOffset;
 	  unsigned char* destTemp = dest;
 
-	  jintArray decompressResultArr = decompressInLoop(env, obj,qzSession,src, srcLen, compressedBuffer, compressedBufferLength,
-    				 unCompressedBuffer, unCompressedBufferLength, dest, destLen, retryCount);
+	  jintArray decompressResultArr = decompressInLoop(env, obj,qzSession,srcTemp, srcLen, compressedBuffer, compressedBufferLength,
+    				 unCompressedBuffer, unCompressedBufferLength, destTemp, destLen, retryCount);
+      jint* temp = (*env) -> GetIntArrayElements(env, decompressResultArr,0);
+      //(*env)->ReleaseByteArrayElements(env, srcBuffer, (signed char *)src, 0);
+      //(*env)->ReleaseByteArrayElements(env, destBuffer, (signed char *)dest, 0);
+      (*env)->SetByteArrayRegion (env,srcBuffer, srcOffset, temp[0], src);
+      (*env)->SetByteArrayRegion (env,destBuffer, destOffset, temp[1], dest);
 
-      (*env)->ReleaseByteArrayElements(env, srcBuffer, (signed char *)src, 0);
-      (*env)->ReleaseByteArrayElements(env, destBuffer, (signed char *)dest, 0);
-      //(*env)->SetByteArrayRegion (env,srcBuffer, srcOffset, res[0], src);
-      //(*env)->SetByteArrayRegion (env,destBuffer, destOffset, res[1], dest);
-       jint* temp = (*env) -> GetIntArrayElements(env, decompressResultArr,0);
        jintArray ret = (*env)->NewIntArray(env, 2);
        (*env)->SetIntArrayRegion(env, ret, 0, 2, temp);
        return ret;

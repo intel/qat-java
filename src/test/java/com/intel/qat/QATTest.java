@@ -820,6 +820,73 @@ public class QATTest {
             fail(e.getMessage());
         }
     }
+    @Test
+    public void testChunkedCompressionWithByteArrayDiffOffset(){
+        try{
+            intQatSession = new QATSession(QATSession.CompressionAlgorithm.DEFLATE,6, QATSession.Mode.AUTO);
+            byte[] src = Files.readAllBytes(Path.of("src/main/resources/book2"));
+            String book2 = new String(src, StandardCharsets.UTF_8);
+            byte[] dest = new byte[intQatSession.maxCompressedLength(src.length)];
+            byte[] unCompressed = new byte[src.length];
+
+            int compressedSize = intQatSession.compress(src,3,src.length - 3, dest,0);
+
+            int decompressedSize = intQatSession.decompress(dest,0,compressedSize,unCompressed,3);
+
+            assertTrue(compressedSize > 0);
+            assertEquals(decompressedSize,src.length - 3);
+
+            assertTrue(book2.substring(3).compareTo(new String(unCompressed, StandardCharsets.UTF_8).substring(3)) == 0);
+
+        }
+        catch (QATException | IOException e){
+            fail(e.getMessage());
+        }
+    }
+
+    @Test
+    void testCompressorText(){
+        try{
+            intQatSession = new QATSession(QATSession.CompressionAlgorithm.DEFLATE,6, QATSession.Mode.AUTO);
+            byte[] data = new byte[1 << 20];
+            new Random().nextBytes(data);
+            ByteBuffer src = ByteBuffer.allocate(data.length);
+            src.put(data);
+            src.flip();
+
+            // Prepend some random bytes to the output and compress
+            final int outOffset = 3;
+            byte[] garbage = new byte[outOffset + intQatSession.maxCompressedLength(data.length)];
+
+            new Random().nextBytes(garbage);
+            ByteBuffer dest = ByteBuffer.allocate(outOffset +  intQatSession.maxCompressedLength(data.length));
+            dest.put(garbage);
+            dest.clear();
+            dest.position(outOffset);
+
+            int compressedSize = intQatSession.compress(src,dest);
+            int compressedLength = dest.position() - outOffset;
+            assertEquals(compressedSize,compressedLength);
+
+            System.out.println("testCompressorText: successful compression");
+            ByteBuffer result = ByteBuffer.allocate(data.length + 100);
+            dest.flip();
+            dest.position(outOffset);
+
+            int decompressedSize = intQatSession.decompress(dest,result);
+            src.flip();
+            result.flip();
+            System.out.println("testCompressorText: result remaining = " + result.remaining());
+            assertEquals(decompressedSize, data.length);
+            System.out.println("testCompressorText: source remaining = " + src.remaining());
+            assertTrue(result.compareTo(src) == 0);
+            System.out.println("testCompressorText: successful decompression");
+
+        }
+        catch (QATException |IllegalArgumentException e){
+            fail(e.getMessage());
+        }
+    }
 
     @Test
     public void testChunkedCompressionWithByteBuff(){
