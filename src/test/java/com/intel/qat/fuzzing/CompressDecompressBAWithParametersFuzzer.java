@@ -11,7 +11,7 @@ public class CompressDecompressBAWithParametersFuzzer {
         try {
             QATSession qatSession = new QATSession();
             int srcOffset = data.consumeInt();
-            //int srcLength = data.consumeInt();
+            int srcLength = data.consumeInt();
             byte[] src = data.consumeRemainingAsBytes();
             int size = src.length;
             int compressLength = qatSession.maxCompressedLength(size);
