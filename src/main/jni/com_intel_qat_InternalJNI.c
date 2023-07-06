@@ -379,6 +379,7 @@ jintArray decompressInLoop(JNIEnv *env, jclass obj,jlong qzSession,unsigned char
   int totalDecompressed = 0;
   int totalConsumed = 0;
   int srcLenRunning = srcLen;
+ // keep src and dest can be local to function , no need to modify the actual source and destination pointers
 
   while(totalConsumed < srcLen && totalDecompressed < destLen){
 	int remaining = (srcLen - totalConsumed) < compressedBufferLength? (srcLen - totalConsumed): compressedBufferLength;
@@ -421,43 +422,87 @@ jintArray decompressInLoop(JNIEnv *env, jclass obj,jlong qzSession,unsigned char
   return result;
 }
 
-JNIEXPORT jintArray JNICALL Java_com_intel_qat_InternalJNI_decompressByteBuffInLoop(
+JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_decompressByteBuffInLoop(
     JNIEnv *env, jclass obj, jlong qzSession,
     jobject srcBuffer, jint srcOffset, jint srcLen,
     jobject compressedBuffer,jint compressedBufferLength,
     jobject unCompressedBuffer, jint unCompressedBufferLength,
     jobject destBuffer, jint destOffset, jint destLen,
     jint retryCount) {
-	  unsigned char *src = (unsigned char *)(*env)->GetDirectBufferAddress(env, srcBuffer);
-	  if(src == NULL){
-		throw_exception(env, QZ_DECOMPRESS_ERROR,INT_MAX);
-		return NULL;
-	  }
-	  src += srcOffset;
 
-  	  unsigned char *dest = (unsigned char *)(*env)->GetDirectBufferAddress(env, destBuffer);
-	  if(dest == NULL){
-		throw_exception(env, QZ_DECOMPRESS_ERROR,INT_MAX);
-		return NULL;
-	  }
-	  dest += destOffset;
+       jclass srcBufferClass = (*env)->GetObjectClass(env, srcBuffer);
+       jmethodID ifSrcBufferDirect = (*env)->GetMethodID(env, srcBufferClass, "isDirect",  "()Z");
+       jmethodID ifSrcBufferHasArray = (*env)->GetMethodID(env, srcBufferClass, "hasArray",  "()Z");
+       jmethodID srcBufferPosition = (*env)->GetMethodID(env, srcBufferClass, "position", "(I)Ljava/nio/Buffer;");
+       jboolean ifSrcDirect = (*env)->CallBooleanMethod(env, srcBuffer, ifSrcBufferDirect);
+       jboolean ifSrcHasArray = (*env)->CallBooleanMethod(env, srcBuffer, ifSrcBufferHasArray);
 
-	  jintArray decompressResultArr = decompressInLoop(env, obj,qzSession,src, srcLen,compressedBuffer, compressedBufferLength,
+       jclass destBufferClass = (*env)->GetObjectClass(env, destBuffer);
+       jmethodID ifDestBufferDirect = (*env)->GetMethodID(env, destBufferClass, "isDirect",  "()Z");
+       jmethodID ifDestBufferHasArray = (*env)->GetMethodID(env, destBufferClass, "hasArray",  "()Z");
+       //jmethodID destPutmethodID = (*env)->GetMethodID(env, srcBufferClass, "put", "([B)Ljava/nio/Buffer;");
+       jboolean ifDestDirect = (*env)->CallBooleanMethod(env, destBuffer, ifDestBufferDirect);
+       jboolean ifDestHasArray = (*env)->CallBooleanMethod(env, srcBuffer, ifDestBufferHasArray);
+
+       unsigned char *src;
+       unsigned char *dest;
+       unsigned char *destTemp;
+       jboolean isCopy;
+       jbyteArray destArray;
+
+       if(ifSrcDirect){
+	    src = (unsigned char *)(*env)->GetDirectBufferAddress(env, srcBuffer);
+	   }
+	   else if(ifSrcHasArray){
+	    jmethodID backedArray = (*env)->GetMethodID(env, srcBufferClass, "array", "()[B");
+	    jbyteArray tmpArray = (jbyteArray)(*env)->CallObjectMethod(env, srcBuffer, backedArray);
+        src = (unsigned char *)(*env)->GetByteArrayElements(env, tmpArray, &isCopy);
+       }
+	   if(ifDestDirect){
+	    dest = (unsigned char *)(*env)->GetDirectBufferAddress(env, destBuffer);
+	   }
+	   else if(ifDestHasArray){
+	    jmethodID backedArray = (*env)->GetMethodID(env, destBufferClass, "array", "()[B");
+	    destArray = (jbyteArray)(*env)->CallObjectMethod(env, destBuffer, backedArray);
+	    dest = (unsigned char *)(*env)->GetByteArrayElements(env, destArray, &isCopy);
+	    destTemp = dest;
+	   }
+
+	   if(src == NULL){
+		throw_exception(env, QZ_DECOMPRESS_ERROR,INT_MAX);
+		return -1;
+	   }
+	   src += srcOffset;
+
+	   if(dest == NULL){
+		throw_exception(env, QZ_DECOMPRESS_ERROR,INT_MAX);
+		return -1;
+	   }
+	   dest += destOffset;
+
+	   jintArray decompressResultArr = decompressInLoop(env, obj,qzSession,src, srcLen,compressedBuffer, compressedBufferLength,
     				unCompressedBuffer, unCompressedBufferLength, dest, destLen,retryCount);
 
+       jint* temp = (*env) -> GetIntArrayElements(env, decompressResultArr,0);
+       (*env)->CallObjectMethod(env, srcBuffer, srcBufferPosition, srcOffset + temp[0]);
+       if(ifDestHasArray){
+        //(*env)->CallObjectMethod(env, destBuffer, destPutmethodID,(jbyteArray)destTemp);
+        (*env)->ReleaseByteArrayElements(env,destArray,destTemp,0);
+       }
      // jclass srcBufferClass = (*env)->GetObjectClass(env, srcBuffer);
      // jmethodID srcBufferPosition = (*env)->GetMethodID(env, srcBufferClass, "position", "(I)Ljava/nio/Buffer;");
      // (*env)->CallObjectMethod(env, srcBuffer, mid, srcOffset + result[0]);
-     jint* temp = (*env) -> GetIntArrayElements(env, decompressResultArr,0);
-    jintArray ret = (*env)->NewIntArray(env, 2);
+
+
     //(*env)->SetByteArrayRegion(env,ret, 0, 2, decompressResult);
-    (*env)->SetIntArrayRegion(env, ret, 0, 2, temp);
-    return ret;
+    //(*env)->SetIntArrayRegion(env, ret, 0, 2, temp);
+
+    return temp[1];
 }
 
-JNIEXPORT jintArray JNICALL Java_com_intel_qat_InternalJNI_decompressByteArrayInLoop(
+JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_decompressByteArrayInLoop(
     JNIEnv *env, jclass obj, jlong qzSession,
-    jbyteArray srcBuffer, jint srcOffset, jint srcLen,
+    jbyteArray srcBuffer, jint srcOffset, jint srcLen, // call srcByteArray and destByteArray
     jobject compressedBuffer,jint compressedBufferLength,
     jobject unCompressedBuffer, jint unCompressedBufferLength,
     jbyteArray destBuffer, jint destOffset, jint destLen,
@@ -466,7 +511,7 @@ JNIEXPORT jintArray JNICALL Java_com_intel_qat_InternalJNI_decompressByteArrayIn
 	  unsigned char *src = (unsigned char *)(*env)->GetByteArrayElements(env, srcBuffer, &isCopy);
 	  if(src == NULL){
 		throw_exception(env, QZ_DECOMPRESS_ERROR,INT_MAX);
-		return NULL;
+		return -1;
 	  }
 	  src += srcOffset;
 	  unsigned char* srcTemp = src;
@@ -474,7 +519,7 @@ JNIEXPORT jintArray JNICALL Java_com_intel_qat_InternalJNI_decompressByteArrayIn
   	  unsigned char *dest = (unsigned char *)(*env)->GetByteArrayElements(env, destBuffer, &isCopy);
 	  if(dest == NULL){
 		throw_exception(env, QZ_DECOMPRESS_ERROR,INT_MAX);
-		return NULL;
+		return -1;
 	  }
 	  dest += destOffset;
 	  unsigned char* destTemp = dest;
@@ -482,14 +527,16 @@ JNIEXPORT jintArray JNICALL Java_com_intel_qat_InternalJNI_decompressByteArrayIn
 	  jintArray decompressResultArr = decompressInLoop(env, obj,qzSession,srcTemp, srcLen, compressedBuffer, compressedBufferLength,
     				 unCompressedBuffer, unCompressedBufferLength, destTemp, destLen, retryCount);
       jint* temp = (*env) -> GetIntArrayElements(env, decompressResultArr,0);
+
       //(*env)->ReleaseByteArrayElements(env, srcBuffer, (signed char *)src, 0);
       //(*env)->ReleaseByteArrayElements(env, destBuffer, (signed char *)dest, 0);
       (*env)->SetByteArrayRegion (env,srcBuffer, srcOffset, temp[0], src);
       (*env)->SetByteArrayRegion (env,destBuffer, destOffset, temp[1], dest);
+      // bytearray region not needed
 
-       jintArray ret = (*env)->NewIntArray(env, 2);
-       (*env)->SetIntArrayRegion(env, ret, 0, 2, temp);
-       return ret;
+       //jintArray ret = (*env)->NewIntArray(env, 2);
+       //(*env)->SetIntArrayRegion(env, ret, 0, 2, temp);
+       return temp[1];
     }
 
 

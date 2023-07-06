@@ -807,7 +807,6 @@ public class QATTest {
             byte[] unCompressed = new byte[src.length];
 
             int compressedSize = intQatSession.compress(src,0,src.length, dest,0);
-
             int decompressedSize = intQatSession.decompress(dest,0,compressedSize,unCompressed,0);
 
             assertTrue(compressedSize > 0);
@@ -868,7 +867,6 @@ public class QATTest {
             int compressedLength = dest.position() - outOffset;
             assertEquals(compressedSize,compressedLength);
 
-            System.out.println("testCompressorText: successful compression");
             ByteBuffer result = ByteBuffer.allocate(data.length + 100);
             dest.flip();
             dest.position(outOffset);
@@ -876,11 +874,9 @@ public class QATTest {
             int decompressedSize = intQatSession.decompress(dest,result);
             src.flip();
             result.flip();
-            System.out.println("testCompressorText: result remaining = " + result.remaining());
+
             assertEquals(decompressedSize, data.length);
-            System.out.println("testCompressorText: source remaining = " + src.remaining());
             assertTrue(result.compareTo(src) == 0);
-            System.out.println("testCompressorText: successful decompression");
 
         }
         catch (QATException |IllegalArgumentException e){
