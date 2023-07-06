@@ -390,7 +390,7 @@ public class QATSession {
     int compressedSize = 0;
     int totalCompressedSize = 0;
     int unCompressedBufferLimit = unCompressedBuffer.limit();
-    while (remaining > 0 && (sourceOffsetInLoop+ srcLen < src.length) && destOffsetInLoop < dest.length) {
+    while (remaining > 0 && (sourceOffsetInLoop  < src.length) && destOffsetInLoop < dest.length) {
       unCompressedBuffer.clear();
       compressedBuffer.clear();
 
