@@ -312,13 +312,13 @@ public class QATSession {
     }
     @Override
     public void run(){
-        if(qzSession != 0){
-          cleanUp(qzSession);
-          qzSession = 0;
-        }
-        else{
-          System.out.println("DEBUGGING : Cleaner called more than once");
-        }
+      if(qzSession != 0){
+        cleanUp(qzSession);
+        qzSession = 0;
+      }
+      else{
+        System.out.println("DEBUGGING : Cleaner called more than once");
+      }
     }
   }
 }
