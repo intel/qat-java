@@ -19,8 +19,8 @@ public class CompressDecompressBAFuzzer {
             byte[] dst = new byte[compressLength];
             byte[] decompArr = new byte[src.length];
 
-            int compressedSize = qatSession.compress(src,0,src.length,dst,0);
-            int decompressedSize = qatSession.decompress(dst,0, compressedSize, decompArr,0);
+            int compressedSize = qatSession.compress(src,0,src.length,dst,0,dst.length);
+            int decompressedSize = qatSession.decompress(dst,0, compressedSize, decompArr,0,decompArr.length);
 
             assert Arrays.equals(src, decompArr): "Source and decompressed array are not equal";
         }

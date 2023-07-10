@@ -135,7 +135,7 @@ public class QATTest {
     void testWrappedBuffers(){
         try {
             intQatSession = new QATSession();
-            intQatSession.setIsPinnedMemAvailable();
+            //intQatSession.setIsPinnedMemAvailable();
             byte[] source = new byte[100];
             RANDOM.nextBytes(source);
             byte[] uncomp = new byte[source.length];
@@ -173,7 +173,7 @@ public class QATTest {
     void testBackedArrayBuffersWithAllocate(){
         try {
             intQatSession = new QATSession();
-            intQatSession.setIsPinnedMemAvailable();
+            //intQatSession.setIsPinnedMemAvailable();
             byte[] source = new byte[100];
             RANDOM.nextBytes(source);
             byte[] uncompressed = new byte[source.length];
@@ -212,7 +212,7 @@ public class QATTest {
     void testIndirectBuffersReadOnly(){
         try {
             intQatSession = new QATSession();
-            intQatSession.setIsPinnedMemAvailable();
+            //intQatSession.setIsPinnedMemAvailable();
             byte[] source = new byte[100];
             RANDOM.nextBytes(source);
             byte[] uncompressed = new byte[source.length];
@@ -251,17 +251,17 @@ public class QATTest {
     void testCompressionDecompressionWithByteArray(){
         try{
             intQatSession = new QATSession();
-            intQatSession.setIsPinnedMemAvailable();
+            //intQatSession.setIsPinnedMemAvailable();
 
             byte[] source = new byte[100];
             RANDOM.nextBytes(source);
             byte[] uncompressed = new byte[source.length];
             byte[] dest = new byte[intQatSession.maxCompressedLength(source.length)];
 
-            int compressedSize = intQatSession.compress(source,0, source.length, dest,0);
+            int compressedSize = intQatSession.compress(source,0, source.length, dest,0,dest.length);
             assertNotNull(dest);
 
-            intQatSession.decompress(dest,0, compressedSize, uncompressed, 0);
+            intQatSession.decompress(dest,0, compressedSize, uncompressed, 0, uncompressed.length);
             assertNotNull(uncompressed);
 
             assertTrue(Arrays.equals(source,uncompressed));
@@ -275,16 +275,16 @@ public class QATTest {
     void testCompressionDecompressionWithByteArrayLZ4(){
         try{
             intQatSession = new QATSession(QATSession.CompressionAlgorithm.LZ4);
-            intQatSession.setIsPinnedMemAvailable();
+            //intQatSession.setIsPinnedMemAvailable();
             byte[] source = new byte[100];
             RANDOM.nextBytes(source);
             byte[] uncomp = new byte[source.length];
             byte[] dest = new byte[intQatSession.maxCompressedLength(source.length)];
 
-            int compressedSize = intQatSession.compress(source,0, source.length, dest,0);
+            int compressedSize = intQatSession.compress(source,0, source.length, dest,0, dest.length);
             assertNotNull(dest);
 
-            intQatSession.decompress(dest,0, compressedSize, uncomp, 0);
+            intQatSession.decompress(dest,0, compressedSize, uncomp, 0,uncomp.length);
             assertNotNull(uncomp);
             assertTrue(Arrays.equals(source,uncomp));
         }
@@ -307,7 +307,7 @@ public class QATTest {
             uncompressedBuffer.flip();
 
             int compressedSize = intQatSession.compress(uncompressedBuffer,compressedBuffer);
-            int byteArrayCompSize = intQatSession.compress(source,0,source.length,dest,0);
+            int byteArrayCompSize = intQatSession.compress(source,0,source.length,dest,0,dest.length);
 
             assertEquals(compressedSize, byteArrayCompSize);
 
@@ -337,10 +337,10 @@ public class QATTest {
             byte[] decompressed = new byte[source.length];
             byte[] dest = new byte[intQatSession.maxCompressedLength(source.length)];
 
-            int compressedSize = intQatSession.compress(source,0, source.length, dest,0);
+            int compressedSize = intQatSession.compress(source,0, source.length, dest,0, dest.length);
             assertNotNull(dest);
 
-            intQatSession.decompress(dest,0, compressedSize, decompressed, 0);
+            intQatSession.decompress(dest,0, compressedSize, decompressed, 0, decompressed.length);
             assertNotNull(decompressed);
             assertTrue(Arrays.equals(source,decompressed));
         }
@@ -358,7 +358,7 @@ public class QATTest {
             RANDOM.nextBytes(source);
             byte[] dest = new byte[source.length/10];
 
-            intQatSession.compress(source,0, source.length, dest,0);
+            intQatSession.compress(source,0, source.length, dest,0, dest.length);
         }
         catch (QATException|IndexOutOfBoundsException e){
             assertTrue(true);
@@ -375,7 +375,7 @@ public class QATTest {
             RANDOM.nextBytes(source);
             byte[] dest = new byte[source.length/10];
 
-            intQatSession.compress(source,0, source.length, dest,0);
+            intQatSession.compress(source,0, source.length, dest,0,dest.length);
         }
         catch (QATException|IndexOutOfBoundsException e){
             assertTrue(true);
@@ -393,8 +393,8 @@ public class QATTest {
             byte[] uncomp = new byte[source.length/2];
             byte[] dest = new byte[source.length];
 
-            intQatSession.compress(source,0, source.length, dest,0);
-            intQatSession.decompress(dest,0,dest.length,uncomp,0);
+            intQatSession.compress(source,0, source.length, dest,0,dest.length);
+            intQatSession.decompress(dest,0,dest.length,uncomp,0,uncomp.length);
             fail("testInvalidDecompressionHardwareMode failed");
         }
         catch (QATException|IndexOutOfBoundsException e){
@@ -441,7 +441,7 @@ public class QATTest {
 
         try{
             intQatSession = new QATSession();
-            intQatSession.setIsPinnedMemAvailable();
+            //intQatSession.setIsPinnedMemAvailable();
             byte[] source = new byte[100];
             RANDOM.nextBytes(source);
             byte[] decompressed = new byte[source.length];
@@ -487,7 +487,7 @@ public class QATTest {
     void testCompressWithNullByteArray(){
         try{
             intQatSession = new QATSession();
-            intQatSession.compress(null,0,100,null,0);
+            intQatSession.compress(null,0,100,null,0,0);
         }
         catch (IllegalArgumentException ie){
             assertTrue(true);
@@ -510,7 +510,7 @@ public class QATTest {
     void testDecompressWithNullByteArray(){
         try{
             intQatSession = new QATSession();
-            int compressedSize = intQatSession.decompress(null,0,100,null,0);
+            int compressedSize = intQatSession.decompress(null,0,100,null,0,0);
             fail("testDecompressWithNullByteArray fails");
         }
         catch (IllegalArgumentException ie){
@@ -601,43 +601,6 @@ public class QATTest {
     }
 
     @Test
-    public void testNativeByteBuffer(){
-        try {
-            intQatSession = new QATSession();
-            assertNotNull(intQatSession.unCompressedBuffer);
-            assertNotNull(intQatSession.compressedBuffer);
-            assertTrue(intQatSession.unCompressedBuffer.isDirect());
-            assertTrue(intQatSession.unCompressedBuffer.isDirect());
-        }
-        catch (IllegalArgumentException | QATException ie){
-            fail(ie.getMessage());
-        }
-        assertTrue(true);
-    }
-
-    @Test
-    public void multipleQATSessions(){
-        try{
-            QATSession[] qatSessions = new QATSession[10];
-
-            for(int i = 0; i < qatSessions.length; i++){
-                qatSessions[i] = new QATSession();
-            }
-            for(int i = 0; i < qatSessions.length; i++){
-                assertTrue(qatSessions[i].compressedBuffer.isDirect());
-            }
-            for(int i = 0; i < qatSessions.length; i++) {
-                qatSessions[i].teardown();
-            }
-            assertTrue(true);
-        }
-        catch (Exception e){
-            fail(e.getMessage());
-        }
-    }
-
-
-    @Test
     public void testIllegalStateException(){
         QATSession qatSession = null;
         byte[] source = new byte[100];
@@ -647,7 +610,7 @@ public class QATTest {
         try {
             qatSession = new QATSession(QATSession.CompressionAlgorithm.LZ4,0, QATSession.Mode.AUTO);
             qatSession.teardown();
-            qatSession.compress(source,0,source.length,dest,0);
+            qatSession.compress(source,0,source.length,dest,0,dest.length);
             fail("testIllegalStateException fails");
         }
         catch (IllegalStateException is){
@@ -666,7 +629,7 @@ public class QATTest {
         try {
             qatSession = new QATSession(QATSession.CompressionAlgorithm.LZ4,0, QATSession.Mode.HARDWARE);
             qatSession.teardown();
-            qatSession.compress(source,0,source.length,dest,0);
+            qatSession.compress(source,0,source.length,dest,0,dest.length);
             fail("testIllegalStateException fails");
         }
         catch (IllegalStateException is){
@@ -707,7 +670,7 @@ public class QATTest {
             byte[] dest = new byte[2 * source.length];
 
             qatSession.teardown();
-            qatSession.compress(source,0,source.length,dest,0);
+            qatSession.compress(source,0,source.length,dest,0,dest.length);
             fail("compressByteArrayPostTearDown failed");
         }
         catch (IllegalStateException ie){
@@ -746,10 +709,10 @@ public class QATTest {
             byte[] source = new byte[100];
             RANDOM.nextBytes(source);
             byte[] dest = new byte[2 * source.length];
-            qatSession.compress(source,0,source.length,dest,0);
+            qatSession.compress(source,0,source.length,dest,0,dest.length);
 
             qatSession.teardown();
-            qatSession.decompress(source,0,source.length,dest,0);
+            qatSession.decompress(source,0,source.length,dest,0,dest.length);
             fail("decompressByteArrayPostTearDown failed");
         }
         catch (IllegalStateException ie){
@@ -806,8 +769,8 @@ public class QATTest {
             byte[] dest = new byte[intQatSession.maxCompressedLength(src.length)];
             byte[] unCompressed = new byte[src.length];
 
-            int compressedSize = intQatSession.compress(src,0,src.length, dest,0);
-            int decompressedSize = intQatSession.decompress(dest,0,compressedSize,unCompressed,0);
+            int compressedSize = intQatSession.compress(src,0,src.length, dest,0, dest.length);
+            int decompressedSize = intQatSession.decompress(dest,0,compressedSize,unCompressed,0,unCompressed.length);
 
             assertTrue(compressedSize > 0);
             assertEquals(decompressedSize,src.length);
@@ -828,9 +791,9 @@ public class QATTest {
             byte[] dest = new byte[intQatSession.maxCompressedLength(src.length)];
             byte[] unCompressed = new byte[src.length];
 
-            int compressedSize = intQatSession.compress(src,3,src.length - 3, dest,0);
+            int compressedSize = intQatSession.compress(src,3,src.length - 3, dest,0,dest.length);
 
-            int decompressedSize = intQatSession.decompress(dest,0,compressedSize,unCompressed,3);
+            int decompressedSize = intQatSession.decompress(dest,0,compressedSize,unCompressed,3,unCompressed.length - 3);
 
             assertTrue(compressedSize > 0);
             assertEquals(decompressedSize,src.length - 3);
@@ -988,10 +951,10 @@ public class QATTest {
             byte[] dest = new byte[intQatSession.maxCompressedLength(src.length)];
             byte[] unCompressed = new byte[src.length];
 
-            intQatSession.setIsPinnedMemAvailable();
+            //intQatSession.setIsPinnedMemAvailable();
 
-            intQatSession.compress(src,-1,src.length,dest,0);
-            int decompressedSize = intQatSession.decompress(dest,0,dest.length,unCompressed,0);
+            intQatSession.compress(src,-1,src.length,dest,0,dest.length);
+            int decompressedSize = intQatSession.decompress(dest,0,dest.length,unCompressed,0,unCompressed.length);
 
             fail();
         }
@@ -1011,10 +974,10 @@ public class QATTest {
             byte[] dest = new byte[intQatSession.maxCompressedLength(src.length)];
             byte[] unCompressed = new byte[src.length];
 
-            intQatSession.setIsPinnedMemAvailable();
+            //intQatSession.setIsPinnedMemAvailable();
 
-            intQatSession.compress(src,-1,src.length,dest,0);
-            int decompressedSize = intQatSession.decompress(dest,0,dest.length,unCompressed,0);
+            intQatSession.compress(src,-1,src.length,dest,0,dest.length);
+            int decompressedSize = intQatSession.decompress(dest,0,dest.length,unCompressed,0, unCompressed.length);
 
             fail();
         }
@@ -1033,10 +996,10 @@ public class QATTest {
             byte[] dest = new byte[intQatSession.maxCompressedLength(src.length)];
             byte[] unCompressed = new byte[src.length];
 
-            intQatSession.setIsPinnedMemAvailable();
+            //intQatSession.setIsPinnedMemAvailable();
 
-            intQatSession.compress(src,src.length+1,src.length,dest,0);
-            int decompressedSize = intQatSession.decompress(dest,0,dest.length,unCompressed,0);
+            intQatSession.compress(src,src.length+1,src.length,dest,0,dest.length);
+            int decompressedSize = intQatSession.decompress(dest,0,dest.length,unCompressed,0, unCompressed.length);
 
             fail();
         }
@@ -1055,10 +1018,10 @@ public class QATTest {
             byte[] dest = new byte[intQatSession.maxCompressedLength(src.length)];
             byte[] unCompressed = new byte[src.length];
 
-            intQatSession.setIsPinnedMemAvailable();
+            //intQatSession.setIsPinnedMemAvailable();
 
-            intQatSession.compress(src,0,src.length,dest,0);
-            int decompressedSize = intQatSession.decompress(dest,-1,dest.length,unCompressed,0);
+            intQatSession.compress(src,0,src.length,dest,0,dest.length);
+            int decompressedSize = intQatSession.decompress(dest,-1,dest.length,unCompressed,0,unCompressed.length);
 
             fail();
         }
@@ -1077,10 +1040,10 @@ public class QATTest {
             byte[] dest = new byte[intQatSession.maxCompressedLength(src.length)];
             byte[] unCompressed = new byte[src.length];
 
-            intQatSession.setIsPinnedMemAvailable();
+            //intQatSession.setIsPinnedMemAvailable();
 
-            intQatSession.compress(src,0,src.length,dest,0);
-            int decompressedSize = intQatSession.decompress(dest,dest.length+1,dest.length,unCompressed,0);
+            intQatSession.compress(src,0,src.length,dest,0,dest.length);
+            int decompressedSize = intQatSession.decompress(dest,dest.length+1,dest.length,unCompressed,0,unCompressed.length);
 
             fail();
         }
