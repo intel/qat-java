@@ -21,7 +21,7 @@ public class CompressDecompressBAWithParametersFuzzer {
             int compressedSize = qatSession.compress(src,srcOffset,src.length - srcOffset,dst,0,dst.length);
             int decompressedSize = qatSession.decompress(dst,0, compressedSize, decompArr,0,decompArr.length);
 
-            assert Arrays.equals(src, Arrays.copyOfRange(decompArr,0,decompressedSize)): "Source and decompressed array are not equal";
+            assert Arrays.equals(Arrays.copyOfRange(src,srcOffset, src.length), Arrays.copyOfRange(decompArr,0,decompressedSize)): "Source and decompressed array are not equal";
         }
         catch (ArrayIndexOutOfBoundsException | IllegalArgumentException ignored) {
         } catch (QATException ignored) {

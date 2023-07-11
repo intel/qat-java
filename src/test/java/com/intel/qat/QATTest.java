@@ -305,8 +305,9 @@ public class QATTest {
             ByteBuffer compressedBuffer = ByteBuffer.allocateDirect(dest.length);
             uncompressedBuffer.put(source);
             uncompressedBuffer.flip();
-
+            System.out.println("TEST: maxCompressed length "+ dest.length);
             int compressedSize = intQatSession.compress(uncompressedBuffer,compressedBuffer);
+            System.out.println("TEST: after bytebuffer compress  source position is "+ uncompressedBuffer.position() +" and destination position is "+ compressedBuffer.position());
             int byteArrayCompSize = intQatSession.compress(source,0,source.length,dest,0,dest.length);
 
             assertEquals(compressedSize, byteArrayCompSize);

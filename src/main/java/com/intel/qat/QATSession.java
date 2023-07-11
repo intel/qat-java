@@ -177,10 +177,20 @@ public class QATSession {
       dest.position(dest.position()+compressedSize);
     }
     else{
-      byte[] srcArray = new byte[src.remaining()];
-      src.get(srcArray, src.position(), src.remaining());
-      compressedSize = InternalJNI.compressArrayOrBuffer(session, src, srcArray, 0, srcArray.length, dest.array(), dest.position(), dest.limit(), retryCount);
-      dest.position(dest.position()+compressedSize);
+      int srcLen = src.remaining();
+      int dstLen = dest.remaining();
+
+      byte[] srcArr = new byte[srcLen];
+      byte[] dstArr = new byte[dstLen];
+
+      src.get(srcArr);
+      dest.get(dstArr);
+
+      src.position(src.position() - srcLen);
+      dest.position(dest.position() - dstLen);
+
+      compressedSize = InternalJNI.compressArrayOrBuffer(session, src, srcArr, 0, srcLen, dstArr, 0, dstLen, retryCount);
+      dest.put(dstArr,0,compressedSize);
     }
 
     if (compressedSize < 0) {
@@ -208,9 +218,7 @@ public class QATSession {
     if(srcOffset < 0 || (srcLen > src.length) || srcOffset >= src.length)
       throw new ArrayIndexOutOfBoundsException("Invalid byte array index");
 
-    int compressedSize = 0;
-
-    compressedSize = InternalJNI.compressArrayOrBuffer(session,null,src, srcOffset, srcOffset+srcLen, dest, destOffset, destOffset+destLen,retryCount);
+    int compressedSize = InternalJNI.compressArrayOrBuffer(session,null,src, srcOffset, srcOffset+srcLen, dest, destOffset, destOffset+destLen,retryCount);
 
     if (compressedSize < 0) {
       throw new QATException("QAT: Compression failed");
@@ -245,11 +253,21 @@ public class QATSession {
       dest.position(dest.position() + decompressedSize);
     }
     else{
-      byte[] srcArray = new byte[src.remaining()];
-      src.get(srcArray,0,src.remaining());
-      decompressedSize = InternalJNI.decompressArrayOrBuffer(session, src, srcArray, 0,src.limit(), dest.array(), dest.position(), dest.limit(),retryCount);
-      dest.position(dest.position()+decompressedSize);
-      return decompressedSize;
+      int srcLen = src.remaining();
+      int dstLen = dest.remaining();
+
+      byte[] srcArr = new byte[srcLen];
+      byte[] dstArr = new byte[dstLen];
+
+      // read into arrays
+      src.get(srcArr);
+      dest.get(dstArr);
+
+      // reset src and dst positions
+      src.position(src.position() - srcLen);
+      dest.position(dest.position() - dstLen);
+      decompressedSize = InternalJNI.decompressArrayOrBuffer(session, src, srcArr, 0, srcLen, dstArr, 0, dstLen,retryCount);
+      dest.put(dstArr,0,decompressedSize);
     }
 
     if (decompressedSize < 0) {

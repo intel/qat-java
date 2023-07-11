@@ -41,7 +41,7 @@
         <java.version>17</java.version>
         <!--suppress UnresolvedMavenProperty -->
         <skipTests>${fuzzing}</skipTests>
-        <fuzzParameters>-max_total_time=10 -max_len=2147483647</fuzzParameters>
+        <fuzzParameters>-max_total_time=10 -max_len=2147483647 -rss_limit_mb=10240</fuzzParameters>
     </properties>
 
     <profiles>
@@ -285,36 +285,36 @@
                         <phase>generate-sources</phase>
                         <configuration>
                             <target>
-                            <taskdef resource="net/sf/antcontrib/antcontrib.properties"
-                                     classpathref="maven.plugin.classpath"/>
-                            <if>
-                                <!--suppress UnresolvedMavenProperty -->
-                                <equals arg1="${fuzzing}" arg2="true"/>
-                                <then>
-                                    <mkdir dir="${project.build.directory}/cbuild"/>
-                                    <exec executable="cmake" dir="${project.build.directory}/cbuild"
-                                          failonerror="true">
-                                        <arg line="${basedir}/src/main/jni -DSANITIZE_MEMORY=[ON]"/>
-                                    </exec>
-                                    <exec executable="make" dir="${project.build.directory}/cbuild"
-                                          failonerror="true">
-                                        <arg line="VERBOSE=1"/>
-                                    </exec>
-                                    <copy file="${project.build.directory}/cbuild/libqat-java.so"
-                                          tofile="${project.build.directory}/classes/com/intel/qat/linux/${os.arch}/libqat-java.so"/>
-                                </then>
-                                <else>
-                                    <mkdir dir="${project.build.directory}/cbuild"/>
-                                    <exec executable="cmake" dir="${project.build.directory}/cbuild" failonerror="true">
-                                        <arg line="${basedir}/src/main/jni "/>
-                                    </exec>
-                                    <exec executable="make" dir="${project.build.directory}/cbuild" failonerror="true">
-                                        <arg line="VERBOSE=1"/>
-                                    </exec>
-                                    <copy file="${project.build.directory}/cbuild/libqat-java.so"
-                                          tofile="${project.build.directory}/classes/com/intel/qat/linux/${os.arch}/libqat-java.so"/>
-                                </else>
-                            </if>
+                                <taskdef resource="net/sf/antcontrib/antcontrib.properties"
+                                         classpathref="maven.plugin.classpath"/>
+                                <if>
+                                    <!--suppress UnresolvedMavenProperty -->
+                                    <equals arg1="${fuzzing}" arg2="true"/>
+                                    <then>
+                                        <mkdir dir="${project.build.directory}/cbuild"/>
+                                        <exec executable="cmake" dir="${project.build.directory}/cbuild"
+                                              failonerror="true">
+                                            <arg line="${basedir}/src/main/jni -DSANITIZE_MEMORY=[ON]"/>
+                                        </exec>
+                                        <exec executable="make" dir="${project.build.directory}/cbuild"
+                                              failonerror="true">
+                                            <arg line="VERBOSE=1"/>
+                                        </exec>
+                                        <copy file="${project.build.directory}/cbuild/libqat-java.so"
+                                              tofile="${project.build.directory}/classes/com/intel/qat/linux/${os.arch}/libqat-java.so"/>
+                                    </then>
+                                    <else>
+                                        <mkdir dir="${project.build.directory}/cbuild"/>
+                                        <exec executable="cmake" dir="${project.build.directory}/cbuild" failonerror="true">
+                                            <arg line="${basedir}/src/main/jni "/>
+                                        </exec>
+                                        <exec executable="make" dir="${project.build.directory}/cbuild" failonerror="true">
+                                            <arg line="VERBOSE=1"/>
+                                        </exec>
+                                        <copy file="${project.build.directory}/cbuild/libqat-java.so"
+                                              tofile="${project.build.directory}/classes/com/intel/qat/linux/${os.arch}/libqat-java.so"/>
+                                    </else>
+                                </if>
                             </target>
                         </configuration>
                         <goals>
