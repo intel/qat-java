@@ -171,15 +171,16 @@ public class QATSession {
     int compressedSize = 0;
 
     if(src.isDirect() && dest.isDirect()){
-      compressedSize = InternalJNI.compressDirectByteBuffer(session, src, src.position(), src.remaining(), dest, dest.position(), dest.remaining(), retryCount);
+      compressedSize = InternalJNI.compressDirectByteBuffer(session, src, src.position(), src.limit(), dest, dest.position(), dest.limit(), retryCount);
     } else if (src.hasArray() && dest.hasArray()) {
-      compressedSize = InternalJNI.compressArrayOrBuffer(session, src, src.array(), src.position(), src.remaining(), dest.array(), dest.position(), dest.remaining(), retryCount);
+      compressedSize = InternalJNI.compressArrayOrBuffer(session, src, src.array(), src.position(), src.limit(), dest.array(), dest.position(), dest.limit(), retryCount);
+      dest.position(dest.position()+compressedSize);
     }
     else{
       byte[] srcArray = new byte[src.remaining()];
       src.get(srcArray, src.position(), src.remaining());
-      compressedSize = InternalJNI.compressArrayOrBuffer(session, src, srcArray, 0, srcArray.length, dest.array(), dest.position(), dest.remaining(), retryCount);
-      src.put(srcArray, 0,compressedSize);
+      compressedSize = InternalJNI.compressArrayOrBuffer(session, src, srcArray, 0, srcArray.length, dest.array(), dest.position(), dest.limit(), retryCount);
+      dest.position(dest.position()+compressedSize);
     }
 
     if (compressedSize < 0) {
@@ -209,7 +210,7 @@ public class QATSession {
 
     int compressedSize = 0;
 
-    compressedSize = InternalJNI.compressArrayOrBuffer(session,null,src, srcOffset, srcLen, dest, destOffset, destLen,retryCount);
+    compressedSize = InternalJNI.compressArrayOrBuffer(session,null,src, srcOffset, srcOffset+srcLen, dest, destOffset, destOffset+destLen,retryCount);
 
     if (compressedSize < 0) {
       throw new QATException("QAT: Compression failed");
@@ -237,15 +238,17 @@ public class QATSession {
 
     // NEW LOGIC
     if(src.isDirect() && dest.isDirect()) {
-      decompressedSize = InternalJNI.decompressDirectByteBuffer(session, src, src.position(), src.remaining(), dest, dest.position(), dest.remaining(), retryCount);
+      decompressedSize = InternalJNI.decompressDirectByteBuffer(session, src, src.position(), src.limit(), dest, dest.position(), dest.limit(), retryCount);
     }
     else if (src.hasArray() && dest.hasArray()) {
-      decompressedSize = InternalJNI.decompressArrayOrBuffer(session,src,src.array(),src.position(),src.remaining(),dest.array(),dest.position(), dest.remaining(),retryCount);
+      decompressedSize = InternalJNI.decompressArrayOrBuffer(session,src,src.array(),src.position(),src.limit(),dest.array(),dest.position(), dest.limit(),retryCount);
+      dest.position(dest.position() + decompressedSize);
     }
     else{
       byte[] srcArray = new byte[src.remaining()];
       src.get(srcArray,0,src.remaining());
-      decompressedSize = InternalJNI.decompressArrayOrBuffer(session, src, srcArray, 0,src.remaining(), dest.array(), dest.position(), dest.remaining(),retryCount);
+      decompressedSize = InternalJNI.decompressArrayOrBuffer(session, src, srcArray, 0,src.limit(), dest.array(), dest.position(), dest.limit(),retryCount);
+      dest.position(dest.position()+decompressedSize);
       return decompressedSize;
     }
 
@@ -277,7 +280,7 @@ public class QATSession {
 
     int decompressedSize = 0;
 
-    decompressedSize = InternalJNI.decompressArrayOrBuffer(session,null, src,srcOffset,srcLen, dest,destOffset,destLen,retryCount);
+    decompressedSize = InternalJNI.decompressArrayOrBuffer(session,null, src,srcOffset,srcOffset+srcLen, dest,destOffset,destOffset+destLen,retryCount);
 
     if (decompressedSize < 0) {
       throw new QATException("QAT: decompression failed");

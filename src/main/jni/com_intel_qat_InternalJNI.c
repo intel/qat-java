@@ -243,7 +243,7 @@ static int decompress(JNIEnv *env, QzSession_T *sess, char *src_ptr, int src_len
                       &out_len);
 
     if(rc == QZ_NOSW_NO_INST_ATTACH && retry_count > 0){
-        while(retry_count > 0 && QZ_OK != rc){
+        while(retry_count > 0 && QZ_OK != rc && rc != QZ_BUF_ERROR && rc != QZ_DATA_ERROR){
             rc = qzDecompress(sess, src_ptr + src_offset, &in_len, dst_ptr + dst_offset, &out_len);
             retry_count--;
         }
@@ -497,10 +497,8 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_maxCompressedSize(JNIEnv *
 JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_teardown(JNIEnv *env, jclass jobj, jlong sess) {
 
   Session_T* qat_session = (Session_T*) sess;
-  void *unSrcBuff = NULL;
-  void *unDestBuff = NULL;
 
-  freePinnedMem(unSrcBuff, unDestBuff);
+  freePinnedMem(qat_session->pin_mem_src, qat_session->pin_mem_dst);
 
   if(qat_session->qz_session == NULL)
     return QZ_OK;

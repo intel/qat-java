@@ -11,14 +11,14 @@ public class CompressDecompressBAWithParametersFuzzer {
         try {
             QATSession qatSession = new QATSession();
             int srcOffset = data.consumeInt();
-            int srcLength = data.consumeInt();
+            //int srcLength = data.consumeInt();
             byte[] src = data.consumeRemainingAsBytes();
             int size = src.length;
             int compressLength = qatSession.maxCompressedLength(size);
             byte[] dst = new byte[compressLength];
             byte[] decompArr = new byte[src.length];
 
-            int compressedSize = qatSession.compress(src,srcOffset,src.length,dst,0,dst.length);
+            int compressedSize = qatSession.compress(src,srcOffset,src.length - srcOffset,dst,0,dst.length);
             int decompressedSize = qatSession.decompress(dst,0, compressedSize, decompArr,0,decompArr.length);
 
             assert Arrays.equals(src, Arrays.copyOfRange(decompArr,0,decompressedSize)): "Source and decompressed array are not equal";
