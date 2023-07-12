@@ -31,10 +31,6 @@ public class QATSession {
   private boolean isValid;
   private int retryCount;
   long session;
-  private Mode mode;
-  private CompressionAlgorithm compressionAlgorithm;
-  private int compressionLevel;
-  private boolean isPinnedMemAvailable;
 
   /**
    * code paths for library. Currently, HARDWARE and AUTO(HARDWARE with SOFTWARE fallback) is supported
@@ -110,28 +106,16 @@ public class QATSession {
     if(!validateParams(compressionAlgorithm, compressionLevel, retryCount))
       throw new IllegalArgumentException("Invalid parameters");
 
-    this.mode = mode;
     this.retryCount = retryCount;
-    this.compressionAlgorithm = compressionAlgorithm;
-    this.compressionLevel = compressionLevel;
-    this.isPinnedMemAvailable = true;
-    setup();
-  }
-
-  /**
-   * setup API creates and stores QAT hardware session with or without software fallback and
-   * assigns natively allocate PINNED memory of predefined sized length
-   */
-
-  private void setup() throws QATException{
-    InternalJNI.setup(this,mode.ordinal(), DEFAULT_INTERNAL_BUFFER_SIZE_IN_BYTES, compressionAlgorithm.ordinal(), this.compressionLevel);
+    InternalJNI.setup(this,mode.ordinal(), DEFAULT_INTERNAL_BUFFER_SIZE_IN_BYTES, compressionAlgorithm.ordinal(), compressionLevel);
     isValid = true;
   }
+  //TODO: have one more constructor for taking PINNED mem size , if 0 value is passed -> handle this case in C as Pinned memory is not available
 
   /**
    * teardown API destroys the QAT hardware session and free up resources and PINNED memory allocated with setup API call
    */
-  public void teardown() throws QATException{
+  public void endSession() throws QATException{
     if(!isValid)
       throw new IllegalStateException();
     InternalJNI.teardown(session);
@@ -321,7 +305,7 @@ public class QATSession {
    * This method is called by GC when doing cleaning action
    * @return Runnable to be used in cleaner register
    */
-  public Runnable cleanningAction(){
+  public Runnable cleanUp(){
     return new QATSessionCleaner(session);
   }
 

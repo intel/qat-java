@@ -41,7 +41,7 @@
         <java.version>17</java.version>
         <!--suppress UnresolvedMavenProperty -->
         <skipTests>${fuzzing}</skipTests>
-        <fuzzParameters>-max_total_time=10 -max_len=2147483647 -rss_limit_mb=10240</fuzzParameters>
+        <fuzzParameters>-max_total_time=30 -max_len=2147483647 -rss_limit_mb=102400</fuzzParameters>
     </properties>
 
     <profiles>
