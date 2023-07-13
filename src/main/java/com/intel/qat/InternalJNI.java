@@ -12,21 +12,33 @@ import java.nio.ByteBuffer;
  */
 public class InternalJNI {
   /**
-   * This class contains static native method interface declarations required by JNI.
+   * This class contains static native method interface declarations required by
+   * JNI.
    */
-  private InternalJNI(){}
+  private InternalJNI() {}
   /**
    * loads libqatzip.so while loading through static block
    */
-  static {Native.loadLibrary();}
+  static {
+    Native.loadLibrary();
+  }
 
-  static native void setup(QATSession qatSessionObject, int softwareBackup, long internalBufferSizeInBytes, int compressionAlgo, int compressionLevel);
+  static native void setup(QATSession qatSessionObject, int softwareBackup,
+      long internalBufferSizeInBytes, int compressionAlgo,
+      int compressionLevel);
 
   static native int teardown(long session);
   static native int maxCompressedSize(long session, long sourceSize);
-  static native  int compressDirectByteBuffer(long session, ByteBuffer src, int srcOffset, int srcLen, ByteBuffer dest, int destOffset, int destLen, int retryCount);
-  static native int compressArrayOrBuffer(long session,ByteBuffer srcBuffer, byte[] src, int srcOffset, int srcLen, byte[] dest, int destOffset, int destLen, int retryCount);
-  static native  int decompressDirectByteBuffer(long session, ByteBuffer src, int srcOffset, int srcLen, ByteBuffer dest, int destOffset, int destLen, int retryCount);
-  static native int decompressArrayOrBuffer(long session,ByteBuffer srcBuffer, byte[] src, int srcOffset, int srcLen, byte[] dest, int destOffset, int destLen, int retryCount);
-
+  static native int compressDirectByteBuffer(long session, ByteBuffer src,
+      int srcOffset, int srcLen, ByteBuffer dest, int destOffset, int destLen,
+      int retryCount);
+  static native int compressArrayOrBuffer(long session, ByteBuffer srcBuffer,
+      byte[] src, int srcOffset, int srcLen, byte[] dest, int destOffset,
+      int destLen, int retryCount);
+  static native int decompressDirectByteBuffer(long session, ByteBuffer src,
+      int srcOffset, int srcLen, ByteBuffer dest, int destOffset, int destLen,
+      int retryCount);
+  static native int decompressArrayOrBuffer(long session, ByteBuffer srcBuffer,
+      byte[] src, int srcOffset, int srcLen, byte[] dest, int destOffset,
+      int destLen, int retryCount);
 }

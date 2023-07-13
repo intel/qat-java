@@ -4,12 +4,14 @@
  * SPDX-License-Identifier: BSD
  ******************************************************************************/
 #define _GNU_SOURCE
-#include <stdlib.h>
-#include <sched.h>
-#include <numa.h>
-#include <limits.h>
-#include <stdbool.h>
+
 #include "com_intel_qat_InternalJNI.h"
+
+#include <limits.h>
+#include <numa.h>
+#include <sched.h>
+#include <stdlib.h>
+
 #include "qatzip.h"
 #include "util.h"
 
@@ -25,16 +27,18 @@
 #define QZ_DECOMPRESS_ERROR "An error occured while decompression"
 #define QZ_TEARDOWN_ERROR "An error occured while tearing down session"
 
+#define DEFLATE 0
+
 static __thread int cpu_id;
 static __thread int numa_id;
 static QzPollingMode_T polling_mode = QZ_BUSY_POLLING;
 static QzDataFormat_T data_fmt = QZ_DEFLATE_GZIP_EXT;
-static int DEFLATE = 0;
 
-
-typedef int (*kernel_func)(JNIEnv *env, QzSession_T *sess, char *src_ptr, int src_len,
-                           char *dst_ptr, int dst_len, int *src_read,
-                           int *dst_written, int retry_count, int is_final);
+typedef int (*kernel_func)(JNIEnv *env, QzSession_T *sess,
+                           unsigned char *src_ptr, unsigned int src_len,
+                           unsigned char *dst_ptr, unsigned int dst_len,
+                           int *src_read, int *dst_written, int retry_count,
+                           int is_final);
 /*
  * Structure which contains
  * pointer to QAT hardware
@@ -43,12 +47,12 @@ typedef int (*kernel_func)(JNIEnv *env, QzSession_T *sess, char *src_ptr, int sr
  * Pinned mem for destination
  * pinned mem size for destination
  */
-struct Session_T{
-    QzSession_T* qz_session;
-    unsigned char* pin_mem_src;
-    unsigned char* pin_mem_dst;
-    int pin_mem_src_size;
-    int pin_mem_dst_size;
+struct Session_T {
+  QzSession_T *qz_session;
+  unsigned char *pin_mem_src;
+  unsigned char *pin_mem_dst;
+  int pin_mem_src_size;
+  int pin_mem_dst_size;
 };
 
 /*
@@ -57,20 +61,17 @@ struct Session_T{
  * params:    QAT session pointer, compression level for deflate
  * Sets up a deflate(ZLIB) session
  */
+static int setupDeflateSession(QzSession_T *qz_session, int compression_level) {
+  QzSessionParamsDeflate_T deflate_params;
 
-static int setupDeflateSession(QzSession_T* qz_session, int compression_level){
+  int rc = qzGetDefaultsDeflate(&deflate_params);
+  if (rc != QZ_OK) return rc;
 
-    QzSessionParamsDeflate_T deflate_params;
+  deflate_params.data_fmt = data_fmt;
+  deflate_params.common_params.comp_lvl = compression_level;
+  deflate_params.common_params.polling_mode = polling_mode;
 
-    int rc = qzGetDefaultsDeflate(&deflate_params);
-    if (rc != QZ_OK)
-        return rc;
-
-    deflate_params.data_fmt = data_fmt;
-    deflate_params.common_params.comp_lvl = compression_level;
-    deflate_params.common_params.polling_mode = polling_mode;
-
-    return qzSetupSessionDeflate(qz_session, &deflate_params);
+  return qzSetupSessionDeflate(qz_session, &deflate_params);
 }
 
 /*
@@ -79,33 +80,27 @@ static int setupDeflateSession(QzSession_T* qz_session, int compression_level){
  * params:    QAT session pointer, compression level for LZ4
  * Sets up a LZ4 session
  */
+static int setupLZ4Session(QzSession_T *qz_session, int compression_level) {
+  QzSessionParamsLZ4_T lz4_params;
 
-static int setupLZ4Session(QzSession_T* qz_session, int compression_level){
-    QzSessionParamsLZ4_T lz4_params;
+  int rc = qzGetDefaultsLZ4(&lz4_params);
+  if (rc != QZ_OK) return rc;
 
-    int rc = qzGetDefaultsLZ4(&lz4_params);
-    if (rc != QZ_OK)
-      return rc;
+  lz4_params.common_params.polling_mode = polling_mode;
+  lz4_params.common_params.comp_lvl = compression_level;
 
-    lz4_params.common_params.polling_mode = polling_mode;
-    lz4_params.common_params.comp_lvl = compression_level;
-
-    return qzSetupSessionLZ4(qz_session, &lz4_params);
+  return qzSetupSessionLZ4(qz_session, &lz4_params);
 }
 
 /*
  * Class:     com_intel_qat_InternalJNI
- * Method:    freePinnedMem
+ * Method:    free_pin_mem
  * frees natively allocated pinned memory through freeing up associated pointers
  */
+inline void free_pin_mem(void *src_buf, void *dst_buf) {
+  if (src_buf != NULL) qzFree(src_buf);
 
-inline void freePinnedMem(void* src_buf, void* dst_buf) {
-
-  if(src_buf != NULL)
-    qzFree(src_buf);
-
-  if(dst_buf != NULL)
-    qzFree(dst_buf);
+  if (dst_buf != NULL) qzFree(dst_buf);
 
   src_buf = NULL;
   dst_buf = NULL;
@@ -114,29 +109,28 @@ inline void freePinnedMem(void* src_buf, void* dst_buf) {
 /*
  * Class:     com_intel_qat_InternalJNI
  * Method:    allocatePinnedMem
- * Allocate new ByteBuffer using qzMalloc for the source and destination pinned buffers
+ * Allocate new ByteBuffer using qzMalloc for the source and destination pinned
+ * buffers
  */
+static int allocatePinnedMem(struct Session_T *qat_session, jint mode,
+                             jlong src_size, jlong dest_size) {
+  void *tmp_src_addr = qzMalloc(src_size, numa_id, 1);
+  void *tmp_dst_addr = qzMalloc(dest_size, numa_id, 1);
 
-static int allocatePinnedMem (struct Session_T* qat_session,jint mode, jlong src_size, jlong dest_size) {
-
-  void* tempSrcAddr = qzMalloc(src_size, numa_id, true);
-  void* tempDestAddr = qzMalloc(dest_size, numa_id, true);
-
-  if(tempSrcAddr == NULL || tempDestAddr == NULL)
-  {
-     freePinnedMem(tempSrcAddr,tempDestAddr);
-     if(mode == 0){
-        return 1;
-     }
+  if (tmp_src_addr == NULL || tmp_dst_addr == NULL) {
+    free_pin_mem(tmp_src_addr, tmp_dst_addr);
+    if (mode == 0) {
+      return 1;
+    }
   }
 
-  if(tempSrcAddr != NULL){
-    qat_session->pin_mem_src = (unsigned char*)tempSrcAddr;
+  if (tmp_src_addr != NULL) {
+    qat_session->pin_mem_src = (unsigned char *)tmp_src_addr;
     qat_session->pin_mem_src_size = src_size;
-   }
+  }
 
-  if(tempDestAddr != NULL){
-    qat_session->pin_mem_dst = (unsigned char*)tempDestAddr;
+  if (tmp_dst_addr != NULL) {
+    qat_session->pin_mem_dst = (unsigned char *)tmp_dst_addr;
     qat_session->pin_mem_dst_size = dest_size;
   }
 
@@ -145,96 +139,104 @@ static int allocatePinnedMem (struct Session_T* qat_session,jint mode, jlong src
 
 /*
  * Class:     com_intel_qat_InternalJNI
- * Method:    compress source at a given offset upto a given length and stores into destination at given offset of a particular size
- * compresses data stored at source
+ * Method:    compress source at a given offset upto a given length and stores
+ * into destination at given offset of a particular size compresses data stored
+ * at source
  */
-
-static int compress(JNIEnv* env, QzSession_T *sess, char *src_ptr, int src_len,
-                    char *dst_ptr, int dst_len, int *src_read, int *dst_written,
+static int compress(JNIEnv *env, QzSession_T *sess, unsigned char *src_ptr,
+                    unsigned int src_len, unsigned char *dst_ptr,
+                    unsigned int dst_len, int *src_read, int *dst_written,
                     int retry_count, int is_final) {
+  int rc = qzCompress(sess, src_ptr, &src_len, dst_ptr, &dst_len, is_final);
 
-    int rc = qzCompress(sess, src_ptr, &src_len, dst_ptr, &dst_len, is_final);
-
-    if(rc == QZ_NOSW_NO_INST_ATTACH && retry_count > 0){
-        while(retry_count > 0 && QZ_OK != rc){
-            rc = qzCompress(sess, src_ptr, &src_len, dst_ptr, &dst_len, is_final);
-            retry_count--;
-        }
+  if (rc == QZ_NOSW_NO_INST_ATTACH && retry_count > 0) {
+    while (retry_count > 0 && QZ_OK != rc) {
+      rc = qzCompress(sess, src_ptr, &src_len, dst_ptr, &dst_len, is_final);
+      retry_count--;
     }
+  }
 
-    if (rc != QZ_OK) {
-      throw_exception(env,QZ_COMPRESS_ERROR,rc);
-      return rc;
-    }
+  if (rc != QZ_OK) {
+    throw_exception(env, QZ_COMPRESS_ERROR, rc);
+    return rc;
+  }
 
-    *src_read = src_len;
-    *dst_written = dst_len;
+  *src_read = src_len;
+  *dst_written = dst_len;
 
   return rc;
 }
 
 /*
  * Class:     com_intel_qat_InternalJNI
- * Method:    decompress source at a given offset upto a given length and stores into destination at given offset of a particular size
- * compresses data stored at source
+ * Method:    decompress source at a given offset upto a given length and stores
+ * into destination at given offset of a particular size compresses data stored
+ * at source
  */
+static int decompress(JNIEnv *env, QzSession_T *sess, unsigned char *src_ptr,
+                      unsigned int src_len, unsigned char *dst_ptr,
+                      unsigned int dst_len, int *src_read, int *dst_written,
+                      int retry_count, int is_final) {
+  (void)is_final;
 
-static int decompress(JNIEnv* env, QzSession_T *sess, char *src_ptr, int src_len,
-                      char *dst_ptr, int dst_len, int *src_read,
-                      int *dst_written, int retry_count, int is_final) {
-    (void)is_final;
-
-    int rc = qzDecompress(sess, src_ptr, &src_len, dst_ptr, &dst_len);
-    if(rc == QZ_NOSW_NO_INST_ATTACH && retry_count > 0){
-        while(retry_count > 0 && QZ_OK != rc && rc != QZ_BUF_ERROR && rc != QZ_DATA_ERROR){
-          rc = qzDecompress(sess, src_ptr, &src_len, dst_ptr, &dst_len);
-          retry_count--;
-        }
+  int rc = qzDecompress(sess, src_ptr, &src_len, dst_ptr, &dst_len);
+  if (rc == QZ_NOSW_NO_INST_ATTACH && retry_count > 0) {
+    while (retry_count > 0 && QZ_OK != rc && rc != QZ_BUF_ERROR &&
+           rc != QZ_DATA_ERROR) {
+      rc = qzDecompress(sess, src_ptr, &src_len, dst_ptr, &dst_len);
+      retry_count--;
     }
-    if (rc != QZ_OK && rc != QZ_BUF_ERROR && rc != QZ_DATA_ERROR) {
-      throw_exception(env, QZ_DECOMPRESS_ERROR,rc);
-      return rc;
-    }
+  }
+  if (rc != QZ_OK && rc != QZ_BUF_ERROR && rc != QZ_DATA_ERROR) {
+    throw_exception(env, QZ_DECOMPRESS_ERROR, rc);
+    return rc;
+  }
 
-    *src_read = src_len;
-    *dst_written = dst_len;
+  *src_read = src_len;
+  *dst_written = dst_len;
 
   return rc;
 }
 
 /*
  * Class:     com_intel_qat_InternalJNI
- * Method:    compress/decompress source at a given offset upto a given length and stores into destination at given offset of a particular size
- * compresses data stored at source
+ * Method:    compress/decompress source at a given offset upto a given length
+ * and stores into destination at given offset of a particular size compresses
+ * data stored at source
  */
-
-static int compress_or_decompress(kernel_func kf, JNIEnv *env, jobject obj,
-                                  struct Session_T* qat_session, char *src_ptr,
-                                  jint src_pos, jint src_lim, char *dst_ptr,
+static int compress_or_decompress(kernel_func kf, JNIEnv *env,
+                                  struct Session_T *qat_session,
+                                  unsigned char *src_ptr, jint src_pos,
+                                  jint src_lim, unsigned char *dst_ptr,
                                   jint dst_pos, jint dst_lim, int *src_read,
                                   int *dst_written, int retry_count) {
+  unsigned char *src_start = src_ptr + src_pos;
+  unsigned char *src_end = src_ptr + src_lim;
 
-  char *src_start = src_ptr + src_pos;
-  char *src_end = src_ptr + src_lim;
+  unsigned char *dst_start = dst_ptr + dst_pos;
+  unsigned char *dst_end = dst_ptr + dst_lim;
 
-  char *dst_start = dst_ptr + dst_pos;
-  char *dst_end = dst_ptr + dst_lim;
-
-  char *pin_src_ptr = (char *)qat_session->pin_mem_src;
-  char *pin_dst_ptr = (char *)qat_session->pin_mem_dst;
+  unsigned char *pin_src_ptr = qat_session->pin_mem_src;
+  unsigned char *pin_dst_ptr = qat_session->pin_mem_dst;
 
   int bytes_read = 0;
   int bytes_written = 0;
 
+  int src_len, dst_len, src_size, dst_size, is_final;
   while (src_start < src_end && dst_start < dst_end) {
-    int src_len = src_end - src_start;
-    int src_size = src_len < qat_session->pin_mem_src_size ? src_len : qat_session->pin_mem_src_size;
-    int dst_len = dst_end - dst_start;
-    int dst_size = dst_len < qat_session->pin_mem_dst_size ? dst_len : qat_session->pin_mem_dst_size;
+    src_len = src_end - src_start;
+    src_size = src_len < qat_session->pin_mem_src_size
+                   ? src_len
+                   : qat_session->pin_mem_src_size;
+    dst_len = dst_end - dst_start;
+    dst_size = dst_len < qat_session->pin_mem_dst_size
+                   ? dst_len
+                   : qat_session->pin_mem_dst_size;
+    is_final = src_size != qat_session->pin_mem_src_size || src_size == src_len;
 
     memcpy(pin_src_ptr, src_start, src_size);
-    kf(env,qat_session->qz_session, pin_src_ptr, src_size, pin_dst_ptr, dst_size, &bytes_read,
-       &bytes_written,retry_count, 0);
+    kf(env, qat_session->qz_session, pin_src_ptr, src_size, pin_dst_ptr,
+       dst_size, &bytes_read, &bytes_written, retry_count, is_final);
     memcpy(dst_start, pin_dst_ptr, bytes_written);
 
     src_start += bytes_read;
@@ -252,33 +254,35 @@ static int compress_or_decompress(kernel_func kf, JNIEnv *env, jobject obj,
  * Method:    setup
  * Signature: (IJII)V
  */
-JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_setup(JNIEnv *env, jclass jc, jobject qat_session_obj
-,jint software_backup, jlong internal_buffer_size, jint comp_alg, jint comp_level) {
+JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_setup(
+    JNIEnv *env, jobject obj, jobject qat_session_obj, jint software_backup,
+    jlong internal_buffer_size, jint comp_alg, jint comp_level) {
+  (void)obj;
 
-  struct Session_T* qat_session = (struct Session_T*)calloc(1, sizeof(struct Session_T));
-  qat_session->qz_session = (QzSession_T*)calloc(1,sizeof(QzSession_T));
+  struct Session_T *qat_session =
+      (struct Session_T *)calloc(1, sizeof(struct Session_T));
+  qat_session->qz_session = (QzSession_T *)calloc(1, sizeof(QzSession_T));
 
-  const unsigned char sw_backup = (unsigned char) software_backup;
+  const unsigned char sw_backup = (unsigned char)software_backup;
 
   int rc = qzInit(qat_session->qz_session, sw_backup);
 
-  if (rc != QZ_OK && rc != QZ_DUPLICATE){
+  if (rc != QZ_OK && rc != QZ_DUPLICATE) {
     throw_exception(env, QZ_HW_INIT_ERROR, rc);
     return;
   }
 
-  if(comp_alg == DEFLATE){
+  if (comp_alg == DEFLATE) {
     rc = setupDeflateSession(qat_session->qz_session, comp_level);
-  }
-  else{
+  } else {
     rc = setupLZ4Session(qat_session->qz_session, comp_level);
   }
 
-  if(comp_alg == DEFLATE && QZ_OK != rc){
+  if (comp_alg == DEFLATE && QZ_OK != rc) {
     throw_exception(env, "LZ4 session not setup", rc);
     return;
   }
-  if(QZ_OK != rc && QZ_DUPLICATE != rc){
+  if (QZ_OK != rc && QZ_DUPLICATE != rc) {
     qzClose(qat_session->qz_session);
     throw_exception(env, QZ_SETUP_SESSION_ERROR, rc);
     return;
@@ -286,18 +290,22 @@ JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_setup(JNIEnv *env, jclass 
   cpu_id = sched_getcpu();
   numa_id = numa_node_of_cpu(cpu_id);
 
-  if(internal_buffer_size != 0){
-    if(QZ_OK != allocatePinnedMem(qat_session,software_backup, internal_buffer_size, qzMaxCompressedLength(internal_buffer_size,qat_session)))
-        throw_exception(env, QZ_HW_INIT_ERROR,INT_MIN);
-  }
-  else{
+  if (internal_buffer_size != 0) {
+    if (QZ_OK !=
+        allocatePinnedMem(qat_session, software_backup, internal_buffer_size,
+                          qzMaxCompressedLength(internal_buffer_size,
+                                                qat_session->qz_session)))
+      throw_exception(env, QZ_HW_INIT_ERROR, INT_MIN);
+  } else {
     qat_session->pin_mem_src = NULL;
     qat_session->pin_mem_dst = NULL;
   }
 
   jclass qat_session_class = (*env)->GetObjectClass(env, qat_session_obj);
-  jfieldID qatSessionField = (*env)->GetFieldID(env,qat_session_class,"session","J");
-  (*env)->SetLongField(env, qat_session_obj,qatSessionField, (jlong)qat_session);
+  jfieldID qatSessionField =
+      (*env)->GetFieldID(env, qat_session_class, "session", "J");
+  (*env)->SetLongField(env, qat_session_obj, qatSessionField,
+                       (jlong)qat_session);
 }
 
 /*
@@ -305,153 +313,173 @@ JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_setup(JNIEnv *env, jclass 
  * Method:    compressArrayOrBuffer
  * Signature: (JLjava/nio/ByteBuffer;[BII[BIII)I
  */
- jint JNICALL Java_com_intel_qat_InternalJNI_compressDirectByteBuffer(
-     JNIEnv *env, jobject obj, jlong sess, jobject src_buf, jint src_pos,
-     jint src_lim, jobject dst_buf, jint dst_pos, jint dst_lim,jint retry_count) {
+jint JNICALL Java_com_intel_qat_InternalJNI_compressDirectByteBuffer(
+    JNIEnv *env, jobject obj, jlong sess, jobject src_buf, jint src_pos,
+    jint src_lim, jobject dst_buf, jint dst_pos, jint dst_lim,
+    jint retry_count) {
+  (void)obj;
 
-   struct Session_T *qat_session = (struct Session_T *)sess;
-   char *src_ptr = (char *)(*env)->GetDirectBufferAddress(env, src_buf);
-   char *dst_ptr = (char *)(*env)->GetDirectBufferAddress(env, dst_buf);
+  struct Session_T *qat_session = (struct Session_T *)sess;
+  unsigned char *src_ptr =
+      (unsigned char *)(*env)->GetDirectBufferAddress(env, src_buf);
+  unsigned char *dst_ptr =
+      (unsigned char *)(*env)->GetDirectBufferAddress(env, dst_buf);
 
-   int src_read = 0;
-   int dst_written = 0;
+  int src_read = 0;
+  int dst_written = 0;
 
-   if (qat_session->pin_mem_src && qat_session->pin_mem_dst)
-    compress_or_decompress(&compress, env, obj, qat_session, src_ptr, src_pos,
-                               src_lim, dst_ptr, dst_pos, dst_lim,
-                                &src_read, &dst_written,retry_count);
-   else
-    compress(env,qat_session->qz_session, src_ptr + src_pos, src_lim - src_pos, dst_ptr + dst_pos, dst_lim - dst_pos,
-                 &src_read, &dst_written,retry_count,1);
+  if (qat_session->pin_mem_src && qat_session->pin_mem_dst)
+    compress_or_decompress(&compress, env, qat_session, src_ptr, src_pos,
+                           src_lim, dst_ptr, dst_pos, dst_lim, &src_read,
+                           &dst_written, retry_count);
+  else
+    compress(env, qat_session->qz_session, src_ptr + src_pos, src_lim - src_pos,
+             dst_ptr + dst_pos, dst_lim - dst_pos, &src_read, &dst_written,
+             retry_count, 1);
 
-   // set src and dest buffer positions
-   jclass src_clazz = (*env)->GetObjectClass(env, src_buf);
-   jclass dst_clazz = (*env)->GetObjectClass(env, dst_buf);
+  // set src and dest buffer positions
+  jclass src_clazz = (*env)->GetObjectClass(env, src_buf);
+  jclass dst_clazz = (*env)->GetObjectClass(env, dst_buf);
 
-   (*env)->SetIntField(env, src_buf,
-                       (*env)->GetFieldID(env, src_clazz, "position", "I"),
-                       src_pos + src_read);
-   (*env)->SetIntField(env, dst_buf,
-                       (*env)->GetFieldID(env, dst_clazz, "position", "I"),
-                       dst_pos + dst_written);
+  (*env)->SetIntField(env, src_buf,
+                      (*env)->GetFieldID(env, src_clazz, "position", "I"),
+                      src_pos + src_read);
+  (*env)->SetIntField(env, dst_buf,
+                      (*env)->GetFieldID(env, dst_clazz, "position", "I"),
+                      dst_pos + dst_written);
 
-   return dst_written;
- }
+  return dst_written;
+}
 
 /*
  * Class:     com_intel_qat_InternalJNI
  * Method:    decompressDirectByteBuffer
  * Signature: (JLjava/nio/ByteBuffer;IILjava/nio/ByteBuffer;III)I
  */
-
 JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_compressArrayOrBuffer(
-      JNIEnv *env, jobject obj, jlong sess, jobject src_buf, jbyteArray src_arr,
-      jint src_pos, jint src_lim, jbyteArray dst_arr, jint dst_pos, jint dst_lim, jint retry_count) {
+    JNIEnv *env, jobject obj, jlong sess, jobject src_buf, jbyteArray src_arr,
+    jint src_pos, jint src_lim, jbyteArray dst_arr, jint dst_pos, jint dst_lim,
+    jint retry_count) {
+  (void)obj;
 
-    struct Session_T *qat_session = (struct Session_T *)sess;
+  struct Session_T *qat_session = (struct Session_T *)sess;
 
-    char *src_ptr = (*env)->GetByteArrayElements(env, src_arr, NULL);
-    char *dst_ptr = (*env)->GetByteArrayElements(env, dst_arr, NULL);
+  unsigned char *src_ptr =
+      (unsigned char *)(*env)->GetByteArrayElements(env, src_arr, NULL);
+  unsigned char *dst_ptr =
+      (unsigned char *)(*env)->GetByteArrayElements(env, dst_arr, NULL);
 
-    int src_read = 0;
-    int dst_written = 0;
+  int src_read = 0;
+  int dst_written = 0;
 
-    if (qat_session->pin_mem_src && qat_session->pin_mem_dst)
-      compress_or_decompress(&compress, env, obj, qat_session, src_ptr, src_pos,
-                                   src_lim, dst_ptr, dst_pos, dst_lim,
-                                   &src_read, &dst_written, retry_count);
-    else
-      compress(env,qat_session->qz_session, src_ptr + src_pos, src_lim - src_pos, dst_ptr + dst_pos, dst_lim - dst_pos,
-                     &src_read, &dst_written, retry_count,1);
+  if (qat_session->pin_mem_src && qat_session->pin_mem_dst)
+    compress_or_decompress(&compress, env, qat_session, src_ptr, src_pos,
+                           src_lim, dst_ptr, dst_pos, dst_lim, &src_read,
+                           &dst_written, retry_count);
+  else
+    compress(env, qat_session->qz_session, src_ptr + src_pos, src_lim - src_pos,
+             dst_ptr + dst_pos, dst_lim - dst_pos, &src_read, &dst_written,
+             retry_count, 1);
 
-    (*env)->ReleaseByteArrayElements(env, src_arr, src_ptr, 0);
-    (*env)->ReleaseByteArrayElements(env, dst_arr, dst_ptr, 0);
+  (*env)->ReleaseByteArrayElements(env, src_arr, (jbyte *)src_ptr, 0);
+  (*env)->ReleaseByteArrayElements(env, dst_arr, (jbyte *)dst_ptr, 0);
 
-    if (src_buf != NULL) {  // is indirect ByteBuffer
-      jclass src_clazz = (*env)->GetObjectClass(env, src_buf);
-      (*env)->SetIntField(env, src_buf,
-                          (*env)->GetFieldID(env, src_clazz, "position", "I"),
-                          src_pos + src_read);
-    }
-
-    return dst_written;
-    }
-
-/*
- * Class:     com_intel_qat_InternalJNI
- * Method:    decompressDirectByteBuffer
- * Signature: (JLjava/nio/ByteBuffer;IILjava/nio/ByteBuffer;III)I
- */
-JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_decompressDirectByteBuffer(
-      JNIEnv *env, jobject obj, jlong sess, jobject src_buf, jint src_pos,
-      jint src_lim, jobject dst_buf, jint dst_pos, jint dst_lim, jint retry_count) {
-
-    struct Session_T *qat_session = (struct Session_T *)sess;
-    char *src_ptr = (char *)(*env)->GetDirectBufferAddress(env, src_buf);
-    char *dst_ptr = (char *)(*env)->GetDirectBufferAddress(env, dst_buf);
-
-    int src_read = 0;
-    int dst_written = 0;
-
-    if (qat_session->pin_mem_src && qat_session->pin_mem_dst)
-      compress_or_decompress(&decompress, env, obj, qat_session, src_ptr, src_pos,
-                                   src_lim, dst_ptr, dst_pos, dst_lim,
-                                   &src_read, &dst_written,retry_count);
-    else
-      decompress(env,qat_session->qz_session, src_ptr + src_pos, src_lim - src_pos, dst_ptr + dst_pos, dst_lim - dst_pos,
-                     &src_read, &dst_written, retry_count,0);
-
-    // set src and dest buffer positions
+  if (src_buf != NULL) {  // is indirect ByteBuffer
     jclass src_clazz = (*env)->GetObjectClass(env, src_buf);
-    jclass dst_clazz = (*env)->GetObjectClass(env, dst_buf);
-
     (*env)->SetIntField(env, src_buf,
                         (*env)->GetFieldID(env, src_clazz, "position", "I"),
                         src_pos + src_read);
-    (*env)->SetIntField(env, dst_buf,
-                        (*env)->GetFieldID(env, dst_clazz, "position", "I"),
-                        dst_pos + dst_written);
+  }
 
-    return dst_written;
-    }
+  return dst_written;
+}
 
+/*
+ * Class:     com_intel_qat_InternalJNI
+ * Method:    decompressDirectByteBuffer
+ * Signature: (JLjava/nio/ByteBuffer;IILjava/nio/ByteBuffer;III)I
+ */
+JNIEXPORT jint JNICALL
+Java_com_intel_qat_InternalJNI_decompressDirectByteBuffer(
+    JNIEnv *env, jobject obj, jlong sess, jobject src_buf, jint src_pos,
+    jint src_lim, jobject dst_buf, jint dst_pos, jint dst_lim,
+    jint retry_count) {
+  (void)obj;
+
+  struct Session_T *qat_session = (struct Session_T *)sess;
+  unsigned char *src_ptr =
+      (unsigned char *)(*env)->GetDirectBufferAddress(env, src_buf);
+  unsigned char *dst_ptr =
+      (unsigned char *)(*env)->GetDirectBufferAddress(env, dst_buf);
+
+  int src_read = 0;
+  int dst_written = 0;
+
+  if (qat_session->pin_mem_src && qat_session->pin_mem_dst)
+    compress_or_decompress(&decompress, env, qat_session, src_ptr, src_pos,
+                           src_lim, dst_ptr, dst_pos, dst_lim, &src_read,
+                           &dst_written, retry_count);
+  else
+    decompress(env, qat_session->qz_session, src_ptr + src_pos,
+               src_lim - src_pos, dst_ptr + dst_pos, dst_lim - dst_pos,
+               &src_read, &dst_written, retry_count, 0);
+
+  // set src and dest buffer positions
+  jclass src_clazz = (*env)->GetObjectClass(env, src_buf);
+  jclass dst_clazz = (*env)->GetObjectClass(env, dst_buf);
+
+  (*env)->SetIntField(env, src_buf,
+                      (*env)->GetFieldID(env, src_clazz, "position", "I"),
+                      src_pos + src_read);
+  (*env)->SetIntField(env, dst_buf,
+                      (*env)->GetFieldID(env, dst_clazz, "position", "I"),
+                      dst_pos + dst_written);
+
+  return dst_written;
+}
 
 /*
  * Class:     com_intel_qat_InternalJNI
  * Method:    decompressArrayOrBuffer
  * Signature: (JLjava/nio/ByteBuffer;[BII[BIII)I
  */
- JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_decompressArrayOrBuffer(
-       JNIEnv *env, jobject obj, jlong sess, jobject src_buf, jbyteArray src_arr,
-       jint src_pos, jint src_lim, jbyteArray dst_arr, jint dst_pos, jint dst_lim, jint retry_count) {
-     struct Session_T *qat_session = (struct Session_T *)sess;
-     char *src_ptr = (*env)->GetByteArrayElements(env, src_arr, NULL);
-     char *dst_ptr = (*env)->GetByteArrayElements(env, dst_arr, NULL);
+JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_decompressArrayOrBuffer(
+    JNIEnv *env, jobject obj, jlong sess, jobject src_buf, jbyteArray src_arr,
+    jint src_pos, jint src_lim, jbyteArray dst_arr, jint dst_pos, jint dst_lim,
+    jint retry_count) {
+  (void)obj;
 
-     int src_read = 0;
-     int dst_written = 0;
+  struct Session_T *qat_session = (struct Session_T *)sess;
+  unsigned char *src_ptr =
+      (unsigned char *)(*env)->GetByteArrayElements(env, src_arr, NULL);
+  unsigned char *dst_ptr =
+      (unsigned char *)(*env)->GetByteArrayElements(env, dst_arr, NULL);
 
-     if (qat_session->pin_mem_src && qat_session->pin_mem_dst)
-       compress_or_decompress(&decompress, env, obj, qat_session, src_ptr, src_pos,
-                                     src_lim, dst_ptr, dst_pos, dst_lim,
-                                     &src_read, &dst_written, retry_count);
+  int src_read = 0;
+  int dst_written = 0;
 
-     else
-        decompress(env,qat_session->qz_session, src_ptr + src_pos, src_lim - src_pos, dst_ptr + dst_pos, dst_lim - dst_pos,
-                       &src_read, &dst_written, retry_count,0);
+  if (qat_session->pin_mem_src && qat_session->pin_mem_dst)
+    compress_or_decompress(&decompress, env, qat_session, src_ptr, src_pos,
+                           src_lim, dst_ptr, dst_pos, dst_lim, &src_read,
+                           &dst_written, retry_count);
 
-     (*env)->ReleaseByteArrayElements(env, src_arr, src_ptr, 0);
-     (*env)->ReleaseByteArrayElements(env, dst_arr, dst_ptr, 0);
+  else
+    decompress(env, qat_session->qz_session, src_ptr + src_pos,
+               src_lim - src_pos, dst_ptr + dst_pos, dst_lim - dst_pos,
+               &src_read, &dst_written, retry_count, 0);
 
-     if (src_buf != NULL) {  // is indirect ByteBuffer
-       jclass src_clazz = (*env)->GetObjectClass(env, src_buf);
-       (*env)->SetIntField(env, src_buf,
-                           (*env)->GetFieldID(env, src_clazz, "position", "I"),
-                           src_pos + src_read);
-     }
+  (*env)->ReleaseByteArrayElements(env, src_arr, (jbyte *)src_ptr, 0);
+  (*env)->ReleaseByteArrayElements(env, dst_arr, (jbyte *)dst_ptr, 0);
 
-     return dst_written;
-   }
+  if (src_buf != NULL) {  // is indirect ByteBuffer
+    jclass src_clazz = (*env)->GetObjectClass(env, src_buf);
+    (*env)->SetIntField(env, src_buf,
+                        (*env)->GetFieldID(env, src_clazz, "position", "I"),
+                        src_pos + src_read);
+  }
+
+  return dst_written;
+}
 
 /*
  * Class:     com_intel_qat_InternalJNI
@@ -459,12 +487,12 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_decompressDirectByteBuffer
  * Signature: (JJ)I
  */
 
-JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_maxCompressedSize(JNIEnv *env,
-                                                               jclass jobj,
-                                                               jlong session,
-                                                               jlong src_size
-                                                               ) {
-  struct Session_T* qat_session = (struct Session_T*) session;
+JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_maxCompressedSize(
+    JNIEnv *env, jclass obj, jlong session, jlong src_size) {
+  (void)env;
+  (void)obj;
+
+  struct Session_T *qat_session = (struct Session_T *)session;
   return qzMaxCompressedLength(src_size, qat_session->qz_session);
 }
 
@@ -474,20 +502,22 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_maxCompressedSize(JNIEnv *
  * Signature: (J)I
  */
 
-JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_teardown(JNIEnv *env, jclass jobj, jlong sess) {
+JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_teardown(JNIEnv *env,
+                                                               jclass obj,
+                                                               jlong sess) {
+  (void)obj;
 
-  struct Session_T* qat_session = (struct Session_T*) sess;
+  struct Session_T *qat_session = (struct Session_T *)sess;
 
-  freePinnedMem(qat_session->pin_mem_src, qat_session->pin_mem_dst);
+  free_pin_mem(qat_session->pin_mem_src, qat_session->pin_mem_dst);
 
-  if(qat_session->qz_session == NULL)
-    return QZ_OK;
+  if (qat_session->qz_session == NULL) return QZ_OK;
 
   int rc = qzTeardownSession(qat_session->qz_session);
-  if (rc != QZ_OK){
-    throw_exception(env,QZ_TEARDOWN_ERROR,rc);
+  if (rc != QZ_OK) {
+    throw_exception(env, QZ_TEARDOWN_ERROR, rc);
     return 0;
-   }
+  }
 
   free(qat_session->qz_session);
   free(qat_session);
