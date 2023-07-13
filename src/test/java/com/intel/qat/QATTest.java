@@ -314,13 +314,13 @@ public class QATTest {
             int compressedSize = intQatSession.compress(uncompressedBuffer,compressedBuffer);
             assertEquals(compressedBuffer.position(), compressedSize);
 
-            System.out.println("TEST: after bytebuffer compress  source limit is "+ uncompressedBuffer.limit() + " and buffer position before compress "+ uncompressedBuffer.position());
+            System.out.println("TEST: after bytebuffer compress  source limit is "+ uncompressedBuffer.limit() + " and compressed buffer position is "+ compressedBuffer.position());
 
             int byteArrayCompSize = intQatSession.compress(source,0,source.length,dest,0,dest.length);
 
-
+            System.out.println("TEST: byte buffer compressed size "+ compressedSize);
             System.out.println("TEST: byte array compressed size "+ byteArrayCompSize);
-            //assertEquals(compressedSize, byteArrayCompSize);
+            assertEquals(compressedSize, byteArrayCompSize);
 
             compressedBuffer.flip();
             byte[] compByteBufferArray = new byte[compressedBuffer.limit()];
@@ -328,9 +328,9 @@ public class QATTest {
 
             for(int i = 0; i < compressedSize; i++){
                 if(dest[i] != compByteBufferArray[i])
-                    System.out.println("value not same for i = "+i);
+                    fail("compressed data not same");
             }
-
+            compressedBuffer.flip();
 
             int decompressedSize = intQatSession.decompress(compressedBuffer,resultBuffer);
             int byteArrayDecompSize = intQatSession.decompress(dest,0, byteArrayCompSize,resultArray,0,resultArray.length);
@@ -790,6 +790,7 @@ public class QATTest {
             byte[] unCompressed = new byte[src.length];
 
             int compressedSize = intQatSession.compress(src,0,src.length, dest,0, dest.length);
+            System.out.println("testChunkedCompressionWithByteArray : compression was successful");
             int decompressedSize = intQatSession.decompress(dest,0,compressedSize,unCompressed,0,unCompressed.length);
 
             assertTrue(compressedSize > 0);
