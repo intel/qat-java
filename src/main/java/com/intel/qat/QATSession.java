@@ -8,7 +8,6 @@ package com.intel.qat;
 import java.nio.ByteBuffer;
 import java.nio.ReadOnlyBufferException;
 
-// TODO: Exception messages with constants
 /**
  * Defines APIs for creation of setting up hardware based QAT session(with or without software backup,
  * compression and decompression APIs
@@ -33,7 +32,7 @@ public class QATSession {
   long session;
 
   /**
-   * code paths for library. Currently, HARDWARE and AUTO(HARDWARE with SOFTWARE fallback) is supported
+   * code paths for library. HARDWARE ONLY(HARDWARE) and HARDWARE with SOFTWARE fallback(AUTO) are supported
    */
   public static enum Mode{
     /**
@@ -96,24 +95,34 @@ public class QATSession {
     this(compressionAlgorithm,compressionLevel,mode,DEFAULT_RETRY_COUNT);
   }
   /**
-   * sets the parameter supplied by user or through other constructor with varying params
-   * @param mode HARDWARE and auto
-   * @param retryCount how many times a Hardware based compress/decompress call should be tried before failing compression/decompression
+   * sets the parameter supplied by user or through other constructor with varying params, Pinned mem is set to predefined size
    * @param compressionAlgorithm compression algorithm like LZ4, ZLIB,etc which are supported
    * @param compressionLevel compression level as per compression algorithm chosen
+   * @param mode HARDWARE and auto
+   * @param retryCount how many times a Hardware based compress/decompress call should be tried before failing compression/decompression
    */
   public QATSession( CompressionAlgorithm compressionAlgorithm,  int compressionLevel, Mode mode, int retryCount){
+    this(compressionAlgorithm,compressionLevel,mode,retryCount,DEFAULT_INTERNAL_BUFFER_SIZE_IN_BYTES);
+  }
+  /**
+   * sets the parameter supplied by user or through other constructor with varying params
+   * @param compressionAlgorithm compression algorithm like LZ4, ZLIB,etc which are supported
+   * @param compressionLevel compression level as per compression algorithm chosen
+   * @param mode HARDWARE and auto
+   * @param retryCount how many times a Hardware based compress/decompress call should be tried before failing compression/decompression
+   * @param pinnedMemorySize To be used by Advanced developer to define the size of pinned memory
+   * */
+  public QATSession( CompressionAlgorithm compressionAlgorithm,  int compressionLevel, Mode mode, int retryCount, long pinnedMemorySize) {
     if(!validateParams(compressionAlgorithm, compressionLevel, retryCount))
       throw new IllegalArgumentException("Invalid parameters");
 
     this.retryCount = retryCount;
-    InternalJNI.setup(this,mode.ordinal(), DEFAULT_INTERNAL_BUFFER_SIZE_IN_BYTES, compressionAlgorithm.ordinal(), compressionLevel);
+    InternalJNI.setup(this,mode.ordinal(), pinnedMemorySize, compressionAlgorithm.ordinal(), compressionLevel);
     isValid = true;
   }
-  //TODO: have one more constructor for taking PINNED mem size , if 0 value is passed -> handle this case in C as Pinned memory is not available
 
   /**
-   * teardown API destroys the QAT hardware session and free up resources and PINNED memory allocated with setup API call
+   * endSession API destroys the QAT hardware session and free up resources and PINNED memory allocated with setup API call
    */
   public void endSession() throws QATException{
     if(!isValid)
@@ -136,9 +145,9 @@ public class QATSession {
   }
 
   /**
-   * compresses source bytebuffer from a given source offset till source length into destination bytebuffer from a given destination offset
-   * @param src source bytebuffer. This should be set in READ mode
-   * @param dest destination bytebuffer. This should be set in WRITE mode
+   * compresses source bytebuffer into destination bytebuffer
+   * @param src source bytebuffer. Offsets is defined as source bytebuffer position and limit to be used for total bytes that needs to be compressed
+   * @param dest destination bytebuffer. starting position to store compressed data is defined as destination bytebuffer position and limit to be used as total size of destination buffer which is enough to store compressed data
    * @return non-zero compressed size or throw QATException
    */
 
@@ -182,14 +191,16 @@ public class QATSession {
     }
     return compressedSize;
   }
+
   /**
-   * compresses source bytearray from a given source offset till source length into destination bytearray
+   * compresses source byte array into destination bytearray
    * @param src source bytearray
-   * @param srcOffset source offset
-   * @param srcLen source length
+   * @param srcOffset Offsets is defined as source bytearray position
+   * @param srcLen to be used for total bytes that needs to be compressed
    * @param dest destination bytearray
-   * @param destOffset destination offset
-   * @return success or throws exception
+   * @param destOffset  starting position to store compressed data
+   * @param destLen  limit to be used as total size of destination buffer which is enough to store compressed data
+   * @return non-zero compressed size or throws QATException
    */
 
   public int compress( byte[] src, int srcOffset, int srcLen, byte[] dest, int destOffset, int destLen){
@@ -209,11 +220,12 @@ public class QATSession {
     }
     return compressedSize;
   }
+
   /**
    * decompresses source bytebuffer into destination bytebuffer
-   * @param src source bytebuffer. This should be in READ mode
-   * @param dest destination bytebuffer. This should be in WRITE mode
-   * @return success or throws exception
+   * @param src source bytebuffer. Offsets is defined as source bytebuffer position and limit to be used for total bytes that needs to be decompressed
+   * @param dest destination bytebuffer. starting position to store decompressed data is defined as destination bytebuffer position and limit to be used as total size of destination buffer which is enough to store decompressed data
+   * @return non-zero decompressed size or throw QATException
    */
 
   public int decompress (ByteBuffer src, ByteBuffer dest){
@@ -261,13 +273,14 @@ public class QATSession {
   }
 
   /**
-   * decompresses source bytearray from a given source offset till source length into destination bytearray
+   * decompresses source byte array into destination bytearray
    * @param src source bytearray
-   * @param srcOffset source offset
-   * @param srcLen source length
+   * @param srcOffset Offsets is defined as source bytearray position
+   * @param srcLen to be used for total bytes that needs to be decompressed
    * @param dest destination bytearray
-   * @param destOffset destination offset
-   * @return success or throws exception
+   * @param destOffset  starting position to store decompressed data
+   * @param destLen  limit to be used as total size of destination buffer which is enough to store decompressed data
+   * @return non-zero decompressed size or throws QATException
    */
 
   public int decompress(byte[] src, int srcOffset, int srcLen, byte[] dest, int destOffset, int destLen){
@@ -291,11 +304,21 @@ public class QATSession {
     return decompressedSize;
   }
 
+  /**
+   * validate compressionAlgorithm, compression level and retry count with their possible values
+   * @param compressionAlgorithm
+   * @param compressionLevel
+   * @param retryCount
+   * @return
+   */
   private boolean validateParams(CompressionAlgorithm compressionAlgorithm,int compressionLevel, int retryCount){
     return !(retryCount < 0 || compressionLevel < 0 || (compressionAlgorithm.ordinal() == 0 && compressionLevel > 9));
   }
 
-
+  /**
+   * static method which will be called by java ref cleaner when this current context object becomes phantom reachable
+   * @param qzSessionReference
+   */
 
   static void cleanUp(long qzSessionReference){
     InternalJNI.teardown(qzSessionReference);
@@ -305,10 +328,14 @@ public class QATSession {
    * This method is called by GC when doing cleaning action
    * @return Runnable to be used in cleaner register
    */
+
   public Runnable cleanUp(){
     return new QATSessionCleaner(session);
   }
 
+  /**
+   * internal static class to provide cleaning action to the calling application while registering cleaning action callback
+   */
   static class QATSessionCleaner implements Runnable{
     private long qzSession;
 

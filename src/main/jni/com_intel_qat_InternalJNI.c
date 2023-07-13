@@ -3,19 +3,19 @@
  *
  * SPDX-License-Identifier: BSD
  ******************************************************************************/
-
 #define _GNU_SOURCE
-#include "com_intel_qat_InternalJNI.h"
-#include "qatzip.h"
-#include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <sched.h>
 #include <numa.h>
 #include <limits.h>
 #include <stdbool.h>
+#include "com_intel_qat_InternalJNI.h"
+#include "qatzip.h"
 #include "util.h"
 
+// use underscore for all variable names instead of camel case
+// doxygen for C documentation
+// remove all the space
 
 #define QZ_HW_INIT_ERROR "An error occured while initializing QAT hardware"
 #define QZ_SETUP_SESSION_ERROR "An error occured while setting up session"
@@ -29,8 +29,8 @@ static __thread int cpu_id;
 static __thread int numa_id;
 static QzPollingMode_T polling_mode = QZ_BUSY_POLLING;
 static QzDataFormat_T data_fmt = QZ_DEFLATE_GZIP_EXT;
+static int DEFLATE = 0;
 
-static const int DEFLATE = 0;
 
 typedef int (*kernel_func)(JNIEnv *env, QzSession_T *sess, char *src_ptr, int src_len,
                            char *dst_ptr, int dst_len, int *src_read,
@@ -54,10 +54,11 @@ struct Session_T{
 /*
  * Class:     com_intel_qat_InternalJNI
  * Method:    setupDeflateSession
+ * params:    QAT session pointer, compression level for deflate
  * Sets up a deflate(ZLIB) session
  */
 
-int setupDeflateSession(QzSession_T* qz_session, int compressionLevel){
+static int setupDeflateSession(QzSession_T* qz_session, int compression_level){
 
     QzSessionParamsDeflate_T deflate_params;
 
@@ -66,7 +67,7 @@ int setupDeflateSession(QzSession_T* qz_session, int compressionLevel){
         return rc;
 
     deflate_params.data_fmt = data_fmt;
-    deflate_params.common_params.comp_lvl = compressionLevel;
+    deflate_params.common_params.comp_lvl = compression_level;
     deflate_params.common_params.polling_mode = polling_mode;
 
     return qzSetupSessionDeflate(qz_session, &deflate_params);
@@ -75,10 +76,11 @@ int setupDeflateSession(QzSession_T* qz_session, int compressionLevel){
 /*
  * Class:     com_intel_qat_InternalJNI
  * Method:    setupLZ4Session
+ * params:    QAT session pointer, compression level for LZ4
  * Sets up a LZ4 session
  */
 
-int setupLZ4Session(QzSession_T* qz_session){
+static int setupLZ4Session(QzSession_T* qz_session, int compression_level){
     QzSessionParamsLZ4_T lz4_params;
 
     int rc = qzGetDefaultsLZ4(&lz4_params);
@@ -86,6 +88,7 @@ int setupLZ4Session(QzSession_T* qz_session){
       return rc;
 
     lz4_params.common_params.polling_mode = polling_mode;
+    lz4_params.common_params.comp_lvl = compression_level;
 
     return qzSetupSessionLZ4(qz_session, &lz4_params);
 }
@@ -93,19 +96,19 @@ int setupLZ4Session(QzSession_T* qz_session){
 /*
  * Class:     com_intel_qat_InternalJNI
  * Method:    freePinnedMem
- * frees natively allocated ByteBuffer
+ * frees natively allocated pinned memory through freeing up associated pointers
  */
 
-inline void freePinnedMem(void* unSrcBuff, void *unDestBuff) {
+inline void freePinnedMem(void* src_buf, void* dst_buf) {
 
-  if(unSrcBuff != NULL)
-    qzFree(unSrcBuff);
+  if(src_buf != NULL)
+    qzFree(src_buf);
 
-  if(unDestBuff != NULL)
-    qzFree(unDestBuff);
+  if(dst_buf != NULL)
+    qzFree(dst_buf);
 
-  unSrcBuff = NULL;
-  unDestBuff = NULL;
+  src_buf = NULL;
+  dst_buf = NULL;
 }
 
 /*
@@ -114,10 +117,10 @@ inline void freePinnedMem(void* unSrcBuff, void *unDestBuff) {
  * Allocate new ByteBuffer using qzMalloc for the source and destination pinned buffers
  */
 
-int allocatePinnedMem (struct Session_T* qat_session,jint mode, jlong srcSize, jlong destSize) {
+static int allocatePinnedMem (struct Session_T* qat_session,jint mode, jlong src_size, jlong dest_size) {
 
-  void* tempSrcAddr = qzMalloc(srcSize, numa_id, true);
-  void* tempDestAddr = qzMalloc(destSize, numa_id, true);
+  void* tempSrcAddr = qzMalloc(src_size, numa_id, true);
+  void* tempDestAddr = qzMalloc(dest_size, numa_id, true);
 
   if(tempSrcAddr == NULL || tempDestAddr == NULL)
   {
@@ -129,12 +132,12 @@ int allocatePinnedMem (struct Session_T* qat_session,jint mode, jlong srcSize, j
 
   if(tempSrcAddr != NULL){
     qat_session->pin_mem_src = (unsigned char*)tempSrcAddr;
-    qat_session->pin_mem_src_size = srcSize;
+    qat_session->pin_mem_src_size = src_size;
    }
 
   if(tempDestAddr != NULL){
     qat_session->pin_mem_dst = (unsigned char*)tempDestAddr;
-    qat_session->pin_mem_dst_size = destSize;
+    qat_session->pin_mem_dst_size = dest_size;
   }
 
   return QZ_OK;
@@ -170,12 +173,12 @@ static int compress(JNIEnv* env, QzSession_T *sess, char *src_ptr, int src_len,
   return rc;
 }
 
-
 /*
  * Class:     com_intel_qat_InternalJNI
  * Method:    decompress source at a given offset upto a given length and stores into destination at given offset of a particular size
  * compresses data stored at source
  */
+
 static int decompress(JNIEnv* env, QzSession_T *sess, char *src_ptr, int src_len,
                       char *dst_ptr, int dst_len, int *src_read,
                       int *dst_written, int retry_count, int is_final) {
@@ -231,7 +234,7 @@ static int compress_or_decompress(kernel_func kf, JNIEnv *env, jobject obj,
 
     memcpy(pin_src_ptr, src_start, src_size);
     kf(env,qat_session->qz_session, pin_src_ptr, src_size, pin_dst_ptr, dst_size, &bytes_read,
-       &bytes_written,retry_count, src_size != qat_session->pin_mem_src_size);
+       &bytes_written,retry_count, 0);
     memcpy(dst_start, pin_dst_ptr, bytes_written);
 
     src_start += bytes_read;
@@ -244,19 +247,18 @@ static int compress_or_decompress(kernel_func kf, JNIEnv *env, jobject obj,
   return *dst_written;
 }
 
-
 /*
  * Class:     com_intel_qat_InternalJNI
  * Method:    setup
  * Signature: (IJII)V
  */
-JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_setup(JNIEnv *env, jclass jc, jobject qatSessionObj
-,jint softwareBackup, jlong internalBufferSizeInBytes, jint compressionAlgo, jint compressionLevel) {
+JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_setup(JNIEnv *env, jclass jc, jobject qat_session_obj
+,jint software_backup, jlong internal_buffer_size, jint comp_alg, jint comp_level) {
 
   struct Session_T* qat_session = (struct Session_T*)calloc(1, sizeof(struct Session_T));
   qat_session->qz_session = (QzSession_T*)calloc(1,sizeof(QzSession_T));
 
-  const unsigned char sw_backup = (unsigned char) softwareBackup;
+  const unsigned char sw_backup = (unsigned char) software_backup;
 
   int rc = qzInit(qat_session->qz_session, sw_backup);
 
@@ -265,16 +267,14 @@ JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_setup(JNIEnv *env, jclass 
     return;
   }
 
-  if(compressionAlgo == DEFLATE)
-  {
-    rc = setupDeflateSession(qat_session->qz_session, compressionLevel);
+  if(comp_alg == DEFLATE){
+    rc = setupDeflateSession(qat_session->qz_session, comp_level);
   }
-  else
-  {
-    rc = setupLZ4Session(qat_session->qz_session);
+  else{
+    rc = setupLZ4Session(qat_session->qz_session, comp_level);
   }
 
-  if(compressionAlgo == DEFLATE && QZ_OK != rc){
+  if(comp_alg == DEFLATE && QZ_OK != rc){
     throw_exception(env, "LZ4 session not setup", rc);
     return;
   }
@@ -286,8 +286,8 @@ JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_setup(JNIEnv *env, jclass 
   cpu_id = sched_getcpu();
   numa_id = numa_node_of_cpu(cpu_id);
 
-  if(internalBufferSizeInBytes != 0){
-    if(QZ_OK != allocatePinnedMem(qat_session,softwareBackup, internalBufferSizeInBytes, qzMaxCompressedLength(internalBufferSizeInBytes,qat_session)))
+  if(internal_buffer_size != 0){
+    if(QZ_OK != allocatePinnedMem(qat_session,software_backup, internal_buffer_size, qzMaxCompressedLength(internal_buffer_size,qat_session)))
         throw_exception(env, QZ_HW_INIT_ERROR,INT_MIN);
   }
   else{
@@ -295,9 +295,9 @@ JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_setup(JNIEnv *env, jclass 
     qat_session->pin_mem_dst = NULL;
   }
 
-  jclass qatSessionClass = (*env)->GetObjectClass(env, qatSessionObj);
-  jfieldID qatSessionField = (*env)->GetFieldID(env,qatSessionClass,"session","J");
-  (*env)->SetLongField(env, qatSessionObj,qatSessionField, (jlong)qat_session);
+  jclass qat_session_class = (*env)->GetObjectClass(env, qat_session_obj);
+  jfieldID qatSessionField = (*env)->GetFieldID(env,qat_session_class,"session","J");
+  (*env)->SetLongField(env, qat_session_obj,qatSessionField, (jlong)qat_session);
 }
 
 /*
@@ -453,12 +453,6 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_decompressDirectByteBuffer
      return dst_written;
    }
 
-
-
-
-
-
-
 /*
  * Class:     com_intel_qat_InternalJNI
  * Method:    maxCompressedSize
@@ -468,10 +462,10 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_decompressDirectByteBuffer
 JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_maxCompressedSize(JNIEnv *env,
                                                                jclass jobj,
                                                                jlong session,
-                                                               jlong srcSize
+                                                               jlong src_size
                                                                ) {
   struct Session_T* qat_session = (struct Session_T*) session;
-  return qzMaxCompressedLength(srcSize, qat_session->qz_session);
+  return qzMaxCompressedLength(src_size, qat_session->qz_session);
 }
 
 /*
@@ -479,6 +473,7 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_maxCompressedSize(JNIEnv *
  * Method:    teardown
  * Signature: (J)I
  */
+
 JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_teardown(JNIEnv *env, jclass jobj, jlong sess) {
 
   struct Session_T* qat_session = (struct Session_T*) sess;
