@@ -164,7 +164,7 @@ static int compress(JNIEnv *env, QzSession_T *sess, unsigned char *src_ptr,
   *src_read = src_len;
   *dst_written = dst_len;
 
-  return rc;
+  return QZ_OK;
 }
 
 /*
@@ -195,7 +195,7 @@ static int decompress(JNIEnv *env, QzSession_T *sess, unsigned char *src_ptr,
   *src_read = src_len;
   *dst_written = dst_len;
 
-  return rc;
+  return QZ_OK;
 }
 
 /*
@@ -222,7 +222,7 @@ static int compress_or_decompress(kernel_func kf, JNIEnv *env,
   int bytes_read = 0;
   int bytes_written = 0;
 
-  int src_len, dst_len, src_size, dst_size, is_final;
+  int rc, src_len, dst_len, src_size, dst_size, is_final;
   while (src_start < src_end && dst_start < dst_end) {
     src_len = src_end - src_start;
     src_size = src_len < qat_session->pin_mem_src_size
@@ -235,8 +235,11 @@ static int compress_or_decompress(kernel_func kf, JNIEnv *env,
     is_final = src_size != qat_session->pin_mem_src_size || src_size == src_len;
 
     memcpy(pin_src_ptr, src_start, src_size);
-    kf(env, qat_session->qz_session, pin_src_ptr, src_size, pin_dst_ptr,
-       dst_size, &bytes_read, &bytes_written, retry_count, is_final);
+    rc = kf(env, qat_session->qz_session, pin_src_ptr, src_size, pin_dst_ptr,
+            dst_size, &bytes_read, &bytes_written, retry_count, is_final);
+
+    if (rc != QZ_OK) break;
+
     memcpy(dst_start, pin_dst_ptr, bytes_written);
 
     src_start += bytes_read;
