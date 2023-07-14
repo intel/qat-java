@@ -108,12 +108,12 @@ inline void free_pin_mem(void *src_buf, void *dst_buf) {
 
 /*
  * Class:     com_intel_qat_InternalJNI
- * Method:    allocatePinnedMem
+ * Method:    allocate_pin_mem
  * Allocate new ByteBuffer using qzMalloc for the source and destination pinned
  * buffers
  */
-static int allocatePinnedMem(struct Session_T *qat_session, jint mode,
-                             jlong src_size, jlong dest_size) {
+static int allocate_pin_mem(struct Session_T *qat_session, jint mode,
+                            jlong src_size, jlong dest_size) {
   void *tmp_src_addr = qzMalloc(src_size, numa_id, 1);
   void *tmp_dst_addr = qzMalloc(dest_size, numa_id, 1);
 
@@ -292,9 +292,9 @@ JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_setup(
 
   if (internal_buffer_size != 0) {
     if (QZ_OK !=
-        allocatePinnedMem(qat_session, software_backup, internal_buffer_size,
-                          qzMaxCompressedLength(internal_buffer_size,
-                                                qat_session->qz_session)))
+        allocate_pin_mem(qat_session, software_backup, internal_buffer_size,
+                         qzMaxCompressedLength(internal_buffer_size,
+                                               qat_session->qz_session)))
       throw_exception(env, QZ_HW_INIT_ERROR, INT_MIN);
   } else {
     qat_session->pin_mem_src = NULL;
