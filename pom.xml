@@ -20,22 +20,6 @@
             <url>http://www.opensource.org/licenses/mit-license.php</url>
         </license>
     </licenses>
-
-    <developers>
-        <developer>
-            <name>Nishchal, Praveen</name>
-            <email>praveen.nishchal@intel.com</email>
-            <organization>Intel</organization>
-            <organizationUrl></organizationUrl>
-        </developer>
-        <developer>
-            <name>Mammo, Mulugeta</name>
-            <email>mulugeta.mammo@intel.com</email>
-            <organization>Intel</organization>
-            <organizationUrl></organizationUrl>
-        </developer>
-    </developers>
-
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <java.version>17</java.version>

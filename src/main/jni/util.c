@@ -5,8 +5,8 @@
  ******************************************************************************/
 #include "util.h"
 
-#include <stdio.h>
 #include <limits.h>
+#include <stdio.h>
 
 static char *get_error_msg(int err_code) {
   switch (err_code) {

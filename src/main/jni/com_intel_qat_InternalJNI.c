@@ -38,7 +38,7 @@ typedef int (*kernel_func)(JNIEnv *env, QzSession_T *sess,
                            unsigned char *src_ptr, unsigned int src_len,
                            unsigned char *dst_ptr, unsigned int dst_len,
                            int *src_read, int *dst_written, int retry_count,
-                           int is_final);
+                           int is_last);
 /*
  * Structure which contains
  * pointer to QAT hardware
@@ -61,7 +61,8 @@ struct Session_T {
  * params:    QAT session pointer, compression level for deflate
  * Sets up a deflate(ZLIB) session
  */
-static int setup_deflate_session(QzSession_T *qz_session, int compression_level) {
+static int setup_deflate_session(QzSession_T *qz_session,
+                                 int compression_level) {
   QzSessionParamsDeflate_T deflate_params;
 
   int rc = qzGetDefaultsDeflate(&deflate_params);
@@ -146,12 +147,12 @@ static int allocate_pin_mem(struct Session_T *qat_session, jint mode,
 static int compress(JNIEnv *env, QzSession_T *sess, unsigned char *src_ptr,
                     unsigned int src_len, unsigned char *dst_ptr,
                     unsigned int dst_len, int *src_read, int *dst_written,
-                    int retry_count, int is_final) {
-  int rc = qzCompress(sess, src_ptr, &src_len, dst_ptr, &dst_len, is_final);
+                    int retry_count, int is_last) {
+  int rc = qzCompress(sess, src_ptr, &src_len, dst_ptr, &dst_len, is_last);
 
   if (rc == QZ_NOSW_NO_INST_ATTACH && retry_count > 0) {
     while (retry_count > 0 && QZ_OK != rc) {
-      rc = qzCompress(sess, src_ptr, &src_len, dst_ptr, &dst_len, is_final);
+      rc = qzCompress(sess, src_ptr, &src_len, dst_ptr, &dst_len, is_last);
       retry_count--;
     }
   }
@@ -176,8 +177,8 @@ static int compress(JNIEnv *env, QzSession_T *sess, unsigned char *src_ptr,
 static int decompress(JNIEnv *env, QzSession_T *sess, unsigned char *src_ptr,
                       unsigned int src_len, unsigned char *dst_ptr,
                       unsigned int dst_len, int *src_read, int *dst_written,
-                      int retry_count, int is_final) {
-  (void)is_final;
+                      int retry_count, int is_last) {
+  (void)is_last;
 
   int rc = qzDecompress(sess, src_ptr, &src_len, dst_ptr, &dst_len);
   if (rc == QZ_NOSW_NO_INST_ATTACH && retry_count > 0) {
@@ -222,7 +223,7 @@ static int compress_or_decompress(kernel_func kf, JNIEnv *env,
   int bytes_read = 0;
   int bytes_written = 0;
 
-  int rc, src_len, dst_len, src_size, dst_size, is_final;
+  int rc, src_len, dst_len, src_size, dst_size, is_last;
   while (src_start < src_end && dst_start < dst_end) {
     src_len = src_end - src_start;
     src_size = src_len < qat_session->pin_mem_src_size
@@ -232,12 +233,12 @@ static int compress_or_decompress(kernel_func kf, JNIEnv *env,
     dst_size = dst_len < qat_session->pin_mem_dst_size
                    ? dst_len
                    : qat_session->pin_mem_dst_size;
-    
-    is_final = src_size != qat_session->pin_mem_src_size || src_size == src_len;
+
+    is_last = src_size != qat_session->pin_mem_src_size || src_size == src_len;
 
     memcpy(pin_src_ptr, src_start, src_size);
     rc = kf(env, qat_session->qz_session, pin_src_ptr, src_size, pin_dst_ptr,
-            dst_size, &bytes_read, &bytes_written, retry_count, is_final);
+            dst_size, &bytes_read, &bytes_written, retry_count, is_last);
 
     if (rc != QZ_OK) break;
 

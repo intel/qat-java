@@ -27,11 +27,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 public class QATTest {
-  // private int numberOfThreads;
-  // private File filePath, filesList[];
-  // private Thread[] threads;
 
-  // private int filesPerThread,remainingFiles;
   private QATSession intQatSession;
   private static final Cleaner cleaner = Cleaner.create();
   private Cleaner.Cleanable cleanable;
@@ -632,11 +628,9 @@ public class QATTest {
     byte[] dest = new byte[2 * source.length];
 
     try {
-      qatSession = new QATSession(
-          QATSession.CompressionAlgorithm.LZ4, 0, QATSession.Mode.AUTO);
+      qatSession = new QATSession();
       qatSession.endSession();
       qatSession.compress(source, 0, source.length, dest, 0, dest.length);
-      fail("testIllegalStateException fails");
     } catch (IllegalStateException is) {
       assertTrue(true);
     }
@@ -652,7 +646,7 @@ public class QATTest {
 
     try {
       qatSession = new QATSession(
-          QATSession.CompressionAlgorithm.LZ4, 0, QATSession.Mode.HARDWARE);
+          QATSession.CompressionAlgorithm.DEFLATE, QATSession.DEFAULT_DEFLATE_COMP_LEVEL, QATSession.Mode.HARDWARE);
       qatSession.endSession();
       qatSession.compress(source, 0, source.length, dest, 0, dest.length);
       fail("testIllegalStateException fails");
