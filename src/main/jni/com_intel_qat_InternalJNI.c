@@ -57,11 +57,11 @@ struct Session_T {
 
 /*
  * Class:     com_intel_qat_InternalJNI
- * Method:    setupDeflateSession
+ * Method:    setup_deflate_session
  * params:    QAT session pointer, compression level for deflate
  * Sets up a deflate(ZLIB) session
  */
-static int setupDeflateSession(QzSession_T *qz_session, int compression_level) {
+static int setup_deflate_session(QzSession_T *qz_session, int compression_level) {
   QzSessionParamsDeflate_T deflate_params;
 
   int rc = qzGetDefaultsDeflate(&deflate_params);
@@ -76,11 +76,11 @@ static int setupDeflateSession(QzSession_T *qz_session, int compression_level) {
 
 /*
  * Class:     com_intel_qat_InternalJNI
- * Method:    setupLZ4Session
+ * Method:    setup_lz4_session
  * params:    QAT session pointer, compression level for LZ4
  * Sets up a LZ4 session
  */
-static int setupLZ4Session(QzSession_T *qz_session, int compression_level) {
+static int setup_lz4_session(QzSession_T *qz_session, int compression_level) {
   QzSessionParamsLZ4_T lz4_params;
 
   int rc = qzGetDefaultsLZ4(&lz4_params);
@@ -277,9 +277,9 @@ JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_setup(
   }
 
   if (comp_alg == DEFLATE) {
-    rc = setupDeflateSession(qat_session->qz_session, comp_level);
+    rc = setup_deflate_session(qat_session->qz_session, comp_level);
   } else {
-    rc = setupLZ4Session(qat_session->qz_session, comp_level);
+    rc = setup_lz4_session(qat_session->qz_session, comp_level);
   }
 
   if (comp_alg == DEFLATE && QZ_OK != rc) {
