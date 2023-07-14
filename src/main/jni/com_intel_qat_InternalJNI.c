@@ -157,7 +157,7 @@ static int compress(JNIEnv *env, QzSession_T *sess, unsigned char *src_ptr,
   }
 
   if (rc != QZ_OK) {
-    throw_exception(env, QZ_COMPRESS_ERROR, rc);
+    throw_exception(env, rc, QZ_COMPRESS_ERROR);
     return rc;
   }
 
@@ -188,7 +188,7 @@ static int decompress(JNIEnv *env, QzSession_T *sess, unsigned char *src_ptr,
     }
   }
   if (rc != QZ_OK && rc != QZ_BUF_ERROR && rc != QZ_DATA_ERROR) {
-    throw_exception(env, QZ_DECOMPRESS_ERROR, rc);
+    throw_exception(env, rc, QZ_DECOMPRESS_ERROR);
     return rc;
   }
 
@@ -232,6 +232,7 @@ static int compress_or_decompress(kernel_func kf, JNIEnv *env,
     dst_size = dst_len < qat_session->pin_mem_dst_size
                    ? dst_len
                    : qat_session->pin_mem_dst_size;
+    
     is_final = src_size != qat_session->pin_mem_src_size || src_size == src_len;
 
     memcpy(pin_src_ptr, src_start, src_size);
@@ -271,7 +272,7 @@ JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_setup(
   int rc = qzInit(qat_session->qz_session, sw_backup);
 
   if (rc != QZ_OK && rc != QZ_DUPLICATE) {
-    throw_exception(env, QZ_HW_INIT_ERROR, rc);
+    throw_exception(env, rc, QZ_HW_INIT_ERROR);
     return;
   }
 
@@ -282,12 +283,12 @@ JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_setup(
   }
 
   if (comp_alg == DEFLATE && QZ_OK != rc) {
-    throw_exception(env, "LZ4 session not setup", rc);
+    throw_exception(env, rc, "LZ4 session not setup.");
     return;
   }
   if (QZ_OK != rc && QZ_DUPLICATE != rc) {
     qzClose(qat_session->qz_session);
-    throw_exception(env, QZ_SETUP_SESSION_ERROR, rc);
+    throw_exception(env, rc, QZ_SETUP_SESSION_ERROR);
     return;
   }
   cpu_id = sched_getcpu();
@@ -298,7 +299,7 @@ JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_setup(
         allocate_pin_mem(qat_session, software_backup, internal_buffer_size,
                          qzMaxCompressedLength(internal_buffer_size,
                                                qat_session->qz_session)))
-      throw_exception(env, QZ_HW_INIT_ERROR, INT_MIN);
+      throw_exception(env, INT_MIN, QZ_HW_INIT_ERROR);
   } else {
     qat_session->pin_mem_src = NULL;
     qat_session->pin_mem_dst = NULL;
@@ -518,7 +519,7 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_teardown(JNIEnv *env,
 
   int rc = qzTeardownSession(qat_session->qz_session);
   if (rc != QZ_OK) {
-    throw_exception(env, QZ_TEARDOWN_ERROR, rc);
+    throw_exception(env, rc, QZ_TEARDOWN_ERROR);
     return 0;
   }
 

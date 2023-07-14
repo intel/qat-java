@@ -5,16 +5,11 @@
  ******************************************************************************/
 #include "util.h"
 
-#include <limits.h>
 #include <stdio.h>
-#include <string.h>
+#include <limits.h>
 
-char *getErrorMessage(int errorCode) {
-  switch (errorCode) {
-    case INT_MIN:
-      return "Session not setup";
-    case INT_MAX:
-      return "Invalid input";
+static char *get_error_msg(int err_code) {
+  switch (err_code) {
     case 0:
       return "QZ_OK";
     case 1:
@@ -67,13 +62,15 @@ char *getErrorMessage(int errorCode) {
       return "QZ_OUT_OF_RANGE";
     case -200:
       return "QZ_NOT_SUPPORTED";
+    case INT_MIN:
+      return "Session not setup";
   }
-  return "Invalid code";
+  return "A_NON_DOCUMENTED_ERROR_CODE_RETURNED";
 }
 
-void throw_exception(JNIEnv *env, const char *errorMessage, jlong status) {
+void throw_exception(JNIEnv *env, jlong err_code, const char *err_msg) {
   char buff[256];
   jclass Exception = (*env)->FindClass(env, "com/intel/qat/QATException");
-  snprintf(buff, sizeof(buff), "%s: %s", getErrorMessage(status), errorMessage);
+  snprintf(buff, sizeof(buff), "%s: %s", get_error_msg(err_code), err_msg);
   (*env)->ThrowNew(env, Exception, buff);
 }
