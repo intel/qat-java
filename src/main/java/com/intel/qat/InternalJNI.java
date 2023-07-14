@@ -23,7 +23,7 @@ public class InternalJNI {
     Native.loadLibrary();
   }
 
-  static native void setup(QATSession qatSessionObject, int softwareBackup, long internalBufferSizeInBytes,
+  static native void setup(QatSession qatSessionObject, int softwareBackup, long internalBufferSizeInBytes,
       int compressionAlgo, int compressionLevel);
 
   static native int teardown(long session);

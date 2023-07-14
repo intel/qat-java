@@ -341,7 +341,7 @@
                 <configuration>
                     <argLine>@{argLine} -Djava.library.path=${project.build.directory}/cbuild</argLine>
                     <includes>
-                        <include>com.intel.qat.QATTestSuite.java</include>
+                        <include>com.intel.qat.QatTestSuite.java</include>
                     </includes>
                 </configuration>
             </plugin>

@@ -6,13 +6,13 @@
 package com.intel.qat.fuzzing;
 
 import com.code_intelligence.jazzer.api.FuzzedDataProvider;
-import com.intel.qat.QATSession;
-import com.intel.qat.QATException;
+import com.intel.qat.QatSession;
+import com.intel.qat.QatException;
 import java.util.Arrays;
 public class CompressDecompressBAFuzzer {
     public static void fuzzerTestOneInput(FuzzedDataProvider data) {
         try {
-            QATSession qatSession = new QATSession();
+            QatSession qatSession = new QatSession();
             byte[] src = data.consumeRemainingAsBytes();
             int size = src.length;
             int compressLength = qatSession.maxCompressedLength(size);
@@ -25,7 +25,7 @@ public class CompressDecompressBAFuzzer {
             assert Arrays.equals(src, decompArr): "Source and decompressed array are not equal";
         }
         catch (ArrayIndexOutOfBoundsException | IllegalArgumentException ignored) {
-        } catch (QATException ignored) {
+        } catch (QatException ignored) {
             final String expectedErrorMessage = "The source length is too large";
             if (!ignored.getMessage().equalsIgnoreCase(expectedErrorMessage)) {
                 throw ignored;

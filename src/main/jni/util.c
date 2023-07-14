@@ -70,7 +70,7 @@ static char *get_error_msg(int err_code) {
 
 void throw_exception(JNIEnv *env, jlong err_code, const char *err_msg) {
   char buff[256];
-  jclass Exception = (*env)->FindClass(env, "com/intel/qat/QATException");
+  jclass Exception = (*env)->FindClass(env, "com/intel/qat/QatException");
   snprintf(buff, sizeof(buff), "%s: %s", get_error_msg(err_code), err_msg);
   (*env)->ThrowNew(env, Exception, buff);
 }

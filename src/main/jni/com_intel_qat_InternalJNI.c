@@ -15,9 +15,7 @@
 #include "qatzip.h"
 #include "util.h"
 
-// use underscore for all variable names instead of camel case
 // doxygen for C documentation
-// remove all the space
 
 #define QZ_HW_INIT_ERROR "An error occured while initializing QAT hardware"
 #define QZ_SETUP_SESSION_ERROR "An error occured while setting up session"

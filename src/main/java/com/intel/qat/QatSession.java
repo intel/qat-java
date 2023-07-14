@@ -12,7 +12,7 @@ import java.nio.ReadOnlyBufferException;
  * Defines APIs for creation of setting up hardware based QAT session(with or
  * without software backup, compression and decompression APIs
  */
-public class QATSession {
+public class QatSession {
   /**
    * Default compression is set to 6, this is to align with default compression
    * mode chosen as ZLIB
@@ -72,7 +72,7 @@ public class QATSession {
    * fallback option), no retries, ZLIB as default compression algo and
    * compression level 6 which is ZLIB default compression level
    */
-  public QATSession() {
+  public QatSession() {
     this(CompressionAlgorithm.DEFLATE, DEFAULT_DEFLATE_COMP_LEVEL, Mode.AUTO, DEFAULT_RETRY_COUNT);
   }
 
@@ -81,7 +81,7 @@ public class QATSession {
    * default value
    * @param compressionAlgorithm CompressionAlgorithm enum value
    */
-  public QATSession(CompressionAlgorithm compressionAlgorithm) {
+  public QatSession(CompressionAlgorithm compressionAlgorithm) {
     this(compressionAlgorithm, DEFAULT_DEFLATE_COMP_LEVEL, Mode.AUTO, DEFAULT_RETRY_COUNT);
   }
 
@@ -91,7 +91,7 @@ public class QATSession {
    * @param compressionAlgorithm CompressionAlgorithm enum value
    * @param compressionLevel Compression Level
    */
-  public QATSession(CompressionAlgorithm compressionAlgorithm, int compressionLevel) {
+  public QatSession(CompressionAlgorithm compressionAlgorithm, int compressionLevel) {
     this(compressionAlgorithm, compressionLevel, Mode.AUTO, DEFAULT_RETRY_COUNT);
   }
 
@@ -102,7 +102,7 @@ public class QATSession {
    * @param compressionLevel Compression Level
    * @param mode Mode enum value
    */
-  public QATSession(CompressionAlgorithm compressionAlgorithm, int compressionLevel, Mode mode) {
+  public QatSession(CompressionAlgorithm compressionAlgorithm, int compressionLevel, Mode mode) {
     this(compressionAlgorithm, compressionLevel, mode, DEFAULT_RETRY_COUNT);
   }
 
@@ -117,7 +117,7 @@ public class QATSession {
    * @param retryCount how many times a Hardware based compress/decompress call
    *     should be tried before failing compression/decompression
    */
-  public QATSession(CompressionAlgorithm compressionAlgorithm, int compressionLevel, Mode mode, int retryCount) {
+  public QatSession(CompressionAlgorithm compressionAlgorithm, int compressionLevel, Mode mode, int retryCount) {
     this(compressionAlgorithm, compressionLevel, mode, retryCount, DEFAULT_INTERNAL_BUFFER_SIZE_IN_BYTES);
   }
 
@@ -134,8 +134,8 @@ public class QATSession {
    * @param pinnedMemorySize To be used by Advanced developer to define the size
    *     of pinned memory
    * */
-  public QATSession(CompressionAlgorithm compressionAlgorithm, int compressionLevel, Mode mode, int retryCount,
-      long pinnedMemorySize) throws QATException {
+  public QatSession(CompressionAlgorithm compressionAlgorithm, int compressionLevel, Mode mode, int retryCount,
+      long pinnedMemorySize) throws QatException {
     if (!validateParams(compressionAlgorithm, compressionLevel, retryCount))
       throw new IllegalArgumentException("Invalid parameters");
 
@@ -148,7 +148,7 @@ public class QATSession {
    * endSession API destroys the QAT hardware session and free up resources and
    * PINNED memory allocated with setup API call
    */
-  public void endSession() throws QATException {
+  public void endSession() throws QatException {
     if (!isValid)
       throw new IllegalStateException();
     InternalJNI.teardown(session);
@@ -177,7 +177,7 @@ public class QATSession {
    *     data is defined as destination bytebuffer position and limit to be used
    *     as total size of destination buffer which is enough to store compressed
    *     data
-   * @return non-zero compressed size or throw QATException
+   * @return non-zero compressed size or throw QatException
    */
   public int compress(ByteBuffer src, ByteBuffer dest) {
     if (!isValid)
@@ -217,7 +217,7 @@ public class QATSession {
     }
 
     if (compressedSize < 0) {
-      throw new QATException("QAT: Compression failed");
+      throw new QatException("QAT: Compression failed");
     }
     return compressedSize;
   }
@@ -231,7 +231,7 @@ public class QATSession {
    * @param destOffset  starting position to store compressed data
    * @param destLen  limit to be used as total size of destination buffer which
    *     is enough to store compressed data
-   * @return non-zero compressed size or throws QATException
+   * @return non-zero compressed size or throws QatException
    */
   public int compress(byte[] src, int srcOffset, int srcLen, byte[] dest, int destOffset, int destLen) {
     if (!isValid)
@@ -247,7 +247,7 @@ public class QATSession {
         session, null, src, srcOffset, srcOffset + srcLen, dest, destOffset, destOffset + destLen, retryCount);
 
     if (compressedSize < 0) {
-      throw new QATException("QAT: Compression failed");
+      throw new QatException("QAT: Compression failed");
     }
     return compressedSize;
   }
@@ -261,7 +261,7 @@ public class QATSession {
    *     data is defined as destination bytebuffer position and limit to be used
    *     as total size of destination buffer which is enough to store
    *     decompressed data
-   * @return non-zero decompressed size or throw QATException
+   * @return non-zero decompressed size or throw QatException
    */
   public int decompress(ByteBuffer src, ByteBuffer dest) {
     if (!isValid)
@@ -303,7 +303,7 @@ public class QATSession {
     }
 
     if (decompressedSize < 0) {
-      throw new QATException("QAT: Compression failed");
+      throw new QatException("QAT: Compression failed");
     }
     return decompressedSize;
   }
@@ -317,7 +317,7 @@ public class QATSession {
    * @param destOffset  starting position to store decompressed data
    * @param destLen  limit to be used as total size of destination buffer which
    *     is enough to store decompressed data
-   * @return non-zero decompressed size or throws QATException
+   * @return non-zero decompressed size or throws QatException
    */
   public int decompress(byte[] src, int srcOffset, int srcLen, byte[] dest, int destOffset, int destLen) {
     if (!isValid)
@@ -335,7 +335,7 @@ public class QATSession {
         session, null, src, srcOffset, srcOffset + srcLen, dest, destOffset, destOffset + destLen, retryCount);
 
     if (decompressedSize < 0) {
-      throw new QATException("QAT: decompression failed");
+      throw new QatException("QAT: decompression failed");
     }
 
     return decompressedSize;
@@ -368,17 +368,17 @@ public class QATSession {
    */
 
   public Runnable cleanUp() {
-    return new QATSessionCleaner(session);
+    return new QatSessionCleaner(session);
   }
 
   /**
    * internal static class to provide cleaning action to the calling application
    * while registering cleaning action callback
    */
-  static class QATSessionCleaner implements Runnable {
+  static class QatSessionCleaner implements Runnable {
     private long qzSession;
 
-    public QATSessionCleaner(long qzSession) {
+    public QatSessionCleaner(long qzSession) {
       this.qzSession = qzSession;
     }
     @Override
