@@ -165,7 +165,7 @@ public class QatTest {
   @Test
   void testBackedArrayBuffersWithAllocate() {
     try {
-      qatSession = new QatSession();
+      qatSession = new QatSession(QatSession.CompressionAlgorithm.DEFLATE,9, QatSession.Mode.AUTO,0,0);
       // qatSession.setIsPinnedMemAvailable();
       byte[] source = new byte[100];
       RANDOM.nextBytes(source);
@@ -204,7 +204,7 @@ public class QatTest {
   @Test
   void testIndirectBuffersReadOnly() {
     try {
-      qatSession = new QatSession();
+      qatSession = new QatSession(QatSession.CompressionAlgorithm.DEFLATE,9, QatSession.Mode.AUTO,0,0);
       // qatSession.setIsPinnedMemAvailable();
       byte[] source = new byte[100];
       RANDOM.nextBytes(source);
@@ -245,7 +245,7 @@ public class QatTest {
   @Test
   void testCompressionDecompressionWithByteArray() {
     try {
-      qatSession = new QatSession();
+      qatSession = new QatSession(QatSession.CompressionAlgorithm.DEFLATE,9, QatSession.Mode.AUTO,0,0);
       // qatSession.setIsPinnedMemAvailable();
 
       byte[] source = new byte[100];
@@ -271,7 +271,7 @@ public class QatTest {
   @Test
   void testCompressionDecompressionWithByteArrayLZ4() {
     try {
-      qatSession = new QatSession(QatSession.CompressionAlgorithm.LZ4);
+      qatSession = new QatSession(QatSession.CompressionAlgorithm.LZ4,9, QatSession.Mode.AUTO,0,0);
       // qatSession.setIsPinnedMemAvailable();
       byte[] source = new byte[100];
       RANDOM.nextBytes(source);
@@ -466,8 +466,7 @@ public class QatTest {
   @Test
   void testCompressionDecompressionWithDirectByteBuffNoPinnedMem() {
     try {
-      qatSession = new QatSession();
-      // qatSession.setIsPinnedMemAvailable();
+      qatSession = new QatSession(QatSession.CompressionAlgorithm.DEFLATE,9, QatSession.Mode.AUTO,0,0);
       byte[] source = new byte[100];
       RANDOM.nextBytes(source);
       byte[] decompressed = new byte[source.length];
@@ -982,8 +981,7 @@ public class QatTest {
   @Test
   public void testInvalidCompressionOffsets() {
     try {
-      qatSession = new QatSession(
-          QatSession.CompressionAlgorithm.DEFLATE, 6, QatSession.Mode.AUTO);
+      qatSession = new QatSession(QatSession.CompressionAlgorithm.DEFLATE,9, QatSession.Mode.AUTO,0,0);
       byte[] src = new byte[100];
       RANDOM.nextBytes(src);
       String book2 = new String(src, StandardCharsets.UTF_8);
@@ -1006,8 +1004,7 @@ public class QatTest {
   public void testInvalidCompressionOffsetsHW() {
     assumeTrue(QatTestSuite.FORCE_HARDWARE);
     try {
-      qatSession = new QatSession(
-          QatSession.CompressionAlgorithm.DEFLATE, 6, QatSession.Mode.HARDWARE);
+      qatSession = new QatSession(QatSession.CompressionAlgorithm.DEFLATE,9, QatSession.Mode.AUTO,0,0);
       byte[] src = new byte[100];
       RANDOM.nextBytes(src);
       String book2 = new String(src, StandardCharsets.UTF_8);
@@ -1029,8 +1026,7 @@ public class QatTest {
   @Test
   public void testInvalidCompressionLargeOffsets() {
     try {
-      qatSession = new QatSession(
-          QatSession.CompressionAlgorithm.DEFLATE, 6, QatSession.Mode.HARDWARE);
+      qatSession = new QatSession(QatSession.CompressionAlgorithm.DEFLATE,9, QatSession.Mode.AUTO,0,0);
       byte[] src = new byte[100];
       RANDOM.nextBytes(src);
       String book2 = new String(src, StandardCharsets.UTF_8);
@@ -1053,8 +1049,7 @@ public class QatTest {
   @Test
   public void testInvalidecompressionOffsets() {
     try {
-      qatSession = new QatSession(
-          QatSession.CompressionAlgorithm.DEFLATE, 6, QatSession.Mode.HARDWARE);
+      qatSession = new QatSession(QatSession.CompressionAlgorithm.DEFLATE,9, QatSession.Mode.AUTO,0,0);
       byte[] src = new byte[100];
       RANDOM.nextBytes(src);
       String book2 = new String(src, StandardCharsets.UTF_8);
@@ -1076,8 +1071,7 @@ public class QatTest {
   @Test
   public void testInvalidecompressionLargeOffsets() {
     try {
-      qatSession = new QatSession(
-          QatSession.CompressionAlgorithm.DEFLATE, 6, QatSession.Mode.HARDWARE);
+      qatSession = new QatSession(QatSession.CompressionAlgorithm.DEFLATE,9, QatSession.Mode.AUTO,0,0);
       byte[] src = new byte[100];
       RANDOM.nextBytes(src);
       String book2 = new String(src, StandardCharsets.UTF_8);
