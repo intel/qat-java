@@ -27,8 +27,9 @@ class Native {
     try {
       AccessController.doPrivileged(new PrivilegedAction<Void>() {
         public Void run() {
-          System.loadLibrary("qat-java"); // Could not load native library from
-                                          // "java.library.path", try loading from jar
+          System.loadLibrary(
+              "qat-java"); // Could not load native library from
+                           // "java.library.path", try loading from jar
           return null;
         }
       });
@@ -52,7 +53,8 @@ class Native {
       ret = "linux";
       extension = ".so";
     } else
-      throw new UnsupportedOperationException("Operating System is not supported");
+      throw new UnsupportedOperationException(
+          "Operating System is not supported");
     return ret;
   }
 
@@ -69,14 +71,16 @@ class Native {
     try (InputStream in = Native.class.getResourceAsStream(libName)) {
       if (in == null) {
         throw new UnsupportedOperationException(
-            "Unsupported OS/arch, cannot find " + libName + ". Please try building from source.");
+            "Unsupported OS/arch, cannot find " + libName
+            + ". Please try building from source.");
       }
       // To avoid race condition with other concurrently running Java processes
       // using qat-java create the .lck file first.
 
       tempNativeLibLock = File.createTempFile("libqat-java",
           extension + ".lck"); // TODO:// check file permission with ls -lh
-      tempNativeLib = new File(tempNativeLibLock.getAbsolutePath().replaceFirst(".lck$", ""));
+      tempNativeLib = new File(
+          tempNativeLibLock.getAbsolutePath().replaceFirst(".lck$", ""));
       try (FileOutputStream out = new FileOutputStream(tempNativeLib)) {
         byte[] buf = new byte[4096];
         int bytesRead;
@@ -100,7 +104,8 @@ class Native {
       });
       loaded = true;
     } catch (IOException e) {
-      throw new ExceptionInInitializerError("Failed to load native qat-java library");
+      throw new ExceptionInInitializerError(
+          "Failed to load native qat-java library");
     } finally {
       if (tempNativeLib != null)
         tempNativeLib.deleteOnExit();

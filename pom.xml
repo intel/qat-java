@@ -25,7 +25,8 @@
         <java.version>17</java.version>
         <!--suppress UnresolvedMavenProperty -->
         <skipTests>${fuzzing}</skipTests>
-        <fuzzParameters>-max_total_time=30 -max_len=2147483647 -rss_limit_mb=102400</fuzzParameters>
+        <!-- we test upto a 4MB input -->
+        <fuzzParameters>-runs=100000 -max_total_time=300 -max_len=4194304</fuzzParameters>
     </properties>
 
     <profiles>
@@ -45,7 +46,7 @@
                         <groupId>org.codehaus.mojo</groupId>
                         <executions>
                             <execution>
-                                <id>CompressDecompressBAFuzzer</id>
+                                <id>TestByteArray</id>
                                 <phase>test</phase>
                                 <goals>
                                     <goal>exec</goal>
@@ -60,7 +61,7 @@
                                         <classpath/>
                                         <argument>com.code_intelligence.jazzer.Jazzer</argument>
                                         <argument>
-                                            --target_class=com.intel.qat.fuzzing.CompressDecompressBAFuzzer
+                                            --target_class=com.intel.qat.fuzzing.TestByteArray
                                         </argument>
                                         <argument>--asan</argument>
                                         <argument>--native</argument>
@@ -69,7 +70,7 @@
                                 </configuration>
                             </execution>
                             <execution>
-                                <id>CompressDecompressBAWithParametersFuzzer</id>
+                                <id>TestByeArrayWithParams</id>
                                 <phase>test</phase>
                                 <goals>
                                     <goal>exec</goal>
@@ -84,7 +85,7 @@
                                         <classpath/>
                                         <argument>com.code_intelligence.jazzer.Jazzer</argument>
                                         <argument>
-                                            --target_class=com.intel.qat.fuzzing.CompressDecompressBAWithParametersFuzzer
+                                            --target_class=com.intel.qat.fuzzing.TestByteArrayWithParams
                                         </argument>
                                         <argument>--asan</argument>
                                         <argument>--native</argument>
@@ -93,7 +94,7 @@
                                 </configuration>
                             </execution>
                             <execution>
-                                <id>CompressDecompressBBFuzzer</id>
+                                <id>TestByteBuffer</id>
                                 <phase>test</phase>
                                 <goals>
                                     <goal>exec</goal>
@@ -108,7 +109,7 @@
                                         <classpath/>
                                         <argument>com.code_intelligence.jazzer.Jazzer</argument>
                                         <argument>
-                                            --target_class=com.intel.qat.fuzzing.CompressDecompressBBFuzzer
+                                            --target_class=com.intel.qat.fuzzing.TestByteBuffer
                                         </argument>
                                         <argument>--asan</argument>
                                         <argument>--native</argument>
@@ -117,7 +118,7 @@
                                 </configuration>
                             </execution>
                             <execution>
-                                <id>CompressDecompressDBBFuzzer</id>
+                                <id>TestDirectByteBuffer</id>
                                 <phase>test</phase>
                                 <goals>
                                     <goal>exec</goal>
@@ -132,7 +133,7 @@
                                         <classpath/>
                                         <argument>com.code_intelligence.jazzer.Jazzer</argument>
                                         <argument>
-                                            --target_class=com.intel.qat.fuzzing.CompressDecompressDBBFuzzer
+                                            --target_class=com.intel.qat.fuzzing.TestDirectByteBuffer
                                         </argument>
                                         <argument>--asan</argument>
                                         <argument>--native</argument>
@@ -141,7 +142,7 @@
                                 </configuration>
                             </execution>
                             <execution>
-                                <id>CompressDecompressSrcBBDstDBBFuzzer</id>
+                                <id>TestMixedTypesOne</id>
                                 <phase>test</phase>
                                 <goals>
                                     <goal>exec</goal>
@@ -156,7 +157,7 @@
                                         <classpath/>
                                         <argument>com.code_intelligence.jazzer.Jazzer</argument>
                                         <argument>
-                                            --target_class=com.intel.qat.fuzzing.CompressDecompressSrcBBDstDBBFuzzer
+                                            --target_class=com.intel.qat.fuzzing.TestMixedTypesOne
                                         </argument>
                                         <argument>--asan</argument>
                                         <argument>--native</argument>
@@ -165,7 +166,7 @@
                                 </configuration>
                             </execution>
                             <execution>
-                                <id>CompressDecompressSrcDBBDstBBFuzzer</id>
+                                <id>TestMixedTypesTwo</id>
                                 <phase>test</phase>
                                 <goals>
                                     <goal>exec</goal>
@@ -180,7 +181,7 @@
                                         <classpath/>
                                         <argument>com.code_intelligence.jazzer.Jazzer</argument>
                                         <argument>
-                                            --target_class=com.intel.qat.fuzzing.CompressDecompressSrcDBBDstBBFuzzer
+                                            --target_class=com.intel.qat.fuzzing.TestMixedTypesTwo
                                         </argument>
                                         <argument>--asan</argument>
                                         <argument>--native</argument>
@@ -189,7 +190,7 @@
                                 </configuration>
                             </execution>
                             <execution>
-                                <id>CompressDecompressSrcRODstBBFuzzer</id>
+                                <id>TestMixedTypesThree</id>
                                 <phase>test</phase>
                                 <goals>
                                     <goal>exec</goal>
@@ -204,7 +205,7 @@
                                         <classpath/>
                                         <argument>com.code_intelligence.jazzer.Jazzer</argument>
                                         <argument>
-                                            --target_class=com.intel.qat.fuzzing.CompressDecompressSrcRODstBBFuzzer
+                                            --target_class=com.intel.qat.fuzzing.TestMixedTypesThree
                                         </argument>
                                         <argument>--asan</argument>
                                         <argument>--native</argument>
@@ -213,7 +214,7 @@
                                 </configuration>
                             </execution>
                             <execution>
-                                <id>CompressDifferentCLAndRCFuzzer</id>
+                                <id>TestWithCompressionLengthAndRetry</id>
                                 <phase>test</phase>
                                 <goals>
                                     <goal>exec</goal>
@@ -228,7 +229,7 @@
                                         <classpath/>
                                         <argument>com.code_intelligence.jazzer.Jazzer</argument>
                                         <argument>
-                                            --target_class=com.intel.qat.fuzzing.CompressDifferentCLAndRCFuzzer
+                                            --target_class=com.intel.qat.fuzzing.TestWithCompressionLengthAndRetry
                                         </argument>
                                         <argument>--asan</argument>
                                         <argument>--native</argument>

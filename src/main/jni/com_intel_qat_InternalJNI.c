@@ -63,8 +63,8 @@ static int setup_deflate_session(QzSession_T *qz_session,
                                  int compression_level) {
   QzSessionParamsDeflate_T deflate_params;
 
-  int rc = qzGetDefaultsDeflate(&deflate_params);
-  if (rc != QZ_OK) return rc;
+  int status = qzGetDefaultsDeflate(&deflate_params);
+  if (status != QZ_OK) return status;
 
   deflate_params.data_fmt = data_fmt;
   deflate_params.common_params.comp_lvl = compression_level;
@@ -82,8 +82,8 @@ static int setup_deflate_session(QzSession_T *qz_session,
 static int setup_lz4_session(QzSession_T *qz_session, int compression_level) {
   QzSessionParamsLZ4_T lz4_params;
 
-  int rc = qzGetDefaultsLZ4(&lz4_params);
-  if (rc != QZ_OK) return rc;
+  int status = qzGetDefaultsLZ4(&lz4_params);
+  if (status != QZ_OK) return status;
 
   lz4_params.common_params.polling_mode = polling_mode;
   lz4_params.common_params.comp_lvl = compression_level;
@@ -146,18 +146,18 @@ static int compress(JNIEnv *env, QzSession_T *sess, unsigned char *src_ptr,
                     unsigned int src_len, unsigned char *dst_ptr,
                     unsigned int dst_len, int *src_read, int *dst_written,
                     int retry_count, int is_last) {
-  int rc = qzCompress(sess, src_ptr, &src_len, dst_ptr, &dst_len, is_last);
+  int status = qzCompress(sess, src_ptr, &src_len, dst_ptr, &dst_len, is_last);
 
-  if (rc == QZ_NOSW_NO_INST_ATTACH && retry_count > 0) {
-    while (retry_count > 0 && QZ_OK != rc) {
-      rc = qzCompress(sess, src_ptr, &src_len, dst_ptr, &dst_len, is_last);
+  if (status == QZ_NOSW_NO_INST_ATTACH && retry_count > 0) {
+    while (retry_count > 0 && QZ_OK != status) {
+      status = qzCompress(sess, src_ptr, &src_len, dst_ptr, &dst_len, is_last);
       retry_count--;
     }
   }
 
-  if (rc != QZ_OK) {
-    throw_exception(env, rc, QZ_COMPRESS_ERROR);
-    return rc;
+  if (status != QZ_OK) {
+    throw_exception(env, status, QZ_COMPRESS_ERROR);
+    return status;
   }
 
   *src_read = src_len;
@@ -178,17 +178,18 @@ static int decompress(JNIEnv *env, QzSession_T *sess, unsigned char *src_ptr,
                       int retry_count, int is_last) {
   (void)is_last;
 
-  int rc = qzDecompress(sess, src_ptr, &src_len, dst_ptr, &dst_len);
-  if (rc == QZ_NOSW_NO_INST_ATTACH && retry_count > 0) {
-    while (retry_count > 0 && QZ_OK != rc && rc != QZ_BUF_ERROR &&
-           rc != QZ_DATA_ERROR) {
-      rc = qzDecompress(sess, src_ptr, &src_len, dst_ptr, &dst_len);
+  int status = qzDecompress(sess, src_ptr, &src_len, dst_ptr, &dst_len);
+  if (status == QZ_NOSW_NO_INST_ATTACH && retry_count > 0) {
+    while (retry_count > 0 && QZ_OK != status && status != QZ_BUF_ERROR &&
+           status != QZ_DATA_ERROR) {
+      status = qzDecompress(sess, src_ptr, &src_len, dst_ptr, &dst_len);
       retry_count--;
     }
   }
-  if (rc != QZ_OK && rc != QZ_BUF_ERROR && rc != QZ_DATA_ERROR) {
-    throw_exception(env, rc, QZ_DECOMPRESS_ERROR);
-    return rc;
+  if (src_len == 0 ||
+      (status != QZ_OK && status != QZ_BUF_ERROR && status != QZ_DATA_ERROR)) {
+    throw_exception(env, status, QZ_DECOMPRESS_ERROR);
+    return status;
   }
 
   *src_read = src_len;
@@ -221,7 +222,7 @@ static int compress_or_decompress(kernel_func kf, JNIEnv *env,
   int bytes_read = 0;
   int bytes_written = 0;
 
-  int rc, src_len, dst_len, src_size, dst_size, is_last;
+  int status, src_len, dst_len, src_size, dst_size, is_last;
   while (src_start < src_end && dst_start < dst_end) {
     src_len = src_end - src_start;
     src_size = src_len < qat_session->pin_mem_src_size
@@ -235,10 +236,11 @@ static int compress_or_decompress(kernel_func kf, JNIEnv *env,
     is_last = src_size != qat_session->pin_mem_src_size || src_size == src_len;
 
     memcpy(pin_src_ptr, src_start, src_size);
-    rc = kf(env, qat_session->qz_session, pin_src_ptr, src_size, pin_dst_ptr,
-            dst_size, &bytes_read, &bytes_written, retry_count, is_last);
+    status =
+        kf(env, qat_session->qz_session, pin_src_ptr, src_size, pin_dst_ptr,
+           dst_size, &bytes_read, &bytes_written, retry_count, is_last);
 
-    if (rc != QZ_OK) break;
+    if (status != QZ_OK) break;
 
     memcpy(dst_start, pin_dst_ptr, bytes_written);
 
@@ -268,26 +270,26 @@ JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_setup(
 
   const unsigned char sw_backup = (unsigned char)software_backup;
 
-  int rc = qzInit(qat_session->qz_session, sw_backup);
+  int status = qzInit(qat_session->qz_session, sw_backup);
 
-  if (rc != QZ_OK && rc != QZ_DUPLICATE) {
-    throw_exception(env, rc, QZ_HW_INIT_ERROR);
+  if (status != QZ_OK && status != QZ_DUPLICATE) {
+    throw_exception(env, status, QZ_HW_INIT_ERROR);
     return;
   }
 
   if (comp_alg == DEFLATE) {
-    rc = setup_deflate_session(qat_session->qz_session, comp_level);
+    status = setup_deflate_session(qat_session->qz_session, comp_level);
   } else {
-    rc = setup_lz4_session(qat_session->qz_session, comp_level);
+    status = setup_lz4_session(qat_session->qz_session, comp_level);
   }
 
-  if (comp_alg == DEFLATE && QZ_OK != rc) {
-    throw_exception(env, rc, "LZ4 session not setup.");
+  if (comp_alg == DEFLATE && QZ_OK != status) {
+    throw_exception(env, status, "Error while trying to setup a session.");
     return;
   }
-  if (QZ_OK != rc && QZ_DUPLICATE != rc) {
+  if (QZ_OK != status && QZ_DUPLICATE != status) {
     qzClose(qat_session->qz_session);
-    throw_exception(env, rc, QZ_SETUP_SESSION_ERROR);
+    throw_exception(env, status, QZ_SETUP_SESSION_ERROR);
     return;
   }
   cpu_id = sched_getcpu();
@@ -516,9 +518,9 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_teardown(JNIEnv *env,
 
   if (qat_session->qz_session == NULL) return QZ_OK;
 
-  int rc = qzTeardownSession(qat_session->qz_session);
-  if (rc != QZ_OK) {
-    throw_exception(env, rc, QZ_TEARDOWN_ERROR);
+  int status = qzTeardownSession(qat_session->qz_session);
+  if (status != QZ_OK) {
+    throw_exception(env, status, QZ_TEARDOWN_ERROR);
     return 0;
   }
 
