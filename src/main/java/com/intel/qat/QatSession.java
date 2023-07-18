@@ -67,6 +67,7 @@ public class QatSession {
      */
     LZ4
   }
+
   /**
    * default constructor to assign default code path as AUTO(with software
    * fallback option), no retries, ZLIB as default compression algo and
@@ -182,56 +183,55 @@ public class QatSession {
    * @param src source bytebuffer. Offsets is defined as source bytebuffer
    *     position and limit to be used for total bytes that needs to be
    *     compressed
-   * @param dest destination bytebuffer. starting position to store compressed
+   * @param dst destination bytebuffer. starting position to store compressed
    *     data is defined as destination bytebuffer position and limit to be used
    *     as total size of destination buffer which is enough to store compressed
    *     data
    * @return non-zero compressed size or throw QatException
    */
-  public int compress(ByteBuffer src, ByteBuffer dest) {
+  public int compress(ByteBuffer src, ByteBuffer dst) {
     if (!isValid)
       throw new IllegalStateException();
 
-    if ((src == null || dest == null)
-        || (src.position() == src.limit() || dest.position() == dest.limit()))
+    if ((src == null || dst == null)
+        || (src.position() == src.limit() || dst.position() == dst.limit()))
       throw new IllegalArgumentException();
 
-    if (dest.isReadOnly())
+    if (dst.isReadOnly())
       throw new ReadOnlyBufferException();
 
-    int compressedSize = 0;
-
-    if (src.isDirect() && dest.isDirect()) {
-      compressedSize =
+    int comSize = 0;
+    if (src.isDirect() && dst.isDirect()) {
+      comSize =
           InternalJNI.compressDirectByteBuffer(session, src, src.position(),
-              src.limit(), dest, dest.position(), dest.limit(), retryCount);
-    } else if (src.hasArray() && dest.hasArray()) {
-      compressedSize = InternalJNI.compressArrayOrBuffer(session, src,
-          src.array(), src.position(), src.limit(), dest.array(),
-          dest.position(), dest.limit(), retryCount);
-      dest.position(dest.position() + compressedSize);
+              src.limit(), dst, dst.position(), dst.limit(), retryCount);
+    } else if (src.hasArray() && dst.hasArray()) {
+      comSize = InternalJNI.compressArrayOrBuffer(session, src,
+          src.array(), src.position(), src.limit(), dst.array(),
+          dst.position(), dst.limit(), retryCount);
+      dst.position(dst.position() + comSize);
     } else {
       int srcLen = src.remaining();
-      int dstLen = dest.remaining();
+      int dstLen = dst.remaining();
 
       byte[] srcArr = new byte[srcLen];
       byte[] dstArr = new byte[dstLen];
 
       src.get(srcArr);
-      dest.get(dstArr);
+      dst.get(dstArr);
 
       src.position(src.position() - srcLen);
-      dest.position(dest.position() - dstLen);
+      dst.position(dst.position() - dstLen);
 
-      compressedSize = InternalJNI.compressArrayOrBuffer(
+      comSize = InternalJNI.compressArrayOrBuffer(
           session, src, srcArr, 0, srcLen, dstArr, 0, dstLen, retryCount);
-      dest.put(dstArr, 0, compressedSize);
+      dst.put(dstArr, 0, comSize);
     }
 
-    if (compressedSize < 0) {
+    if (comSize < 0) {
       throw new QatException("QAT: Compression failed");
     }
-    return compressedSize;
+    return comSize;
   }
 
   /**
@@ -239,31 +239,31 @@ public class QatSession {
    * @param src source bytearray
    * @param srcOffset Offsets is defined as source bytearray position
    * @param srcLen to be used for total bytes that needs to be compressed
-   * @param dest destination bytearray
-   * @param destOffset  starting position to store compressed data
-   * @param destLen  limit to be used as total size of destination buffer which
+   * @param dst destination bytearray
+   * @param dstOffset  starting position to store compressed data
+   * @param dstLen  limit to be used as total size of destination buffer which
    *     is enough to store compressed data
    * @return non-zero compressed size or throws QatException
    */
-  public int compress(byte[] src, int srcOffset, int srcLen, byte[] dest,
-      int destOffset, int destLen) {
+  public int compress(byte[] src, int srcOffset, int srcLen, byte[] dst,
+      int dstOffset, int dstLen) {
     if (!isValid)
       throw new IllegalStateException();
 
-    if (src == null || dest == null || srcLen == 0 || dest.length == 0)
+    if (src == null || dst == null || srcLen == 0 || dst.length == 0)
       throw new IllegalArgumentException("empty buffer");
 
     if (srcOffset < 0 || (srcLen > src.length) || srcOffset >= src.length)
       throw new ArrayIndexOutOfBoundsException("Invalid byte array index");
 
-    int compressedSize = InternalJNI.compressArrayOrBuffer(session, null, src,
-        srcOffset, srcOffset + srcLen, dest, destOffset, destOffset + destLen,
+    int comSize = InternalJNI.compressArrayOrBuffer(session, null, src,
+        srcOffset, srcOffset + srcLen, dst, dstOffset, dstOffset + dstLen,
         retryCount);
 
-    if (compressedSize < 0) {
+    if (comSize < 0) {
       throw new QatException("QAT: Compression failed");
     }
-    return compressedSize;
+    return comSize;
   }
 
   /**
@@ -271,58 +271,58 @@ public class QatSession {
    * @param src source bytebuffer. Offsets is defined as source bytebuffer
    *     position and limit to be used for total bytes that needs to be
    *     decompressed
-   * @param dest destination bytebuffer. starting position to store decompressed
+   * @param dst destination bytebuffer. starting position to store decompressed
    *     data is defined as destination bytebuffer position and limit to be used
    *     as total size of destination buffer which is enough to store
    *     decompressed data
    * @return non-zero decompressed size or throw QatException
    */
-  public int decompress(ByteBuffer src, ByteBuffer dest) {
+  public int decompress(ByteBuffer src, ByteBuffer dst) {
     if (!isValid)
       throw new IllegalStateException();
 
-    if ((src == null || dest == null)
-        || (src.position() == src.limit() || dest.position() == dest.limit()))
+    if ((src == null || dst == null)
+        || (src.position() == src.limit() || dst.position() == dst.limit()))
       throw new IllegalArgumentException();
 
-    if (dest.isReadOnly())
+    if (dst.isReadOnly())
       throw new ReadOnlyBufferException();
 
-    int decompressedSize = 0;
+    int decSize = 0;
 
     // NEW LOGIC
-    if (src.isDirect() && dest.isDirect()) {
-      decompressedSize =
+    if (src.isDirect() && dst.isDirect()) {
+      decSize =
           InternalJNI.decompressDirectByteBuffer(session, src, src.position(),
-              src.limit(), dest, dest.position(), dest.limit(), retryCount);
-    } else if (src.hasArray() && dest.hasArray()) {
-      decompressedSize = InternalJNI.decompressArrayOrBuffer(session, src,
-          src.array(), src.position(), src.limit(), dest.array(),
-          dest.position(), dest.limit(), retryCount);
-      dest.position(dest.position() + decompressedSize);
+              src.limit(), dst, dst.position(), dst.limit(), retryCount);
+    } else if (src.hasArray() && dst.hasArray()) {
+      decSize = InternalJNI.decompressArrayOrBuffer(session, src,
+          src.array(), src.position(), src.limit(), dst.array(),
+          dst.position(), dst.limit(), retryCount);
+      dst.position(dst.position() + decSize);
     } else {
       int srcLen = src.remaining();
-      int dstLen = dest.remaining();
+      int dstLen = dst.remaining();
 
       byte[] srcArr = new byte[srcLen];
       byte[] dstArr = new byte[dstLen];
 
       // read into arrays
       src.get(srcArr);
-      dest.get(dstArr);
+      dst.get(dstArr);
 
       // reset src and dst positions
       src.position(src.position() - srcLen);
-      dest.position(dest.position() - dstLen);
-      decompressedSize = InternalJNI.decompressArrayOrBuffer(
+      dst.position(dst.position() - dstLen);
+      decSize = InternalJNI.decompressArrayOrBuffer(
           session, src, srcArr, 0, srcLen, dstArr, 0, dstLen, retryCount);
-      dest.put(dstArr, 0, decompressedSize);
+      dst.put(dstArr, 0, decSize);
     }
 
-    if (decompressedSize < 0) {
+    if (decSize < 0) {
       throw new QatException("QAT: Compression failed");
     }
-    return decompressedSize;
+    return decSize;
   }
 
   /**
@@ -330,34 +330,34 @@ public class QatSession {
    * @param src source bytearray
    * @param srcOffset Offsets is defined as source bytearray position
    * @param srcLen to be used for total bytes that needs to be decompressed
-   * @param dest destination bytearray
-   * @param destOffset  starting position to store decompressed data
-   * @param destLen  limit to be used as total size of destination buffer which
+   * @param dst destination bytearray
+   * @param dstOffset  starting position to store decompressed data
+   * @param dstLen  limit to be used as total size of destination buffer which
    *     is enough to store decompressed data
    * @return non-zero decompressed size or throws QatException
    */
-  public int decompress(byte[] src, int srcOffset, int srcLen, byte[] dest,
-      int destOffset, int destLen) {
+  public int decompress(byte[] src, int srcOffset, int srcLen, byte[] dst,
+      int dstOffset, int dstLen) {
     if (!isValid)
       throw new IllegalStateException();
 
-    if (src == null || dest == null || srcLen == 0 || dest.length == 0)
+    if (src == null || dst == null || srcLen == 0 || dst.length == 0)
       throw new IllegalArgumentException("empty buffer");
 
     if (srcOffset < 0 || (srcLen > src.length) || srcOffset >= src.length)
       throw new ArrayIndexOutOfBoundsException("Invalid byte array index");
 
-    int decompressedSize = 0;
+    int decSize = 0;
 
-    decompressedSize = InternalJNI.decompressArrayOrBuffer(session, null, src,
-        srcOffset, srcOffset + srcLen, dest, destOffset, destOffset + destLen,
+    decSize = InternalJNI.decompressArrayOrBuffer(session, null, src,
+        srcOffset, srcOffset + srcLen, dst, dstOffset, dstOffset + dstLen,
         retryCount);
 
-    if (decompressedSize < 0) {
+    if (decSize < 0) {
       throw new QatException("QAT: decompression failed");
     }
 
-    return decompressedSize;
+    return decSize;
   }
 
   /**

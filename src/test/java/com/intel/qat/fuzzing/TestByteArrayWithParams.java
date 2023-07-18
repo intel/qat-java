@@ -18,27 +18,23 @@ public class TestByteArrayWithParams {
         return;
 
       QatSession qatSession = new QatSession();
-      byte[] src = data.consumeRemainingAsBytes();
-      int srcOffset = new Random().nextInt(src.length);
-      int compressLength = qatSession.maxCompressedLength(src.length);
-      byte[] dst = new byte[compressLength];
-      byte[] decomp = new byte[src.length];
 
-      int compressedSize = qatSession.compress(
+      byte[] src = data.consumeRemainingAsBytes();
+      byte[] dst = new byte[qatSession.maxCompressedLength(src.length)];
+      byte[] dec = new byte[src.length];
+
+      int srcOffset = new Random().nextInt(src.length);
+      int comSize = qatSession.compress(
           src, srcOffset, src.length - srcOffset, dst, 0, dst.length);
-      int decompressedSize = qatSession.decompress(
-          dst, 0, compressedSize, decomp, 0, decomp.length);
+      int decSize = qatSession.decompress(dst, 0, comSize, dec, 0, dec.length);
 
       qatSession.endSession();
 
       assert Arrays.equals(Arrays.copyOfRange(src, srcOffset, src.length),
-          Arrays.copyOfRange(decomp, 0, decompressedSize))
-          : "Source and decompressed array are not equal";
-    } catch (QatException ignored) {
-      final String expectedErrorMessage = "The source length is too large";
-      if (!ignored.getMessage().equalsIgnoreCase(expectedErrorMessage)) {
-        throw ignored;
-      }
+          Arrays.copyOfRange(dec, 0, decSize))
+          : "Source and decompressed array do not match.";
+    } catch (QatException e) {
+      throw e;
     }
   }
 }

@@ -17,14 +17,6 @@
 
 // doxygen for C documentation
 
-#define QZ_HW_INIT_ERROR "An error occured while initializing QAT hardware"
-#define QZ_SETUP_SESSION_ERROR "An error occured while setting up session"
-#define QZ_MEMFREE_ERROR "An error occured while freeing up pinned memory"
-#define QZ_BUFFER_ERROR "An error occured while reading the buffer"
-#define QZ_COMPRESS_ERROR "An error occured while compression"
-#define QZ_DECOMPRESS_ERROR "An error occured while decompression"
-#define QZ_TEARDOWN_ERROR "An error occured while tearing down session"
-
 #define DEFLATE 0
 
 static __thread int cpu_id;

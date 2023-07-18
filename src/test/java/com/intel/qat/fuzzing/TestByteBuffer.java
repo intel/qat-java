@@ -17,34 +17,30 @@ public class TestByteBuffer {
       if (data.remainingBytes() == 0)
         return;
 
-      byte[] srcData = data.consumeRemainingAsBytes();
-      int n = srcData.length;
+      byte[] src = data.consumeRemainingAsBytes();
 
-      ByteBuffer srcBB = ByteBuffer.allocate(n);
-      srcBB.put(srcData, 0, n);
-      srcBB.flip();
+      ByteBuffer srcBuf = ByteBuffer.allocate(src.length);
+      srcBuf.put(src, 0, src.length);
+      srcBuf.flip();
 
       QatSession qatSession = new QatSession();
-      int compressedSize = qatSession.maxCompressedLength(n);
+      int comSize = qatSession.maxCompressedLength(src.length);
 
-      assert compressedSize > 0;
+      assert comSize > 0;
 
-      ByteBuffer compressedBB = ByteBuffer.allocate(compressedSize);
-      qatSession.compress(srcBB, compressedBB);
-      compressedBB.flip();
+      ByteBuffer comBuf = ByteBuffer.allocate(comSize);
+      qatSession.compress(srcBuf, comBuf);
+      comBuf.flip();
 
-      ByteBuffer decompressedBB = ByteBuffer.allocate(n);
-      qatSession.decompress(compressedBB, decompressedBB);
+      ByteBuffer decBuf = ByteBuffer.allocate(src.length);
+      qatSession.decompress(comBuf, decBuf);
 
       qatSession.endSession();
 
-      assert srcBB.compareTo(decompressedBB)
-          == 0 : "Source and decompressed buffer are not equal";
-    } catch (QatException ignored) {
-      final String expectedErrorMessage = "The source length is too large";
-      if (!ignored.getMessage().equalsIgnoreCase(expectedErrorMessage)) {
-        throw ignored;
-      }
+      assert srcBuf.compareTo(decBuf)
+          == 0 : "Source and decompressed buffer do not match.";
+    } catch (QatException e) {
+      throw e;
     }
   }
 }
