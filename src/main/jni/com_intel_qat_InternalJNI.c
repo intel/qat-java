@@ -87,9 +87,8 @@ static int setup_lz4_session(QzSession_T *qz_session, int compression_level) {
  * frees natively allocated pinned memory through freeing up associated pointers
  */
 inline void free_pin_mem(void *src_buf, void *dst_buf) {
-  if (src_buf != NULL) qzFree(src_buf);
-
-  if (dst_buf != NULL) qzFree(dst_buf);
+  if (src_buf) qzFree(src_buf);
+  if (dst_buf) qzFree(dst_buf);
 
   src_buf = NULL;
   dst_buf = NULL;
@@ -106,19 +105,19 @@ static int allocate_pin_mem(struct Session_T *qat_session, jint mode,
   void *tmp_src_addr = qzMalloc(src_size, numa_id, 1);
   void *tmp_dst_addr = qzMalloc(dest_size, numa_id, 1);
 
-  if (tmp_src_addr == NULL || tmp_dst_addr == NULL) {
+  if (!tmp_src_addr|| !tmp_dst_addr) {
     free_pin_mem(tmp_src_addr, tmp_dst_addr);
     if (mode == 0) {
       return 1;
     }
   }
 
-  if (tmp_src_addr != NULL) {
+  if (tmp_src_addr) {
     qat_session->pin_mem_src = (unsigned char *)tmp_src_addr;
     qat_session->pin_mem_src_size = src_size;
   }
 
-  if (tmp_dst_addr != NULL) {
+  if (tmp_dst_addr) {
     qat_session->pin_mem_dst = (unsigned char *)tmp_dst_addr;
     qat_session->pin_mem_dst_size = dest_size;
   }
@@ -267,11 +266,10 @@ JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_setup(
     return;
   }
 
-  if (comp_alg == DEFLATE) {
+  if (comp_alg == DEFLATE) 
     status = setup_deflate_session(qat_session->qz_session, comp_level);
-  } else {
+  else 
     status = setup_lz4_session(qat_session->qz_session, comp_level);
-  }
 
   if (comp_alg == DEFLATE && QZ_OK != status) {
     throw_exception(env, status, "Error while trying to setup a session.");
@@ -378,7 +376,7 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_compressArrayOrBuffer(
   (*env)->ReleaseByteArrayElements(env, src_arr, (jbyte *)src_ptr, 0);
   (*env)->ReleaseByteArrayElements(env, dst_arr, (jbyte *)dst_ptr, 0);
 
-  if (src_buf != NULL) {  // is indirect ByteBuffer
+  if (src_buf) {  // is indirect ByteBuffer
     jclass src_clazz = (*env)->GetObjectClass(env, src_buf);
     (*env)->SetIntField(env, src_buf,
                         (*env)->GetFieldID(env, src_clazz, "position", "I"),
@@ -456,7 +454,6 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_decompressArrayOrBuffer(
     compress_or_decompress(&decompress, env, qat_session, src_ptr, src_pos,
                            src_lim, dst_ptr, dst_pos, dst_lim, &src_read,
                            &dst_written, retry_count);
-
   else
     decompress(env, qat_session->qz_session, src_ptr + src_pos,
                src_lim - src_pos, dst_ptr + dst_pos, dst_lim - dst_pos,
@@ -465,7 +462,7 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_decompressArrayOrBuffer(
   (*env)->ReleaseByteArrayElements(env, src_arr, (jbyte *)src_ptr, 0);
   (*env)->ReleaseByteArrayElements(env, dst_arr, (jbyte *)dst_ptr, 0);
 
-  if (src_buf != NULL) {  // is indirect ByteBuffer
+  if (src_buf) {  // is indirect ByteBuffer
     jclass src_clazz = (*env)->GetObjectClass(env, src_buf);
     (*env)->SetIntField(env, src_buf,
                         (*env)->GetFieldID(env, src_clazz, "position", "I"),
@@ -505,7 +502,7 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_teardown(JNIEnv *env,
 
   free_pin_mem(qat_session->pin_mem_src, qat_session->pin_mem_dst);
 
-  if (qat_session->qz_session == NULL) return QZ_OK;
+  if (!qat_session->qz_session) return QZ_OK;
 
   int status = qzTeardownSession(qat_session->qz_session);
   if (status != QZ_OK) {
