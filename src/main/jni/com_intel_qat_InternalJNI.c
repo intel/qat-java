@@ -105,7 +105,7 @@ static int allocate_pin_mem(struct Session_T *qat_session, jint mode,
   void *tmp_src_addr = qzMalloc(src_size, numa_id, 1);
   void *tmp_dst_addr = qzMalloc(dest_size, numa_id, 1);
 
-  if (!tmp_src_addr|| !tmp_dst_addr) {
+  if (!tmp_src_addr || !tmp_dst_addr) {
     free_pin_mem(tmp_src_addr, tmp_dst_addr);
     if (mode == 0) {
       return 1;
@@ -249,44 +249,40 @@ static int compress_or_decompress(kernel_func kf, JNIEnv *env,
  * Signature: (IJII)V
  */
 JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_setup(
-    JNIEnv *env, jobject obj, jobject qat_session_obj, jint software_backup,
-    jlong internal_buffer_size, jint comp_alg, jint comp_level) {
+    JNIEnv *env, jobject obj, jobject qat_session_obj, jint sw_backup,
+    jlong pin_mem_size, jint comp_alg, jint comp_level) {
   (void)obj;
 
   struct Session_T *qat_session =
       (struct Session_T *)calloc(1, sizeof(struct Session_T));
   qat_session->qz_session = (QzSession_T *)calloc(1, sizeof(QzSession_T));
 
-  const unsigned char sw_backup = (unsigned char)software_backup;
-
-  int status = qzInit(qat_session->qz_session, sw_backup);
-
+  int status = qzInit(qat_session->qz_session, (unsigned char)sw_backup);
   if (status != QZ_OK && status != QZ_DUPLICATE) {
     throw_exception(env, status, QZ_HW_INIT_ERROR);
     return;
   }
 
-  if (comp_alg == DEFLATE) 
+  if (comp_alg == DEFLATE)
     status = setup_deflate_session(qat_session->qz_session, comp_level);
-  else 
+  else
     status = setup_lz4_session(qat_session->qz_session, comp_level);
 
   if (comp_alg == DEFLATE && QZ_OK != status) {
-    throw_exception(env, status, "Error while trying to setup a session.");
+    throw_exception(env, status, QZ_SETUP_SESSION_ERROR);
     return;
   }
-  if (QZ_OK != status && QZ_DUPLICATE != status) {
+  if (status != QZ_OK && status != QZ_DUPLICATE) {
     qzClose(qat_session->qz_session);
     throw_exception(env, status, QZ_SETUP_SESSION_ERROR);
     return;
   }
   numa_id = numa_node_of_cpu(sched_getcpu());
 
-  if (internal_buffer_size != 0) {
-    if (QZ_OK !=
-        allocate_pin_mem(qat_session, software_backup, internal_buffer_size,
-                         qzMaxCompressedLength(internal_buffer_size,
-                                               qat_session->qz_session)))
+  if (pin_mem_size != 0) {
+    if (QZ_OK != allocate_pin_mem(qat_session, sw_backup, pin_mem_size,
+                                  qzMaxCompressedLength(
+                                      pin_mem_size, qat_session->qz_session)))
       throw_exception(env, INT_MIN, QZ_HW_INIT_ERROR);
   } else {
     qat_session->pin_mem_src = NULL;
@@ -294,9 +290,9 @@ JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_setup(
   }
 
   jclass qat_session_class = (*env)->GetObjectClass(env, qat_session_obj);
-  jfieldID qatSessionField =
+  jfieldID qat_session_field =
       (*env)->GetFieldID(env, qat_session_class, "session", "J");
-  (*env)->SetLongField(env, qat_session_obj, qatSessionField,
+  (*env)->SetLongField(env, qat_session_obj, qat_session_field,
                        (jlong)qat_session);
 }
 

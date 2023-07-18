@@ -1,13 +1,10 @@
-# ==========================================================================
+# ******************************************************************************
 # Copyright (C) 2023 Intel Corporation
 #
-# SPDX-License-Identifier: MIT
-# ==========================================================================
-# use clang-format for both C and Java code
-#install clang
-# use clang with cmdline option enable address sanitizer
+# SPDX-License-Identifier: BSD
+# ******************************************************************************
 
-cmake_minimum_required(VERSION 3.16.3) # check minimum required for qat
+cmake_minimum_required(VERSION 3.16.3)
 project(qat-java)
 
 set(CMAKE_BUILD_TYPE Release)
@@ -22,7 +19,7 @@ option(SANITIZE_MEMORY "Enables memory sanitizing" OFF)
 message(STATUS "Memory sanitizing build: ${SANITIZE_MEMORY}")
 
 if (SANITIZE_MEMORY)
-	   set (CMAKE_C_COMPILER "/usr/bin/clang")
+	   set(CMAKE_C_COMPILER "/usr/bin/clang")
 	   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=fuzzer-no-link,address")
 else()
 	   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c11 -D_FORTIFY_SOURCE=2")
@@ -33,7 +30,7 @@ endif ()
 FIND_PACKAGE(Java REQUIRED)
 FIND_PACKAGE(JNI REQUIRED)
 
-LINK_DIRECTORIES(/usr/lib64) #where qat library files are kept
+LINK_DIRECTORIES(/usr/lib64) # where qat library files are kept
 LINK_DIRECTORIES(/usr/local/lib)
 INCLUDE_DIRECTORIES(${JAVA_INCLUDE_PATH})
 INCLUDE_DIRECTORIES(${JAVA_INCLUDE_PATH2})
@@ -49,6 +46,6 @@ add_library(qat-java SHARED ${SOURCES})
 # Add dependency for qat library
 target_link_libraries(qat-java qatzip)
 
-# treat all warnings as errors , enable warnings
-# do not hardocde any path
-# check what SDL recommends and include accordingly
+#treat all warnings as errors, enable warnings
+#do not hardocde any path
+#check what SDL recommends and include accordingly
