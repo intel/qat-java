@@ -308,7 +308,7 @@ public class QatTest {
 
       byte[] source = getSourceArray(len);
       byte[] dest = new byte[qatSession.maxCompressedLength(source.length)];
-      byte[] resultArray = new byte[100];
+      byte[] resultArray = new byte[source.length];
 
       ByteBuffer uncompressedBuffer = ByteBuffer.allocateDirect(source.length);
       ByteBuffer compressedBuffer = ByteBuffer.allocateDirect(dest.length);
