@@ -15,8 +15,6 @@
 #include "qatzip.h"
 #include "util.h"
 
-// doxygen for C documentation
-
 #define DEFLATE 0
 #define POLLING_MODE QZ_BUSY_POLLING
 
@@ -27,14 +25,7 @@ typedef int (*kernel_func)(JNIEnv *env, QzSession_T *sess,
                            unsigned char *dst_ptr, unsigned int dst_len,
                            int *src_read, int *dst_written, int retry_count,
                            int is_last);
-/*
- * Structure which contains
- * pointer to QAT hardware
- * Pinned mem for source
- * pinned mem size for source
- * Pinned mem for destination
- * pinned mem size for destination
- */
+
 struct Session_T {
   QzSession_T *qz_session;
   unsigned char *pin_mem_src;
@@ -473,7 +464,6 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_decompressArrayOrBuffer(
  * Method:    maxCompressedSize
  * Signature: (JJ)I
  */
-
 JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_maxCompressedSize(
     JNIEnv *env, jclass obj, jlong session, jlong src_size) {
   (void)env;
@@ -488,7 +478,6 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_maxCompressedSize(
  * Method:    teardown
  * Signature: (J)I
  */
-
 JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_teardown(JNIEnv *env,
                                                                jclass obj,
                                                                jlong sess) {
