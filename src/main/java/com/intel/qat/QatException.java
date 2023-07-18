@@ -6,9 +6,10 @@
 package com.intel.qat;
 
 /**
- * Thrown to indicate that the qat operation failed to execute successfully.
+ * A class that represents QAT related exceptions.
  */
 public class QatException extends RuntimeException {
+
   /**
    * Constructs a new QatException with the specified message.
    *

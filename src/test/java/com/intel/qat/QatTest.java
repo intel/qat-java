@@ -1011,7 +1011,7 @@ public class QatTest {
   @Test
   public void testCleaner() {
     QatSession qatSession = new QatSession();
-    cleanable = cleaner.register(qatSession, qatSession.cleanUp());
+    cleanable = cleaner.register(qatSession, qatSession.getCleaner());
     cleanable.clean();
   }
 }

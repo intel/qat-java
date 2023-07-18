@@ -14,7 +14,6 @@ import java.nio.ReadOnlyBufferException;
  * without software backup, compression and decompression APIs
  */
 public class QatSession {
-
   /**
    * Default compression is set to 6, this is to align with default compression
    * mode chosen as ZLIB
@@ -38,7 +37,7 @@ public class QatSession {
   long session;
 
   /**
-   * The mode of operation for QAT -- hardware-only or hardware with a software failover.
+   * The mode of operation for QAT (hardware-only or hardware with a software failover).
    */
   public static enum Mode {
     /**
@@ -77,7 +76,7 @@ public class QatSession {
   /**
    * Constructs a new QAT session, using deflate in the given operation mode.
    *
-   * @param mode - the mode of operation (HARDWARE - only hardware, AUTO - hardware with a software failover.)
+   * @param mode the mode of operation (HARDWARE - only hardware, AUTO - hardware with a software failover.)
    */
   public QatSession(Mode mode) {
     this(CompressionAlgorithm.DEFLATE, DEFAULT_DEFLATE_COMP_LEVEL, mode, DEFAULT_RETRY_COUNT);
@@ -86,7 +85,7 @@ public class QatSession {
   /**
    * Constructs a new QAT session using the given compression algorithm.
    *
-   * @param compressionAlgorithm - the compression algorithm (deflate or LZ4).
+   * @param compressionAlgorithm the compression algorithm (deflate or LZ4).
    */
   public QatSession(CompressionAlgorithm compressionAlgorithm) {
     this(compressionAlgorithm, DEFAULT_DEFLATE_COMP_LEVEL, Mode.AUTO, DEFAULT_RETRY_COUNT);
@@ -95,8 +94,8 @@ public class QatSession {
   /**
    * Constructs a new QAT session using the given compression algorithm and operation mode.
    *
-   * @param compressionAlgorithm - the compression algorithm (deflate or LZ4).
-   * @param mode - the mode of operation (HARDWARE - only hardware, AUTO - hardware with a software failover.)
+   * @param compressionAlgorithm the compression algorithm (deflate or LZ4).
+   * @param mode the mode of operation (HARDWARE - only hardware, AUTO - hardware with a software failover.)
    */
   public QatSession(CompressionAlgorithm compressionAlgorithm, Mode mode) {
     this(compressionAlgorithm, DEFAULT_DEFLATE_COMP_LEVEL, mode, DEFAULT_RETRY_COUNT);
@@ -105,8 +104,8 @@ public class QatSession {
   /**
    * Constructs a new QAT session using the given compression algorithm and level.
    *
-   * @param compressionAlgorithm - the compression algorithm (deflate or LZ4).
-   * @param compressionLevel - the compression level.
+   * @param compressionAlgorithm the compression algorithm (deflate or LZ4).
+   * @param compressionLevel the compression level.
    */
   public QatSession(CompressionAlgorithm compressionAlgorithm, int compressionLevel) {
     this(compressionAlgorithm, compressionLevel, Mode.AUTO, DEFAULT_RETRY_COUNT);
@@ -115,9 +114,9 @@ public class QatSession {
   /**
    * Constructs a QAT session  using the given compression algorithm, level, and mode of operation.
    *
-   * @param compressionAlgorithm - the compression algorithm (deflate or LZ4).
-   * @param compressionLevel - the compression level.
-   * @param mode - the mode of operation (HARDWARE - only hardware, AUTO - hardware with a software failover.)
+   * @param compressionAlgorithm the compression algorithm (deflate or LZ4).
+   * @param compressionLevel the compression level.
+   * @param mode the mode of operation (HARDWARE - only hardware, AUTO - hardware with a software failover.)
    */
   public QatSession(CompressionAlgorithm compressionAlgorithm, int compressionLevel, Mode mode) {
     this(compressionAlgorithm, compressionLevel, mode, DEFAULT_RETRY_COUNT);
@@ -126,24 +125,24 @@ public class QatSession {
   /**
    * Constructs a QAT session using the given parameters.
    *
-   * @param compressionAlgorithm - the compression algorithm (deflate or LZ4).
-   * @param compressionLevel - the compression level.
-   * @param mode - the mode of operation (HARDWARE - only hardware, AUTO - hardware with a software failover.)
-   * @param retryCount - how many times to seek for a hardware resources before giving up.
+   * @param compressionAlgorithm the compression algorithm (deflate or LZ4).
+   * @param compressionLevel the compression level.
+   * @param mode the mode of operation (HARDWARE - only hardware, AUTO - hardware with a software failover.)
+   * @param retryCount how many times to seek for a hardware resources before giving up.
    */
   public QatSession(CompressionAlgorithm compressionAlgorithm, int compressionLevel, Mode mode, int retryCount) {
     this(compressionAlgorithm, compressionLevel, mode, retryCount, DEFAULT_INTERNAL_BUFFER_SIZE_IN_BYTES);
   }
 
   /**
-   * Constructs a QAT session using the given parameters. 
+   * Constructs a QAT session using the given parameters.
    *
-   * @param compressionAlgorithm - the compression algorithm (deflate or LZ4).
-   * @param compressionLevel - the compression level.
-   * @param mode - the mode of operation (HARDWARE - only hardware, AUTO - hardware with a software failover.)
-   * @param retryCount - how many times to seek for a hardware resources before giving up.
-   * @param pinnedMemorySize - the size of the internal buffer used for compression/decompression (for advanced users).
-   * @throws QatException - if QAT session cannot be created.
+   * @param compressionAlgorithm the compression algorithm (deflate or LZ4).
+   * @param compressionLevel the compression level.
+   * @param mode the mode of operation (HARDWARE - only hardware, AUTO - hardware with a software failover.)
+   * @param retryCount how many times to seek for a hardware resources before giving up.
+   * @param pinnedMemorySize the size of the internal buffer used for compression/decompression (for advanced users).
+   * @throws QatException if QAT session cannot be created.
    */
   public QatSession(CompressionAlgorithm compressionAlgorithm, int compressionLevel, Mode mode, int retryCount,
       long pinnedMemorySize) throws QatException {
@@ -156,8 +155,10 @@ public class QatSession {
   }
 
   /**
+   * Ends the current QAT session by freeing up resources. A new QAT session must be used after a successful call of
+   * this method.
    *
-   * @throws QatException
+   * @throws QatException if QAT session cannot be gracefully ended.
    */
   public void endSession() throws QatException {
     if (!isValid)
@@ -167,22 +168,25 @@ public class QatSession {
   }
 
   /**
+   * Returns the maximum compression length for the given source length.
    *
-   * @param srcLen
-   * @return
+   * @param  len the length of the source array or buffer.
+   * @return the maximum compression length for the given length.
    */
-  public int maxCompressedLength(long srcLen) {
+  public int maxCompressedLength(long len) {
     if (!isValid)
       throw new IllegalStateException();
 
-    return InternalJNI.maxCompressedSize(session, srcLen);
+    return InternalJNI.maxCompressedSize(session, len);
   }
 
   /**
+   * Compresses the source buffer and stores the result in the destination buffer. The positions of both the source and
+   * destinations buffers will be adjusted after a succcessful call to this method.
    *
-   * @param src
-   * @param dst
-   * @return
+   * @param src the source buffer holding the source data.
+   * @param dst the destination array that will store the compressed data.
+   * @return returns the size of the compressed data in bytes.
    */
   public int compress(ByteBuffer src, ByteBuffer dst) {
     if (!isValid)
@@ -226,14 +230,15 @@ public class QatSession {
   }
 
   /**
+   * Compresses the source array and stores the result in the destination array.
    *
-   * @param src
-   * @param srcOffset
-   * @param srcLen
-   * @param dst
-   * @param dstOffset
-   * @param dstLen
-   * @return
+   * @param src the source array holding the source data.
+   * @param srcOffset the starting source offset to start from.
+   * @param srcLen the length of source data to compress.
+   * @param dst the destination array that will store the compressed data.
+   * @param dstOffset the destination offset where to start storing the compressed data.
+   * @param dstLen the maximum length that can be written to the destination array.
+   * @return the size of the compressed data in bytes.
    */
   public int compress(byte[] src, int srcOffset, int srcLen, byte[] dst, int dstOffset, int dstLen) {
     if (!isValid)
@@ -255,10 +260,12 @@ public class QatSession {
   }
 
   /**
+   * Decompresses the source buffer and stores the result in the destination buffer. The positions of both the source
+   * and destinations buffers will be adjusted after a succcessful call to this method.
    *
-   * @param src
-   * @param dst
-   * @return
+   * @param src the source buffer holding the compressed data.
+   * @param dst the destination array that will store the decompressed data.
+   * @return returns the size of the decompressed data in bytes.
    */
   public int decompress(ByteBuffer src, ByteBuffer dst) {
     if (!isValid)
@@ -303,14 +310,15 @@ public class QatSession {
   }
 
   /**
+   * Decompresses the source array and stores the result in the destination array.
    *
-   * @param src
-   * @param srcOffset
-   * @param srcLen
-   * @param dst
-   * @param dstOffset
-   * @param dstLen
-   * @return
+   * @param src the source array holding the compressed data.
+   * @param srcOffset the starting source offset to start from.
+   * @param srcLen the length of source data to decompress.
+   * @param dst the destination array that will store the decompressed data.
+   * @param dstOffset the destination offset where to start storing the decompressed data.
+   * @param dstLen the maximum length that can be written to the destination array.
+   * @return the size of the decompressed data in bytes.
    */
   public int decompress(byte[] src, int srcOffset, int srcLen, byte[] dst, int dstOffset, int dstLen) {
     if (!isValid)
@@ -335,38 +343,44 @@ public class QatSession {
   }
 
   /**
+   * Validates compression level and retry counts.
    *
-   * @param compressionAlgorithm
-   * @param compressionLevel
-   * @param retryCount
-   * @return
+   * @param compressionAlgorithm the compression algorithm (deflate or LZ4).
+   * @param compressionLevel the compression level.
+   * @param retryCount how many times to seek for a hardware resources before giving up.
+   * @return true if validation was successful, false otherwise.
    */
   private boolean validateParams(CompressionAlgorithm compressionAlgorithm, int compressionLevel, int retryCount) {
     return !(retryCount < 0 || compressionLevel < 0 || (compressionAlgorithm.ordinal() == 0 && compressionLevel > 9));
   }
 
   /**
+   * Cleans up the current QAT session by freeing up resources.
    *
-   * @param qzSessionReference
+   * @param qzSessionReference the reference to the C-level session object.
    */
   static void cleanUp(long qzSessionReference) {
     InternalJNI.teardown(qzSessionReference);
   }
 
   /**
+   * Gets a cleaner object.
    *
-   * @return
    */
-  public Runnable cleanUp() {
+  Runnable getCleaner() {
     return new QatSessionCleaner(session);
   }
 
   /**
-   *
+   * A QAT session cleaner that cleans up QAT session.
    */
   static class QatSessionCleaner implements Runnable {
     private long qzSession;
 
+    /**
+     * Constructs a Cleaner object to clean up QAT session.
+     *
+     */
     public QatSessionCleaner(long qzSession) {
       this.qzSession = qzSession;
     }
