@@ -55,6 +55,7 @@
                                     <classpathScope>test</classpathScope>
                                     <executable>java</executable>
                                     <arguments>
+                                        <argument>-ea</argument>
                                         <argument>-cp</argument>
                                         <argument>${project.build.directory}/qat-java-1.0.0.jar</argument>
                                         <argument>-cp</argument>
@@ -79,6 +80,7 @@
                                     <classpathScope>test</classpathScope>
                                     <executable>java</executable>
                                     <arguments>
+                                        <argument>-ea</argument>
                                         <argument>-cp</argument>
                                         <argument>${project.build.directory}/qat-java-1.0.0.jar</argument>
                                         <argument>-cp</argument>
@@ -103,6 +105,7 @@
                                     <classpathScope>test</classpathScope>
                                     <executable>java</executable>
                                     <arguments>
+                                        <argument>-ea</argument>
                                         <argument>-cp</argument>
                                         <argument>${project.build.directory}/qat-java-1.0.0.jar</argument>
                                         <argument>-cp</argument>
@@ -127,6 +130,7 @@
                                     <classpathScope>test</classpathScope>
                                     <executable>java</executable>
                                     <arguments>
+                                        <argument>-ea</argument>
                                         <argument>-cp</argument>
                                         <argument>${project.build.directory}/qat-java-1.0.0.jar</argument>
                                         <argument>-cp</argument>
@@ -151,6 +155,7 @@
                                     <classpathScope>test</classpathScope>
                                     <executable>java</executable>
                                     <arguments>
+                                        <argument>-ea</argument>
                                         <argument>-cp</argument>
                                         <argument>${project.build.directory}/qat-java-1.0.0.jar</argument>
                                         <argument>-cp</argument>
@@ -175,6 +180,7 @@
                                     <classpathScope>test</classpathScope>
                                     <executable>java</executable>
                                     <arguments>
+                                        <argument>-ea</argument>
                                         <argument>-cp</argument>
                                         <argument>${project.build.directory}/qat-java-1.0.0.jar</argument>
                                         <argument>-cp</argument>
@@ -199,6 +205,7 @@
                                     <classpathScope>test</classpathScope>
                                     <executable>java</executable>
                                     <arguments>
+                                        <argument>-ea</argument>
                                         <argument>-cp</argument>
                                         <argument>${project.build.directory}/qat-java-1.0.0.jar</argument>
                                         <argument>-cp</argument>
@@ -223,6 +230,7 @@
                                     <classpathScope>test</classpathScope>
                                     <executable>java</executable>
                                     <arguments>
+                                        <argument>-ea</argument>
                                         <argument>-cp</argument>
                                         <argument>${project.build.directory}/qat-java-1.0.0.jar</argument>
                                         <argument>-cp</argument>

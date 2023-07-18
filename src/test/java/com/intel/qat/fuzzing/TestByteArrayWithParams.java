@@ -32,7 +32,7 @@ public class TestByteArrayWithParams {
 
       assert Arrays.equals(Arrays.copyOfRange(src, srcOffset, src.length),
           Arrays.copyOfRange(dec, 0, decSize))
-          : "Source and decompressed array do not match.";
+          : "The source and decompressed arrays do not match.";
     } catch (QatException e) {
       throw e;
     }

@@ -39,7 +39,7 @@ public class TestMixedTypesThree {
       qatSession.endSession();
 
       assert srcBuf.compareTo(decBuf)
-          == 0 : "Source and decompressed buffer do not match.";
+          == 0 : "The source and decompressed buffers do not match.";
     } catch (QatException e) {
       throw e;
     }

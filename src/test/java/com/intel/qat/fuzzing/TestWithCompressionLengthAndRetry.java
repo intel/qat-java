@@ -34,7 +34,7 @@ public class TestWithCompressionLengthAndRetry {
       qatSession.endSession();
 
       assert Arrays.equals(src, dec)
-          : "Source and decompressed array do not match.";
+          : "The source and decompressed arrays do not match.";
     } catch (Exception e) {
       throw e;
     }
