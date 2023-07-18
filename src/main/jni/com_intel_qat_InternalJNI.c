@@ -18,11 +18,9 @@
 // doxygen for C documentation
 
 #define DEFLATE 0
+#define POLLING_MODE QZ_BUSY_POLLING
 
-static __thread int cpu_id;
 static __thread int numa_id;
-static QzPollingMode_T polling_mode = QZ_BUSY_POLLING;
-static QzDataFormat_T data_fmt = QZ_DEFLATE_GZIP_EXT;
 
 typedef int (*kernel_func)(JNIEnv *env, QzSession_T *sess,
                            unsigned char *src_ptr, unsigned int src_len,
@@ -58,9 +56,9 @@ static int setup_deflate_session(QzSession_T *qz_session,
   int status = qzGetDefaultsDeflate(&deflate_params);
   if (status != QZ_OK) return status;
 
-  deflate_params.data_fmt = data_fmt;
+  deflate_params.data_fmt = QZ_DEFLATE_GZIP_EXT;
   deflate_params.common_params.comp_lvl = compression_level;
-  deflate_params.common_params.polling_mode = polling_mode;
+  deflate_params.common_params.polling_mode = POLLING_MODE;
 
   return qzSetupSessionDeflate(qz_session, &deflate_params);
 }
@@ -77,7 +75,7 @@ static int setup_lz4_session(QzSession_T *qz_session, int compression_level) {
   int status = qzGetDefaultsLZ4(&lz4_params);
   if (status != QZ_OK) return status;
 
-  lz4_params.common_params.polling_mode = polling_mode;
+  lz4_params.common_params.polling_mode = POLLING_MODE;
   lz4_params.common_params.comp_lvl = compression_level;
 
   return qzSetupSessionLZ4(qz_session, &lz4_params);
@@ -284,8 +282,7 @@ JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_setup(
     throw_exception(env, status, QZ_SETUP_SESSION_ERROR);
     return;
   }
-  cpu_id = sched_getcpu();
-  numa_id = numa_node_of_cpu(cpu_id);
+  numa_id = numa_node_of_cpu(sched_getcpu());
 
   if (internal_buffer_size != 0) {
     if (QZ_OK !=
