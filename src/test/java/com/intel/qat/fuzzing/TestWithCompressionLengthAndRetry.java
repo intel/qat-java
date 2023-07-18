@@ -22,8 +22,7 @@ public class TestWithCompressionLengthAndRetry {
 
       byte[] src = data.consumeRemainingAsBytes();
       QatSession qatSession =
-          new QatSession(QatSession.CompressionAlgorithm.DEFLATE, comLevel,
-              QatSession.Mode.AUTO, retryCount);
+          new QatSession(QatSession.CompressionAlgorithm.DEFLATE, comLevel, QatSession.Mode.AUTO, retryCount);
 
       byte[] dst = new byte[qatSession.maxCompressedLength(src.length)];
       byte[] dec = new byte[src.length];
@@ -33,8 +32,7 @@ public class TestWithCompressionLengthAndRetry {
 
       qatSession.endSession();
 
-      assert Arrays.equals(src, dec)
-          : "The source and decompressed arrays do not match.";
+      assert Arrays.equals(src, dec) : "The source and decompressed arrays do not match.";
     } catch (Exception e) {
       throw e;
     }

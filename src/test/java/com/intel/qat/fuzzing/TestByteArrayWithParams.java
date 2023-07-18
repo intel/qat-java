@@ -24,14 +24,12 @@ public class TestByteArrayWithParams {
       byte[] dec = new byte[src.length];
 
       int srcOffset = new Random().nextInt(src.length);
-      int comSize = qatSession.compress(
-          src, srcOffset, src.length - srcOffset, dst, 0, dst.length);
+      int comSize = qatSession.compress(src, srcOffset, src.length - srcOffset, dst, 0, dst.length);
       int decSize = qatSession.decompress(dst, 0, comSize, dec, 0, dec.length);
 
       qatSession.endSession();
 
-      assert Arrays.equals(Arrays.copyOfRange(src, srcOffset, src.length),
-          Arrays.copyOfRange(dec, 0, decSize))
+      assert Arrays.equals(Arrays.copyOfRange(src, srcOffset, src.length), Arrays.copyOfRange(dec, 0, decSize))
           : "The source and decompressed arrays do not match.";
     } catch (QatException e) {
       throw e;

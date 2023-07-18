@@ -1,4 +1,11 @@
 BasedOnStyle: Google
 IndentWidth: 2
 TabWidth: 2
+
+---
+Language: Cpp
 ColumnLimit: 80
+
+---
+Language: Java
+ColumnLimit: 120

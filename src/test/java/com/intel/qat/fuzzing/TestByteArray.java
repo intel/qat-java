@@ -25,8 +25,7 @@ public class TestByteArray {
       qatSession.decompress(dst, 0, comSize, dec, 0, dec.length);
       qatSession.endSession();
 
-      assert Arrays.equals(src, dec)
-          : "The source and decompressed arrays do not match.";
+      assert Arrays.equals(src, dec) : "The source and decompressed arrays do not match.";
     } catch (QatException e) {
       throw e;
     }
