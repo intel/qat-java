@@ -18,7 +18,7 @@ public class QatSession {
    * Default compression is set to 6, this is to align with default compression
    * mode chosen as ZLIB
    */
-  public static final int DEFAULT_DEFLATE_COMP_LEVEL = 6;
+  public static final int DEFAULT_COMPRESS_LEVEL = 6;
 
   /**
    * Default PINNED memory allocated is set as 480 KB. This accelerates HW based
@@ -70,7 +70,7 @@ public class QatSession {
    * Constructs a new QAT session object using deflate.
    */
   public QatSession() {
-    this(CompressionAlgorithm.DEFLATE, DEFAULT_DEFLATE_COMP_LEVEL, Mode.AUTO, DEFAULT_RETRY_COUNT);
+    this(CompressionAlgorithm.DEFLATE, DEFAULT_COMPRESS_LEVEL, Mode.AUTO, DEFAULT_RETRY_COUNT);
   }
 
   /**
@@ -79,7 +79,7 @@ public class QatSession {
    * @param mode the mode of operation (HARDWARE - only hardware, AUTO - hardware with a software failover.)
    */
   public QatSession(Mode mode) {
-    this(CompressionAlgorithm.DEFLATE, DEFAULT_DEFLATE_COMP_LEVEL, mode, DEFAULT_RETRY_COUNT);
+    this(CompressionAlgorithm.DEFLATE, DEFAULT_COMPRESS_LEVEL, mode, DEFAULT_RETRY_COUNT);
   }
 
   /**
@@ -88,7 +88,7 @@ public class QatSession {
    * @param compressionAlgorithm the compression algorithm (deflate or LZ4).
    */
   public QatSession(CompressionAlgorithm compressionAlgorithm) {
-    this(compressionAlgorithm, DEFAULT_DEFLATE_COMP_LEVEL, Mode.AUTO, DEFAULT_RETRY_COUNT);
+    this(compressionAlgorithm, DEFAULT_COMPRESS_LEVEL, Mode.AUTO, DEFAULT_RETRY_COUNT);
   }
 
   /**
@@ -98,7 +98,7 @@ public class QatSession {
    * @param mode the mode of operation (HARDWARE - only hardware, AUTO - hardware with a software failover.)
    */
   public QatSession(CompressionAlgorithm compressionAlgorithm, Mode mode) {
-    this(compressionAlgorithm, DEFAULT_DEFLATE_COMP_LEVEL, mode, DEFAULT_RETRY_COUNT);
+    this(compressionAlgorithm, DEFAULT_COMPRESS_LEVEL, mode, DEFAULT_RETRY_COUNT);
   }
 
   /**
@@ -335,7 +335,7 @@ public class QatSession {
       throw new IllegalStateException();
 
     if (src == null || dst == null || srcLen == 0 || dst.length == 0)
-      throw new IllegalArgumentException("Either source or destination array or both have size 0 or null value.");
+      throw new IllegalArgumentException("Empty source or/and destination byte array(s).");
 
     if (srcOffset < 0 || (srcLen > src.length) || srcOffset >= src.length)
       throw new ArrayIndexOutOfBoundsException("Source offset is out of bounds.");
@@ -372,7 +372,6 @@ public class QatSession {
 
   /**
    * Gets a cleaner object.
-   *
    */
   Runnable getCleaner() {
     return new QatSessionCleaner(session);
@@ -386,7 +385,6 @@ public class QatSession {
 
     /**
      * Constructs a Cleaner object to clean up QAT session.
-     *
      */
     public QatSessionCleaner(long qzSession) {
       this.qzSession = qzSession;

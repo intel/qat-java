@@ -128,6 +128,224 @@ public class QatTest {
     }
   }
 
+
+  @Test
+  public void testCleaner() {
+    QatSession qatSession = new QatSession();
+    cleanable = cleaner.register(qatSession, qatSession.getCleaner());
+    cleanable.clean();
+  }
+
+  @Test
+  public void testCompressWithNullByteBuffer() {
+    try {
+      qatSession = new QatSession();
+      qatSession.compress(null, null);
+      fail();
+    } catch (IllegalArgumentException e) {
+      assertTrue(true);
+    }
+  }
+
+  @Test
+  public void testCompressWithNullByteArray() {
+    try {
+      qatSession = new QatSession();
+      qatSession.compress(null, 0, 100, null, 0, 0);
+    } catch (IllegalArgumentException e) {
+      assertTrue(true);
+    }
+  }
+
+  @Test
+  public void testDecompressWithNullByteBuffer() {
+    try {
+      qatSession = new QatSession();
+      int compressedSize = qatSession.decompress(null, null);
+      fail();
+    } catch (IllegalArgumentException e) {
+      assertTrue(true);
+    }
+  }
+
+  @Test
+  public void testDecompressWithNullByteArray() {
+    try {
+      qatSession = new QatSession();
+      int compressedSize = qatSession.decompress(null, 0, 100, null, 0, 0);
+      fail();
+    } catch (IllegalArgumentException e) {
+      assertTrue(true);
+    }
+  }
+
+  @Test
+  public void testInvalidCompressionLevel() {
+    try {
+      qatSession = new QatSession(QatSession.CompressionAlgorithm.DEFLATE, 10, QatSession.Mode.AUTO, 6);
+      fail();
+    } catch (IllegalArgumentException e) {
+      assertTrue(true);
+    }
+  }
+
+  @Test
+  public void testInvalidRetryCount() {
+    try {
+      qatSession = new QatSession(QatSession.CompressionAlgorithm.DEFLATE, 10, QatSession.Mode.AUTO, -1);
+      fail();
+    } catch (IllegalArgumentException e) {
+      assertTrue(true);
+    }
+  }
+
+  @Test
+  public void maxCompressedLengthPostTearDown() {
+    try {
+      QatSession qatSession = new QatSession();
+      qatSession.endSession();
+      qatSession.maxCompressedLength(100);
+      fail();
+    } catch (IllegalStateException e) {
+      assertTrue(true);
+    }
+  }
+
+  @Test
+  public void testChunkedCompressionWithByteArray() {
+    try {
+      qatSession = new QatSession(QatSession.CompressionAlgorithm.DEFLATE, 6, QatSession.Mode.AUTO);
+
+      byte[] src = Files.readAllBytes(Path.of("src/main/resources/sample.txt"));
+      byte[] dst = new byte[qatSession.maxCompressedLength(src.length)];
+      byte[] dec = new byte[src.length];
+
+      int compressedSize = qatSession.compress(src, 0, src.length, dst, 0, dst.length);
+      int decompressedSize = qatSession.decompress(dst, 0, compressedSize, dec, 0, dec.length);
+
+      assertTrue(compressedSize > 0);
+      assertEquals(decompressedSize, src.length);
+      assertTrue(Arrays.equals(src, dec));
+    } catch (QatException | IOException e) {
+      fail(e.getMessage());
+    }
+  }
+
+  @Test
+  public void testChunkedCompressionWithByteArrayDiffOffset() {
+    try {
+      qatSession = new QatSession(QatSession.CompressionAlgorithm.DEFLATE, 6, QatSession.Mode.AUTO);
+
+      byte[] src = Files.readAllBytes(Path.of("src/main/resources/sample.txt"));
+      byte[] dst = new byte[qatSession.maxCompressedLength(src.length)];
+      byte[] dec = new byte[src.length];
+
+      int compressedSize = qatSession.compress(src, 3, src.length - 3, dst, 0, dst.length);
+
+      int decompressedSize = qatSession.decompress(dst, 0, compressedSize, dec, 3, dec.length - 3);
+
+      assertTrue(compressedSize > 0);
+      assertEquals(decompressedSize, src.length - 3);
+
+      String str = new String(src, StandardCharsets.UTF_8);
+      assertTrue(str.substring(3).compareTo(new String(dec, StandardCharsets.UTF_8).substring(3)) == 0);
+
+    } catch (QatException | IOException e) {
+      fail(e.getMessage());
+    }
+  }
+
+  @Test
+  public void testChunkedCompressionWithByteBuffer() {
+    try {
+      qatSession = new QatSession(QatSession.CompressionAlgorithm.DEFLATE, 6, QatSession.Mode.AUTO);
+
+      byte[] src = Files.readAllBytes(Path.of("src/main/resources/sample.txt"));
+      byte[] dec = new byte[src.length];
+
+      ByteBuffer srcBuf = ByteBuffer.allocateDirect(src.length);
+      ByteBuffer comBuf = ByteBuffer.allocateDirect(qatSession.maxCompressedLength(src.length));
+      ByteBuffer decBuf = ByteBuffer.allocateDirect(src.length);
+
+      srcBuf.put(src);
+      srcBuf.flip();
+
+      int compressedSize = qatSession.compress(srcBuf, comBuf);
+      comBuf.flip();
+
+      int decompressedSize = qatSession.decompress(comBuf, decBuf);
+      decBuf.flip();
+      decBuf.get(dec, 0, decompressedSize);
+
+      assertTrue(compressedSize > 0);
+      assertEquals(decompressedSize, src.length);
+      assertTrue(Arrays.equals(src, dec));
+    } catch (QatException | IOException | IllegalArgumentException e) {
+      fail(e.getMessage());
+    }
+  }
+
+  @Test
+  public void testChunkedCompressionWithWrappedByteBuffer() {
+    try {
+      qatSession = new QatSession(QatSession.CompressionAlgorithm.DEFLATE, 6, QatSession.Mode.AUTO);
+
+      byte[] src = Files.readAllBytes(Path.of("src/main/resources/sample.txt"));
+      byte[] dec = new byte[src.length];
+
+      ByteBuffer srcBuf = ByteBuffer.allocate(src.length);
+      ByteBuffer comBuf = ByteBuffer.allocate(qatSession.maxCompressedLength(src.length));
+      ByteBuffer decBuf = ByteBuffer.allocate(src.length);
+
+      srcBuf.put(src);
+      srcBuf.flip();
+
+      int compressedSize = qatSession.compress(srcBuf, comBuf);
+      comBuf.flip();
+
+      int decompressedSize = qatSession.decompress(comBuf, decBuf);
+
+      decBuf.flip();
+      decBuf.get(dec, 0, decompressedSize);
+
+      assertTrue(compressedSize > 0);
+      assertEquals(decompressedSize, src.length);
+      assertTrue(Arrays.equals(src, dec));
+    } catch (QatException | IOException e) {
+      fail(e.getMessage());
+    }
+  }
+
+  @Test
+  public void testChunkedCompressionWithWrappedByteBufferLZ4() {
+    try {
+      qatSession = new QatSession(QatSession.CompressionAlgorithm.LZ4);
+
+      byte[] src = Files.readAllBytes(Path.of("src/main/resources/sample.txt"));
+      byte[] dec = new byte[src.length];
+
+      ByteBuffer srcBuf = ByteBuffer.allocate(src.length);
+      ByteBuffer comBuf = ByteBuffer.allocate(qatSession.maxCompressedLength(src.length));
+      ByteBuffer decBuf = ByteBuffer.allocate(src.length);
+      srcBuf.put(src);
+      srcBuf.flip();
+
+      int compressedSize = qatSession.compress(srcBuf, comBuf);
+      comBuf.flip();
+
+      int decompressedSize = qatSession.decompress(comBuf, decBuf);
+
+      decBuf.flip();
+      decBuf.get(dec, 0, decompressedSize);
+
+      assertTrue(compressedSize > 0);
+      assertEquals(decompressedSize, src.length);
+      assertTrue(Arrays.equals(src, dec));
+    } catch (QatException | IOException e) {
+      fail(e.getMessage());
+    }
+  }
+
   @ParameterizedTest
   @ValueSource(ints = {100, 500, 2048, 2097152})
   public void testWrappedBuffers(int len) {
@@ -157,7 +375,6 @@ public class QatTest {
     } catch (QatException | IllegalStateException | IllegalArgumentException | ReadOnlyBufferException e) {
       fail(e.getMessage());
     }
-    assertTrue(true);
   }
 
   @ParameterizedTest
@@ -195,7 +412,6 @@ public class QatTest {
     } catch (QatException | IllegalStateException | IllegalArgumentException | ArrayIndexOutOfBoundsException e) {
       fail(e.getMessage());
     }
-    assertTrue(true);
   }
 
   @ParameterizedTest
@@ -233,7 +449,6 @@ public class QatTest {
     } catch (QatException | IllegalStateException | IllegalArgumentException | ReadOnlyBufferException e) {
       fail(e.getMessage());
     }
-    assertTrue(true);
   }
 
   @ParameterizedTest
@@ -274,52 +489,6 @@ public class QatTest {
       assertNotNull(dec);
       assertTrue(Arrays.equals(src, dec));
     } catch (QatException | IllegalStateException | IllegalArgumentException | ArrayIndexOutOfBoundsException e) {
-      fail(e.getMessage());
-    }
-  }
-
-  @ParameterizedTest
-  @ValueSource(ints = {100, 500, 2048, 2097152})
-  public void testCompressByteArrayWithByteBuffer(int len) {
-    try {
-      qatSession = new QatSession();
-
-      byte[] src = getSourceArray(len);
-      byte[] dst = new byte[qatSession.maxCompressedLength(src.length)];
-      byte[] resultArray = new byte[src.length];
-
-      ByteBuffer decBuf = ByteBuffer.allocateDirect(src.length);
-      ByteBuffer comBuf = ByteBuffer.allocateDirect(dst.length);
-      ByteBuffer resultBuffer = ByteBuffer.allocateDirect(src.length);
-
-      decBuf.put(src);
-      decBuf.flip();
-
-      int compressedSize = qatSession.compress(decBuf, comBuf);
-      assertEquals(comBuf.position(), compressedSize);
-
-      int byteArrayCompSize = qatSession.compress(src, 0, src.length, dst, 0, dst.length);
-
-      assertEquals(compressedSize, byteArrayCompSize);
-
-      comBuf.flip();
-      byte[] compByteBufferArray = new byte[comBuf.limit()];
-      comBuf.get(compByteBufferArray);
-
-      for (int i = 0; i < compressedSize; i++) {
-        if (dst[i] != compByteBufferArray[i])
-          fail("compressed data not same");
-      }
-      comBuf.flip();
-
-      int decompressedSize = qatSession.decompress(comBuf, resultBuffer);
-      int byteArrayDecompSize = qatSession.decompress(dst, 0, byteArrayCompSize, resultArray, 0, resultArray.length);
-      resultBuffer.flip();
-
-      byte[] tmpResult = new byte[byteArrayDecompSize];
-      resultBuffer.get(tmpResult);
-      assertTrue(Arrays.equals(resultArray, tmpResult));
-    } catch (QatException e) {
       fail(e.getMessage());
     }
   }
@@ -462,50 +631,6 @@ public class QatTest {
     }
   }
 
-  @Test
-  public void testCompressWithNullByteBuffer() {
-    try {
-      qatSession = new QatSession();
-
-      int compressedSize = qatSession.compress(null, null);
-      fail("testCompressWithNullByteBuff fails");
-    } catch (IllegalArgumentException e) {
-      assertTrue(true);
-    }
-  }
-
-  @Test
-  public void testCompressWithNullByteArray() {
-    try {
-      qatSession = new QatSession();
-      qatSession.compress(null, 0, 100, null, 0, 0);
-    } catch (IllegalArgumentException e) {
-      assertTrue(true);
-    }
-  }
-
-  @Test
-  public void testDecompressWithNullByteBuffer() {
-    try {
-      qatSession = new QatSession();
-      int compressedSize = qatSession.decompress(null, null);
-      fail("testDecompressWithNullByteBuff fails");
-    } catch (IllegalArgumentException e) {
-      assertTrue(true);
-    }
-  }
-
-  @Test
-  public void testDecompressWithNullByteArray() {
-    try {
-      qatSession = new QatSession();
-      int compressedSize = qatSession.decompress(null, 0, 100, null, 0, 0);
-      fail("testDecompressWithNullByteArray fails");
-    } catch (IllegalArgumentException e) {
-      assertTrue(true);
-    }
-  }
-
   @ParameterizedTest
   @ValueSource(ints = {100, 500, 2048, 2097152})
   public void testCompressionReadOnlyDestination(int len) {
@@ -604,7 +729,7 @@ public class QatTest {
 
     try {
       QatSession qatSession = new QatSession(
-          QatSession.CompressionAlgorithm.DEFLATE, QatSession.DEFAULT_DEFLATE_COMP_LEVEL, QatSession.Mode.HARDWARE);
+          QatSession.CompressionAlgorithm.DEFLATE, QatSession.DEFAULT_COMPRESS_LEVEL, QatSession.Mode.HARDWARE);
 
       byte[] src = getSourceArray(len);
       byte[] dst = new byte[2 * src.length];
@@ -613,26 +738,6 @@ public class QatTest {
       qatSession.compress(src, 0, src.length, dst, 0, dst.length);
       fail();
     } catch (IllegalStateException is) {
-      assertTrue(true);
-    }
-  }
-
-  @Test
-  public void testInvalidCompressionLevel() {
-    try {
-      qatSession = new QatSession(QatSession.CompressionAlgorithm.DEFLATE, 10, QatSession.Mode.AUTO, 6);
-      fail();
-    } catch (IllegalArgumentException e) {
-      assertTrue(true);
-    }
-  }
-
-  @Test
-  public void testInvalidRetryCount() {
-    try {
-      qatSession = new QatSession(QatSession.CompressionAlgorithm.DEFLATE, 10, QatSession.Mode.AUTO, -1);
-      fail();
-    } catch (IllegalArgumentException e) {
       assertTrue(true);
     }
   }
@@ -724,62 +829,6 @@ public class QatTest {
     }
   }
 
-  @Test
-  public void maxCompressedLengthPostTearDown() {
-    try {
-      QatSession qatSession = new QatSession();
-      qatSession.endSession();
-      qatSession.maxCompressedLength(100);
-      fail();
-    } catch (IllegalStateException e) {
-      assertTrue(true);
-    }
-  }
-
-  @Test
-  public void testChunkedCompressionWithByteArray() {
-    try {
-      qatSession = new QatSession(QatSession.CompressionAlgorithm.DEFLATE, 6, QatSession.Mode.AUTO);
-
-      byte[] src = Files.readAllBytes(Path.of("src/main/resources/book2"));
-      byte[] dst = new byte[qatSession.maxCompressedLength(src.length)];
-      byte[] dec = new byte[src.length];
-
-      int compressedSize = qatSession.compress(src, 0, src.length, dst, 0, dst.length);
-      int decompressedSize = qatSession.decompress(dst, 0, compressedSize, dec, 0, dec.length);
-
-      assertTrue(compressedSize > 0);
-      assertEquals(decompressedSize, src.length);
-      assertTrue(Arrays.equals(src, dec));
-    } catch (QatException | IOException e) {
-      fail(e.getMessage());
-    }
-  }
-
-  @Test
-  public void testChunkedCompressionWithByteArrayDiffOffset() {
-    try {
-      qatSession = new QatSession(QatSession.CompressionAlgorithm.DEFLATE, 6, QatSession.Mode.AUTO);
-
-      byte[] src = Files.readAllBytes(Path.of("src/main/resources/book2"));
-      byte[] dst = new byte[qatSession.maxCompressedLength(src.length)];
-      byte[] dec = new byte[src.length];
-
-      int compressedSize = qatSession.compress(src, 3, src.length - 3, dst, 0, dst.length);
-
-      int decompressedSize = qatSession.decompress(dst, 0, compressedSize, dec, 3, dec.length - 3);
-
-      assertTrue(compressedSize > 0);
-      assertEquals(decompressedSize, src.length - 3);
-
-      String book2 = new String(src, StandardCharsets.UTF_8);
-      assertTrue(book2.substring(3).compareTo(new String(dec, StandardCharsets.UTF_8).substring(3)) == 0);
-
-    } catch (QatException | IOException e) {
-      fail(e.getMessage());
-    }
-  }
-
   @ParameterizedTest
   @ValueSource(ints = {100, 500, 2048, 2097152})
   public void testCompressorText(int len) {
@@ -817,97 +866,6 @@ public class QatTest {
       assertTrue(result.compareTo(src) == 0);
 
     } catch (QatException | IllegalArgumentException e) {
-      fail(e.getMessage());
-    }
-  }
-
-  @Test
-  public void testChunkedCompressionWithByteBuffer() {
-    try {
-      qatSession = new QatSession(QatSession.CompressionAlgorithm.DEFLATE, 6, QatSession.Mode.AUTO);
-
-      byte[] src = Files.readAllBytes(Path.of("src/main/resources/book2"));
-      byte[] dec = new byte[src.length];
-
-      ByteBuffer srcBuf = ByteBuffer.allocateDirect(src.length);
-      ByteBuffer comBuf = ByteBuffer.allocateDirect(qatSession.maxCompressedLength(src.length));
-      ByteBuffer decBuf = ByteBuffer.allocateDirect(src.length);
-
-      srcBuf.put(src);
-      srcBuf.flip();
-
-      int compressedSize = qatSession.compress(srcBuf, comBuf);
-      comBuf.flip();
-
-      int decompressedSize = qatSession.decompress(comBuf, decBuf);
-      decBuf.flip();
-      decBuf.get(dec, 0, decompressedSize);
-
-      assertTrue(compressedSize > 0);
-      assertEquals(decompressedSize, src.length);
-      assertTrue(Arrays.equals(src, dec));
-    } catch (QatException | IOException | IllegalArgumentException e) {
-      fail(e.getMessage());
-    }
-  }
-
-  @Test
-  public void testChunkedCompressionWithWrappedByteBuffer() {
-    try {
-      qatSession = new QatSession(QatSession.CompressionAlgorithm.DEFLATE, 6, QatSession.Mode.AUTO);
-
-      byte[] src = Files.readAllBytes(Path.of("src/main/resources/book2"));
-      byte[] dec = new byte[src.length];
-
-      ByteBuffer srcBuf = ByteBuffer.allocate(src.length);
-      ByteBuffer comBuf = ByteBuffer.allocate(qatSession.maxCompressedLength(src.length));
-      ByteBuffer decBuf = ByteBuffer.allocate(src.length);
-
-      srcBuf.put(src);
-      srcBuf.flip();
-
-      int compressedSize = qatSession.compress(srcBuf, comBuf);
-      comBuf.flip();
-
-      int decompressedSize = qatSession.decompress(comBuf, decBuf);
-
-      decBuf.flip();
-      decBuf.get(dec, 0, decompressedSize);
-
-      assertTrue(compressedSize > 0);
-      assertEquals(decompressedSize, src.length);
-      assertTrue(Arrays.equals(src, dec));
-    } catch (QatException | IOException e) {
-      fail(e.getMessage());
-    }
-  }
-
-  @Test
-  public void testChunkedCompressionWithWrappedByteBufferLZ4() {
-    try {
-      qatSession = new QatSession(QatSession.CompressionAlgorithm.LZ4);
-
-      byte[] src = Files.readAllBytes(Path.of("src/main/resources/book1"));
-      byte[] dec = new byte[src.length];
-
-      ByteBuffer srcBuf = ByteBuffer.allocate(src.length);
-      ByteBuffer comBuf = ByteBuffer.allocate(qatSession.maxCompressedLength(src.length));
-      ByteBuffer decBuf = ByteBuffer.allocate(src.length);
-      srcBuf.put(src);
-      srcBuf.flip();
-
-      int compressedSize = qatSession.compress(srcBuf, comBuf);
-      comBuf.flip();
-
-      int decompressedSize = qatSession.decompress(comBuf, decBuf);
-
-      decBuf.flip();
-      decBuf.get(dec, 0, decompressedSize);
-
-      assertTrue(compressedSize > 0);
-      assertEquals(decompressedSize, src.length);
-      assertTrue(Arrays.equals(src, dec));
-    } catch (QatException | IOException e) {
       fail(e.getMessage());
     }
   }
@@ -1006,12 +964,5 @@ public class QatTest {
     } catch (QatException | ArrayIndexOutOfBoundsException e) {
       assertTrue(true);
     }
-  }
-
-  @Test
-  public void testCleaner() {
-    QatSession qatSession = new QatSession();
-    cleanable = cleaner.register(qatSession, qatSession.getCleaner());
-    cleanable.clean();
   }
 }
