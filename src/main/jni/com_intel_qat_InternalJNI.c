@@ -26,8 +26,7 @@ typedef int (*kernel_func)(JNIEnv *env, QzSession_T *sess,
                            int is_last);
 
 /**
- * A type for storing QAT session and pinned memory for internal source and
- * destination buffers.
+ * A type for storing QAT session and pinned memory buffers.
  */
 struct Session_T {
   QzSession_T *qz_session;      /** A pointer to the QAT session. */
@@ -93,13 +92,13 @@ inline void free_pin_mem(void *src_buf, void *dst_buf)
 }
 
 /**
- * Allocates pinned memory for internal source and destination buffers.
+ * Allocates pinned memory for source and destination buffers.
  *
  * @param env the pointer to the JNI environment.
  * @param qat_session a pointer to a Session_T object.
  * @param mode the operation mode (HARDWARE or AUTO).
- * @param src_size the size for the source internal buffer.
- * @param dst_size the size for the destination internal buffer.
+ * @param src_size the size for the source buffer.
+ * @param dst_size the size for the destination buffer.
  *
  * @return QZ_OK (0) on success, non-zero otherwise.
  */

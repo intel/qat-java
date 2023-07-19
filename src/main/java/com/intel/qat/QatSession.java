@@ -24,7 +24,7 @@ public class QatSession {
    * Default PINNED memory allocated is set as 480 KB. This accelerates HW based
    * compression/decompression
    */
-  private final static long DEFAULT_INTERNAL_BUFFER_SIZE_IN_BYTES = 491520L;
+  private final static long DEFAULT_PIN_MEM_SIZE = 491520L;
 
   /**
    * If retryCount is set as 0, it means no retries in compress/decompress,
@@ -131,7 +131,7 @@ public class QatSession {
    * @param retryCount how many times to seek for a hardware resources before giving up.
    */
   public QatSession(CompressionAlgorithm compressionAlgorithm, int compressionLevel, Mode mode, int retryCount) {
-    this(compressionAlgorithm, compressionLevel, mode, retryCount, DEFAULT_INTERNAL_BUFFER_SIZE_IN_BYTES);
+    this(compressionAlgorithm, compressionLevel, mode, retryCount, DEFAULT_PIN_MEM_SIZE);
   }
 
   /**
@@ -226,9 +226,9 @@ public class QatSession {
       dst.put(dstArr, 0, comSize);
     }
 
-    if (comSize < 0) {
+    if (comSize < 0)
       throw new QatException("QAT: Compression failed");
-    }
+
     return comSize;
   }
 
@@ -257,9 +257,9 @@ public class QatSession {
     int comSize = InternalJNI.compressArrayOrBuffer(
         session, null, src, srcOffset, srcOffset + srcLen, dst, dstOffset, dstOffset + dstLen, retryCount);
 
-    if (comSize < 0) {
+    if (comSize < 0)
       throw new QatException("QAT: Compression failed");
-    }
+
     return comSize;
   }
 
@@ -310,9 +310,9 @@ public class QatSession {
       dst.put(dstArr, 0, decSize);
     }
 
-    if (decSize < 0) {
+    if (decSize < 0)
       throw new QatException("QAT: Compression failed");
-    }
+
     return decSize;
   }
 
@@ -338,14 +338,11 @@ public class QatSession {
     if (srcOffset < 0 || (srcLen > src.length) || srcOffset >= src.length)
       throw new ArrayIndexOutOfBoundsException("Source offset is out of bounds.");
 
-    int decSize = 0;
-
-    decSize = InternalJNI.decompressArrayOrBuffer(
+    int decSize = InternalJNI.decompressArrayOrBuffer(
         session, null, src, srcOffset, srcOffset + srcLen, dst, dstOffset, dstOffset + dstLen, retryCount);
 
-    if (decSize < 0) {
+    if (decSize < 0)
       throw new QatException("QAT: decompression failed");
-    }
 
     return decSize;
   }
