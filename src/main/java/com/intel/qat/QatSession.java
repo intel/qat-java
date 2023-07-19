@@ -181,8 +181,9 @@ public class QatSession {
   }
 
   /**
-   * Compresses the source buffer and stores the result in the destination buffer. The positions of both the source and
-   * destinations buffers will be adjusted after a succcessful call to this method.
+   * Compresses the source buffer and stores the result in the destination buffer. Returns actual number of bytes of data compressed.
+   *
+   * On Success, the positions of both the source and destinations buffers are advanced by the number of bytes read from the source and the number of bytes of compressed data written to the destination.
    *
    * @param src the source buffer holding the source data.
    * @param dst the destination array that will store the compressed data.
@@ -230,12 +231,12 @@ public class QatSession {
   }
 
   /**
-   * Compresses the source array and stores the result in the destination array.
+   * Compresses the source array and stores the result in the destination array. Returns the actual number of bytes of data compressed.
    *
    * @param src the source array holding the source data.
-   * @param srcOffset the starting source offset to start from.
+   * @param srcOffset the start offset of the source data.
    * @param srcLen the length of source data to compress.
-   * @param dst the destination array that will store the compressed data.
+   * @param dst the destination array for the compressed data.
    * @param dstOffset the destination offset where to start storing the compressed data.
    * @param dstLen the maximum length that can be written to the destination array.
    * @return the size of the compressed data in bytes.
@@ -260,8 +261,9 @@ public class QatSession {
   }
 
   /**
-   * Decompresses the source buffer and stores the result in the destination buffer. The positions of both the source
-   * and destinations buffers will be adjusted after a succcessful call to this method.
+   * Deompresses the source buffer and stores the result in the destination buffer. Returns actual number of bytes of data decompressed.
+   *
+   * On Success, the positions of both the source and destinations buffers are advanced by the number of bytes of compressed data read from the source and the number of bytes of decompressed data written to the destination.
    *
    * @param src the source buffer holding the compressed data.
    * @param dst the destination array that will store the decompressed data.
@@ -310,12 +312,12 @@ public class QatSession {
   }
 
   /**
-   * Decompresses the source array and stores the result in the destination array.
+   * Decompresses the source array and stores the result in the destination array. Returns the actual number of bytes of data decompressed.
    *
    * @param src the source array holding the compressed data.
-   * @param srcOffset the starting source offset to start from.
+   * @param srcOffset the start offset of the source.
    * @param srcLen the length of source data to decompress.
-   * @param dst the destination array that will store the decompressed data.
+   * @param dst the destination array for the decompressed data.
    * @param dstOffset the destination offset where to start storing the decompressed data.
    * @param dstLen the maximum length that can be written to the destination array.
    * @return the size of the decompressed data in bytes.
@@ -391,7 +393,7 @@ public class QatSession {
         cleanUp(qzSession);
         qzSession = 0;
       } else {
-        System.err.println("BUG: This line should never be printed!");
+        System.err.println("A bug in cleaning up session. Please report.");
       }
     }
   }

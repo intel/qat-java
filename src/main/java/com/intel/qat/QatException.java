@@ -13,7 +13,7 @@ public class QatException extends RuntimeException {
   /**
    * Constructs a new QatException with the specified message.
    *
-   * @param message error message
+   * @param message the error message.
    */
   public QatException(String message) {
     super(message);
