@@ -9,7 +9,6 @@ package com.intel.qat;
  * A class that represents QAT related exceptions.
  */
 public class QatException extends RuntimeException {
-
   /**
    * Constructs a new QatException with the specified message.
    *
