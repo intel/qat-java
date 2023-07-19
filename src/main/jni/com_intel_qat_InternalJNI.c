@@ -28,7 +28,6 @@ typedef int (*kernel_func)(JNIEnv *env, QzSession_T *sess,
 /**
  * A type for storing QAT session and pinned memory for internal source and
  * destination buffers.
- *
  */
 struct Session_T {
   QzSession_T *qz_session;      /** A pointer to the QAT session. */
@@ -43,7 +42,6 @@ struct Session_T {
  *
  * @param qz_session a pointer to the QzSession_T.
  * @param compression_level the compression level to use.
- *
  */
 static int setup_deflate_session(QzSession_T *qz_session, int compression_level)
 {
@@ -64,7 +62,7 @@ static int setup_deflate_session(QzSession_T *qz_session, int compression_level)
  *
  * @param qz_session a pointer to the QzSession_T.
  * @param compression_level the compression level to use.
- *
+ * @return QZ_OK (0) if successful, non-zero otherwise.
  */
 static int setup_lz4_session(QzSession_T *qz_session, int compression_level)
 {
@@ -93,13 +91,6 @@ inline void free_pin_mem(void *src_buf, void *dst_buf)
   src_buf = NULL;
   dst_buf = NULL;
 }
-
-/*
- * Class:     com_intel_qat_InternalJNI
- * Method:    allocate_pin_mem
- * Allocate new ByteBuffer using qzMalloc for the source and destination pinned
- * buffers
- */
 
 /**
  * Allocates pinned memory for internal source and destination buffers.
@@ -158,7 +149,7 @@ static int allocate_pin_mem(JNIEnv *env, struct Session_T *qat_session,
  * destination buffer.
  * @param retry_count the number of compression retries before we give up.
  * @param is_last a flag that indicates if the current buffer is the last one.
- *
+ * @return QZ_OK (0) if successful, non-zero otherwise.
  */
 static int compress(JNIEnv *env, QzSession_T *sess, unsigned char *src_ptr,
                     unsigned int src_len, unsigned char *dst_ptr,
@@ -203,7 +194,7 @@ static int compress(JNIEnv *env, QzSession_T *sess, unsigned char *src_ptr,
  * destination buffer.
  * @param retry_count the number of decompression retries before we give up.
  * @param is_last is ignored.
- *
+ * @return QZ_OK (0) if successful, non-zero otherwise.
  */
 static int decompress(JNIEnv *env, QzSession_T *sess, unsigned char *src_ptr,
                       unsigned int src_len, unsigned char *dst_ptr,
@@ -250,7 +241,7 @@ static int decompress(JNIEnv *env, QzSession_T *sess, unsigned char *src_ptr,
  * @param dst_written an out parameter that stores the bytes written to the
  * destination buffer.
  * @param retry_count the number of decompression retries before we give up.
- *
+ * @return the number of actual bytes compressed or decompressed.
  */
 static int compress_or_decompress(kernel_func kf, JNIEnv *env,
                                   struct Session_T *qat_session,
