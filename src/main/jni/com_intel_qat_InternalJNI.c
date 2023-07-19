@@ -25,19 +25,25 @@ typedef int (*kernel_func)(JNIEnv *env, QzSession_T *sess,
                            int *src_read, int *dst_written, int retry_count,
                            int is_last);
 
+/**
+ * A type for storing QAT session and pinned memory for internal source and
+ * destination buffers.
+ *
+ */
 struct Session_T {
-  QzSession_T *qz_session;
-  unsigned char *pin_mem_src;
-  unsigned char *pin_mem_dst;
-  int pin_mem_src_size;
-  int pin_mem_dst_size;
+  QzSession_T *qz_session;      /** A pointer to the QAT session. */
+  unsigned char *pin_mem_src;   /** A pointer to the source buffer. */
+  unsigned char *pin_mem_dst;   /** A pointer to the destination buffer. */
+  int pin_mem_src_size;         /** The size of the source buffer. */
+  int pin_mem_dst_size;         /** The size of the destination buffer. */
 };
 
-/*
- * Class:     com_intel_qat_InternalJNI
- * Method:    setup_deflate_session
- * params:    QAT session pointer, compression level for deflate
- * Sets up a deflate(ZLIB) session
+/**
+ * Setups a QAT session for DEFLATE.
+ *
+ * @param qz_session a pointer to the QzSession_T.
+ * @param compression_level the compression level to use.
+ *
  */
 static int setup_deflate_session(QzSession_T *qz_session, int compression_level)
 {
@@ -53,11 +59,12 @@ static int setup_deflate_session(QzSession_T *qz_session, int compression_level)
   return qzSetupSessionDeflate(qz_session, &deflate_params);
 }
 
-/*
- * Class:     com_intel_qat_InternalJNI
- * Method:    setup_lz4_session
- * params:    QAT session pointer, compression level for LZ4
- * Sets up a LZ4 session
+/**
+ * Setups a QAT session for LZ4.
+ *
+ * @param qz_session a pointer to the QzSession_T.
+ * @param compression_level the compression level to use.
+ *
  */
 static int setup_lz4_session(QzSession_T *qz_session, int compression_level)
 {
@@ -72,10 +79,11 @@ static int setup_lz4_session(QzSession_T *qz_session, int compression_level)
   return qzSetupSessionLZ4(qz_session, &lz4_params);
 }
 
-/*
- * Class:     com_intel_qat_InternalJNI
- * Method:    free_pin_mem
- * frees natively allocated pinned memory through freeing up associated pointers
+/**
+ * Frees up source and destination pinned memory.
+ *
+ * @param src_buf a pointer to the source buffer.
+ * @param dst_buf a pointer to the destination buffer.
  */
 inline void free_pin_mem(void *src_buf, void *dst_buf)
 {
@@ -92,11 +100,23 @@ inline void free_pin_mem(void *src_buf, void *dst_buf)
  * Allocate new ByteBuffer using qzMalloc for the source and destination pinned
  * buffers
  */
+
+/**
+ * Allocates pinned memory for internal source and destination buffers.
+ *
+ * @param env the pointer to the JNI environment.
+ * @param qat_session a pointer to a Session_T object.
+ * @param mode the operation mode (HARDWARE or AUTO).
+ * @param src_size the size for the source internal buffer.
+ * @param dst_size the size for the destination internal buffer.
+ *
+ * @return QZ_OK (0) on success, non-zero otherwise.
+ */
 static int allocate_pin_mem(JNIEnv *env, struct Session_T *qat_session,
-                            jint mode, jlong src_size, jlong dest_size)
+                            jint mode, jlong src_size, jlong dst_size)
 {
   void *tmp_src_addr = qzMalloc(src_size, numa_id, 1);
-  void *tmp_dst_addr = qzMalloc(dest_size, numa_id, 1);
+  void *tmp_dst_addr = qzMalloc(dst_size, numa_id, 1);
 
   if (!tmp_src_addr || !tmp_dst_addr) {
     free_pin_mem(tmp_src_addr, tmp_dst_addr);
@@ -114,17 +134,31 @@ static int allocate_pin_mem(JNIEnv *env, struct Session_T *qat_session,
 
   if (tmp_dst_addr) {
     qat_session->pin_mem_dst = (unsigned char *)tmp_dst_addr;
-    qat_session->pin_mem_dst_size = dest_size;
+    qat_session->pin_mem_dst_size = dst_size;
   }
 
   return QZ_OK;
 }
 
-/*
- * Class:     com_intel_qat_InternalJNI
- * Method:    compress source at a given offset upto a given length and stores
- * into destination at given offset of a particular size compresses data stored
- * at source
+/**
+ * Compresses a buffer pointed to by the given source pointer and writes it to
+ * the destination buffer pointed to by the destination pointer. The read and
+ * write of the source and destination buffers is bounded by the source and
+ * destination lengths respectively.
+ *
+ * @param env a pointer to the JNI environment.
+ * @param sess a pointer to the QzSession_T object.
+ * @param src_ptr the source buffer.
+ * @param src_len the size of the source buffer.
+ * @param dst_ptr the destination buffer.
+ * @param dst_len the size of the destination buffer.
+ * @param src_read an out parameter that stores the bytes read from the source
+ * buffer.
+ * @param dst_written an out parameter that stores the bytes written to the
+ * destination buffer.
+ * @param retry_count the number of compression retries before we give up.
+ * @param is_last a flag that indicates if the current buffer is the last one.
+ *
  */
 static int compress(JNIEnv *env, QzSession_T *sess, unsigned char *src_ptr,
                     unsigned int src_len, unsigned char *dst_ptr,
@@ -151,11 +185,25 @@ static int compress(JNIEnv *env, QzSession_T *sess, unsigned char *src_ptr,
   return QZ_OK;
 }
 
-/*
- * Class:     com_intel_qat_InternalJNI
- * Method:    decompress source at a given offset upto a given length and stores
- * into destination at given offset of a particular size compresses data stored
- * at source
+/**
+ * Decmpresses a buffer pointed to by the given source pointer and writes it to
+ * the destination buffer pointed to by the destination pointer. The read and
+ * write of the source and destination buffers is bounded by the source and
+ * destination lengths respectively.
+ *
+ * @param env a pointer to the JNI environment.
+ * @param sess a pointer to the QzSession_T object.
+ * @param src_ptr the source buffer.
+ * @param src_len the size of the source buffer.
+ * @param dst_ptr the destination buffer.
+ * @param dst_len the size of the destination buffer.
+ * @param src_read an out parameter that stores the bytes read from the source
+ * buffer.
+ * @param dst_written an out parameter that stores the bytes written to the
+ * destination buffer.
+ * @param retry_count the number of decompression retries before we give up.
+ * @param is_last is ignored.
+ *
  */
 static int decompress(JNIEnv *env, QzSession_T *sess, unsigned char *src_ptr,
                       unsigned int src_len, unsigned char *dst_ptr,
@@ -184,11 +232,25 @@ static int decompress(JNIEnv *env, QzSession_T *sess, unsigned char *src_ptr,
   return QZ_OK;
 }
 
-/*
- * Class:     com_intel_qat_InternalJNI
- * Method:    compress/decompress source at a given offset upto a given length
- * and stores into destination at given offset of a particular size compresses
- * data stored at source
+/**
+ * Compresses/decompresses a buffer pointed to by the given source pointer and
+ * writes it to the destination buffer pointed to by the destination pointer.
+ * The read and write of the source and destination buffers is bounded by the
+ * source and destination lengths respectively.
+ *
+ * @param kf a pointer to either the compress or decompress functions.
+ * @param env a pointer to the JNI environment.
+ * @param sess a pointer to the QzSession_T object.
+ * @param src_ptr the source buffer.
+ * @param src_len the size of the source buffer.
+ * @param dst_ptr the destination buffer.
+ * @param dst_len the size of the destination buffer.
+ * @param src_read an out parameter that stores the bytes read from the source
+ * buffer.
+ * @param dst_written an out parameter that stores the bytes written to the
+ * destination buffer.
+ * @param retry_count the number of decompression retries before we give up.
+ *
  */
 static int compress_or_decompress(kernel_func kf, JNIEnv *env,
                                   struct Session_T *qat_session,
@@ -242,6 +304,8 @@ static int compress_or_decompress(kernel_func kf, JNIEnv *env,
 }
 
 /*
+ * Setups a QAT session.
+ *
  * Class:     com_intel_qat_InternalJNI
  * Method:    setup
  * Signature: (Lcom/intel/qat/QatSession;IJII)V
@@ -295,6 +359,8 @@ JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_setup(
 }
 
 /*
+ *  Compresses a direct byte buffer.
+ *
  * Class:     com_intel_qat_InternalJNI
  * Method:    compressDirectByteBuffer
  * Signature: (JLjava/nio/ByteBuffer;IILjava/nio/ByteBuffer;III)I
@@ -338,6 +404,8 @@ jint JNICALL Java_com_intel_qat_InternalJNI_compressDirectByteBuffer(
 }
 
 /*
+ * Compresses a byte array or an array backed byte buffer.
+ *
  * Class:     com_intel_qat_InternalJNI
  * Method:    compressArrayOrBuffer
  * Signature: (JLjava/nio/ByteBuffer;[BII[BIII)I
@@ -382,6 +450,8 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_compressArrayOrBuffer(
 }
 
 /*
+ *  Decompresses a direct byte buffer.
+ *
  * Class:     com_intel_qat_InternalJNI
  * Method:    decompressDirectByteBuffer
  * Signature: (JLjava/nio/ByteBuffer;IILjava/nio/ByteBuffer;III)I
@@ -426,6 +496,8 @@ Java_com_intel_qat_InternalJNI_decompressDirectByteBuffer(
 }
 
 /*
+ * Decompresses a byte array or an array backed byte buffer.
+ *
  * Class:     com_intel_qat_InternalJNI
  * Method:    decompressArrayOrBuffer
  * Signature: (JLjava/nio/ByteBuffer;[BII[BIII)I
@@ -469,6 +541,8 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_decompressArrayOrBuffer(
 }
 
 /*
+ * Evaluates the maximum compressed size for the given buffer size.
+ *
  * Class:     com_intel_qat_InternalJNI
  * Method:    maxCompressedSize
  * Signature: (JJ)I
@@ -484,6 +558,8 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_maxCompressedSize(
 }
 
 /*
+ * Tearsdown the given QAT session.
+ *
  * Class:     com_intel_qat_InternalJNI
  * Method:    teardown
  * Signature: (J)I

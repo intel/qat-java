@@ -7,6 +7,13 @@
 
 #include <stdio.h>
 
+/**
+ * Gets the QAT string for the given error code.
+ *
+ * @param err_code the error code.
+ * @return the QAT string associated with the given error code.
+ *
+ */
 static char *get_error_msg(int err_code)
 {
   switch (err_code) {
@@ -66,6 +73,14 @@ static char *get_error_msg(int err_code)
   return "INVALID_ERROR_CODE";
 }
 
+/**
+ * Throws a QatException with the given error code and message.
+ *
+ * @param env a pointer to the JNI environment.
+ * @param err_code the error code for this exception.
+ * @param err_msg the message for the error code.
+ *
+ */
 void throw_exception(JNIEnv *env, jlong err_code, const char *err_msg)
 {
   char buff[256];
