@@ -201,14 +201,14 @@ public class QatSession {
     if (dst.isReadOnly())
       throw new ReadOnlyBufferException();
 
-    int comSize = 0;
+    int compressedSize = 0;
     if (src.isDirect() && dst.isDirect()) {
-      comSize = InternalJNI.compressDirectByteBuffer(
+      compressedSize = InternalJNI.compressDirectByteBuffer(
           session, src, src.position(), src.limit(), dst, dst.position(), dst.limit(), retryCount);
     } else if (src.hasArray() && dst.hasArray()) {
-      comSize = InternalJNI.compressArrayOrBuffer(
+      compressedSize = InternalJNI.compressArrayOrBuffer(
           session, src, src.array(), src.position(), src.limit(), dst.array(), dst.position(), dst.limit(), retryCount);
-      dst.position(dst.position() + comSize);
+      dst.position(dst.position() + compressedSize);
     } else {
       int srcLen = src.remaining();
       int dstLen = dst.remaining();
@@ -222,14 +222,15 @@ public class QatSession {
       src.position(src.position() - srcLen);
       dst.position(dst.position() - dstLen);
 
-      comSize = InternalJNI.compressArrayOrBuffer(session, src, srcArr, 0, srcLen, dstArr, 0, dstLen, retryCount);
-      dst.put(dstArr, 0, comSize);
+      compressedSize =
+          InternalJNI.compressArrayOrBuffer(session, src, srcArr, 0, srcLen, dstArr, 0, dstLen, retryCount);
+      dst.put(dstArr, 0, compressedSize);
     }
 
-    if (comSize < 0)
+    if (compressedSize < 0)
       throw new QatException("QAT: Compression failed");
 
-    return comSize;
+    return compressedSize;
   }
 
   /**
@@ -254,13 +255,13 @@ public class QatSession {
     if (srcOffset < 0 || (srcLen > src.length) || srcOffset >= src.length)
       throw new ArrayIndexOutOfBoundsException("Source offset is out of bounds.");
 
-    int comSize = InternalJNI.compressArrayOrBuffer(
+    int compressedSize = InternalJNI.compressArrayOrBuffer(
         session, null, src, srcOffset, srcOffset + srcLen, dst, dstOffset, dstOffset + dstLen, retryCount);
 
-    if (comSize < 0)
+    if (compressedSize < 0)
       throw new QatException("QAT: Compression failed");
 
-    return comSize;
+    return compressedSize;
   }
 
   /**
@@ -284,14 +285,14 @@ public class QatSession {
     if (dst.isReadOnly())
       throw new ReadOnlyBufferException();
 
-    int decSize = 0;
+    int decompressedSize = 0;
     if (src.isDirect() && dst.isDirect()) {
-      decSize = InternalJNI.decompressDirectByteBuffer(
+      decompressedSize = InternalJNI.decompressDirectByteBuffer(
           session, src, src.position(), src.limit(), dst, dst.position(), dst.limit(), retryCount);
     } else if (src.hasArray() && dst.hasArray()) {
-      decSize = InternalJNI.decompressArrayOrBuffer(
+      decompressedSize = InternalJNI.decompressArrayOrBuffer(
           session, src, src.array(), src.position(), src.limit(), dst.array(), dst.position(), dst.limit(), retryCount);
-      dst.position(dst.position() + decSize);
+      dst.position(dst.position() + decompressedSize);
     } else {
       int srcLen = src.remaining();
       int dstLen = dst.remaining();
@@ -306,14 +307,15 @@ public class QatSession {
       // reset src and dst positions
       src.position(src.position() - srcLen);
       dst.position(dst.position() - dstLen);
-      decSize = InternalJNI.decompressArrayOrBuffer(session, src, srcArr, 0, srcLen, dstArr, 0, dstLen, retryCount);
-      dst.put(dstArr, 0, decSize);
+      decompressedSize =
+          InternalJNI.decompressArrayOrBuffer(session, src, srcArr, 0, srcLen, dstArr, 0, dstLen, retryCount);
+      dst.put(dstArr, 0, decompressedSize);
     }
 
-    if (decSize < 0)
+    if (decompressedSize < 0)
       throw new QatException("QAT: Compression failed");
 
-    return decSize;
+    return decompressedSize;
   }
 
   /**
@@ -338,13 +340,13 @@ public class QatSession {
     if (srcOffset < 0 || (srcLen > src.length) || srcOffset >= src.length)
       throw new ArrayIndexOutOfBoundsException("Source offset is out of bounds.");
 
-    int decSize = InternalJNI.decompressArrayOrBuffer(
+    int decompressedSize = InternalJNI.decompressArrayOrBuffer(
         session, null, src, srcOffset, srcOffset + srcLen, dst, dstOffset, dstOffset + dstLen, retryCount);
 
-    if (decSize < 0)
+    if (decompressedSize < 0)
       throw new QatException("QAT: decompression failed");
 
-    return decSize;
+    return decompressedSize;
   }
 
   /**

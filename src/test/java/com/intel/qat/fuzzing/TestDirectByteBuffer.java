@@ -23,11 +23,11 @@ public class TestDirectByteBuffer {
       srcBuf.flip();
 
       QatSession qatSession = new QatSession();
-      int comSize = qatSession.maxCompressedLength(src.length);
+      int compressedSize = qatSession.maxCompressedLength(src.length);
 
-      assert comSize > 0;
+      assert compressedSize > 0;
 
-      ByteBuffer comBuf = ByteBuffer.allocateDirect(comSize);
+      ByteBuffer comBuf = ByteBuffer.allocateDirect(compressedSize);
       qatSession.compress(srcBuf, comBuf);
       comBuf.flip();
 

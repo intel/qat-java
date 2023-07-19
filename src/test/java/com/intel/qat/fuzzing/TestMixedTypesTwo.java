@@ -23,11 +23,11 @@ public class TestMixedTypesTwo {
       srcBuf.flip();
 
       QatSession qatSession = new QatSession();
-      int comSize = qatSession.maxCompressedLength(src.length);
+      int compressedSize = qatSession.maxCompressedLength(src.length);
 
-      assert comSize > 0;
+      assert compressedSize > 0;
 
-      ByteBuffer comBuf = ByteBuffer.allocate(comSize);
+      ByteBuffer comBuf = ByteBuffer.allocate(compressedSize);
       qatSession.compress(srcBuf, comBuf);
       comBuf.flip();
 

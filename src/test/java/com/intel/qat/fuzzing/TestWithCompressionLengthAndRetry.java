@@ -27,8 +27,8 @@ public class TestWithCompressionLengthAndRetry {
       byte[] dst = new byte[qatSession.maxCompressedLength(src.length)];
       byte[] dec = new byte[src.length];
 
-      int comSize = qatSession.compress(src, 0, src.length, dst, 0, dst.length);
-      qatSession.decompress(dst, 0, comSize, dec, 0, dec.length);
+      int compressedSize = qatSession.compress(src, 0, src.length, dst, 0, dst.length);
+      qatSession.decompress(dst, 0, compressedSize, dec, 0, dec.length);
 
       qatSession.endSession();
 

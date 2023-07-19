@@ -23,13 +23,13 @@ public class TestMixedTypesThree {
       srcBuf.flip();
 
       QatSession qatSession = new QatSession();
-      int comSize = qatSession.maxCompressedLength(src.length);
+      int compressedSize = qatSession.maxCompressedLength(src.length);
 
-      assert comSize > 0;
+      assert compressedSize > 0;
       ByteBuffer readonlyBuf = srcBuf.asReadOnlyBuffer();
       srcBuf.flip();
 
-      ByteBuffer comBuf = ByteBuffer.allocate(comSize);
+      ByteBuffer comBuf = ByteBuffer.allocate(compressedSize);
       qatSession.compress(readonlyBuf, comBuf);
       comBuf.flip();
 

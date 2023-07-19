@@ -142,17 +142,17 @@ public class QatTest {
       ByteBuffer dstBuf = ByteBuffer.wrap(dst);
       ByteBuffer decBuf = ByteBuffer.wrap(dec);
 
-      int comSize = qatSession.compress(srcBuf, dstBuf);
+      int compressedSize = qatSession.compress(srcBuf, dstBuf);
 
-      assertTrue(comSize > 0);
+      assertTrue(compressedSize > 0);
       assertNotNull(dstBuf);
 
       dstBuf.flip();
 
-      int decSize = qatSession.decompress(dstBuf, decBuf);
+      int decompressedSize = qatSession.decompress(dstBuf, decBuf);
 
       assertNotNull(decBuf);
-      assertTrue(decSize > 0);
+      assertTrue(decompressedSize > 0);
       assertTrue(Arrays.equals(src, dec));
     } catch (QatException | IllegalStateException | IllegalArgumentException | ReadOnlyBufferException e) {
       fail(e.getMessage());
@@ -176,20 +176,20 @@ public class QatTest {
 
       srcBuf.put(src, 0, src.length);
       srcBuf.flip();
-      int comSize = qatSession.compress(srcBuf, dstBuf);
+      int compressedSize = qatSession.compress(srcBuf, dstBuf);
 
-      assertTrue(comSize > 0);
+      assertTrue(compressedSize > 0);
 
       assertNotNull(dstBuf);
 
       dstBuf.flip();
-      int decSize = qatSession.decompress(dstBuf, decBuf);
+      int decompressedSize = qatSession.decompress(dstBuf, decBuf);
 
       assertNotNull(decBuf);
-      assertTrue(decSize > 0);
+      assertTrue(decompressedSize > 0);
 
       decBuf.flip();
-      decBuf.get(dec, 0, decSize);
+      decBuf.get(dec, 0, decompressedSize);
 
       assertTrue(Arrays.equals(src, dec));
     } catch (QatException | IllegalStateException | IllegalArgumentException | ArrayIndexOutOfBoundsException e) {
@@ -215,20 +215,20 @@ public class QatTest {
       srcBuf.put(src, 0, src.length);
       srcBuf.flip();
 
-      int comSize = qatSession.compress(srcBuf.asReadOnlyBuffer(), dstBuf);
+      int compressedSize = qatSession.compress(srcBuf.asReadOnlyBuffer(), dstBuf);
 
-      assertTrue(comSize > 0);
+      assertTrue(compressedSize > 0);
 
       assertNotNull(dstBuf);
 
       dstBuf.flip();
-      int decSize = qatSession.decompress(dstBuf.asReadOnlyBuffer(), decBuf);
+      int decompressedSize = qatSession.decompress(dstBuf.asReadOnlyBuffer(), decBuf);
 
       assertNotNull(decBuf);
-      assertTrue(decSize > 0);
+      assertTrue(decompressedSize > 0);
 
       decBuf.flip();
-      decBuf.get(dec, 0, decSize);
+      decBuf.get(dec, 0, decompressedSize);
       assertTrue(Arrays.equals(dec, src));
     } catch (QatException | IllegalStateException | IllegalArgumentException | ReadOnlyBufferException e) {
       fail(e.getMessage());
@@ -246,10 +246,10 @@ public class QatTest {
       byte[] dec = new byte[src.length];
       byte[] dst = new byte[qatSession.maxCompressedLength(src.length)];
 
-      int comSize = qatSession.compress(src, 0, src.length, dst, 0, dst.length);
+      int compressedSize = qatSession.compress(src, 0, src.length, dst, 0, dst.length);
       assertNotNull(dst);
 
-      qatSession.decompress(dst, 0, comSize, dec, 0, dec.length);
+      qatSession.decompress(dst, 0, compressedSize, dec, 0, dec.length);
       assertNotNull(dec);
       assertTrue(Arrays.equals(src, dec));
     } catch (QatException | IllegalStateException | IllegalArgumentException | ArrayIndexOutOfBoundsException e) {
@@ -267,10 +267,10 @@ public class QatTest {
       byte[] dec = new byte[src.length];
       byte[] dst = new byte[qatSession.maxCompressedLength(src.length)];
 
-      int comSize = qatSession.compress(src, 0, src.length, dst, 0, dst.length);
+      int compressedSize = qatSession.compress(src, 0, src.length, dst, 0, dst.length);
       assertNotNull(dst);
 
-      qatSession.decompress(dst, 0, comSize, dec, 0, dec.length);
+      qatSession.decompress(dst, 0, compressedSize, dec, 0, dec.length);
       assertNotNull(dec);
       assertTrue(Arrays.equals(src, dec));
     } catch (QatException | IllegalStateException | IllegalArgumentException | ArrayIndexOutOfBoundsException e) {
@@ -295,24 +295,24 @@ public class QatTest {
       decBuf.put(src);
       decBuf.flip();
 
-      int comSize = qatSession.compress(decBuf, comBuf);
-      assertEquals(comBuf.position(), comSize);
+      int compressedSize = qatSession.compress(decBuf, comBuf);
+      assertEquals(comBuf.position(), compressedSize);
 
       int byteArrayCompSize = qatSession.compress(src, 0, src.length, dst, 0, dst.length);
 
-      assertEquals(comSize, byteArrayCompSize);
+      assertEquals(compressedSize, byteArrayCompSize);
 
       comBuf.flip();
       byte[] compByteBufferArray = new byte[comBuf.limit()];
       comBuf.get(compByteBufferArray);
 
-      for (int i = 0; i < comSize; i++) {
+      for (int i = 0; i < compressedSize; i++) {
         if (dst[i] != compByteBufferArray[i])
           fail("compressed data not same");
       }
       comBuf.flip();
 
-      int decSize = qatSession.decompress(comBuf, resultBuffer);
+      int decompressedSize = qatSession.decompress(comBuf, resultBuffer);
       int byteArrayDecompSize = qatSession.decompress(dst, 0, byteArrayCompSize, resultArray, 0, resultArray.length);
       resultBuffer.flip();
 
@@ -335,10 +335,10 @@ public class QatTest {
       byte[] dec = new byte[src.length];
       byte[] dst = new byte[qatSession.maxCompressedLength(src.length)];
 
-      int comSize = qatSession.compress(src, 0, src.length, dst, 0, dst.length);
+      int compressedSize = qatSession.compress(src, 0, src.length, dst, 0, dst.length);
       assertNotNull(dst);
 
-      qatSession.decompress(dst, 0, comSize, dec, 0, dec.length);
+      qatSession.decompress(dst, 0, compressedSize, dec, 0, dec.length);
 
       assertNotNull(dec);
       assertTrue(Arrays.equals(src, dec));
@@ -418,11 +418,11 @@ public class QatTest {
       assertNotNull(dstBuf);
 
       dstBuf.flip();
-      int decSize = qatSession.decompress(dstBuf, decBuf);
+      int decompressedSize = qatSession.decompress(dstBuf, decBuf);
       assertNotNull(dec);
 
       decBuf.flip();
-      decBuf.get(dec, 0, decSize);
+      decBuf.get(dec, 0, decompressedSize);
 
       assertTrue(Arrays.equals(src, dec));
     } catch (QatException e) {
@@ -450,11 +450,11 @@ public class QatTest {
       assertNotNull(dstBuf);
 
       dstBuf.flip();
-      int decSize = qatSession.decompress(dstBuf, decBuf);
+      int decompressedSize = qatSession.decompress(dstBuf, decBuf);
       assertNotNull(dec);
 
       decBuf.flip();
-      decBuf.get(dec, 0, decSize);
+      decBuf.get(dec, 0, decompressedSize);
 
       assertTrue(Arrays.equals(src, dec));
     } catch (QatException e) {
@@ -467,7 +467,7 @@ public class QatTest {
     try {
       qatSession = new QatSession();
 
-      int comSize = qatSession.compress(null, null);
+      int compressedSize = qatSession.compress(null, null);
       fail("testCompressWithNullByteBuff fails");
     } catch (IllegalArgumentException e) {
       assertTrue(true);
@@ -488,7 +488,7 @@ public class QatTest {
   public void testDecompressWithNullByteBuffer() {
     try {
       qatSession = new QatSession();
-      int comSize = qatSession.decompress(null, null);
+      int compressedSize = qatSession.decompress(null, null);
       fail("testDecompressWithNullByteBuff fails");
     } catch (IllegalArgumentException e) {
       assertTrue(true);
@@ -499,7 +499,7 @@ public class QatTest {
   public void testDecompressWithNullByteArray() {
     try {
       qatSession = new QatSession();
-      int comSize = qatSession.decompress(null, 0, 100, null, 0, 0);
+      int compressedSize = qatSession.decompress(null, 0, 100, null, 0, 0);
       fail("testDecompressWithNullByteArray fails");
     } catch (IllegalArgumentException e) {
       assertTrue(true);
@@ -570,10 +570,10 @@ public class QatTest {
       assertNotNull(dstBuf);
       dstBuf.flip();
 
-      int decSize = qatSession.decompress(dstBuf, decBuf);
+      int decompressedSize = qatSession.decompress(dstBuf, decBuf);
       assertNotNull(dec);
       decBuf.flip();
-      decBuf.get(dec, 0, decSize);
+      decBuf.get(dec, 0, decompressedSize);
 
       assertTrue(Arrays.equals(src, dec));
     } catch (QatException e) {
@@ -745,11 +745,11 @@ public class QatTest {
       byte[] dst = new byte[qatSession.maxCompressedLength(src.length)];
       byte[] dec = new byte[src.length];
 
-      int comSize = qatSession.compress(src, 0, src.length, dst, 0, dst.length);
-      int decSize = qatSession.decompress(dst, 0, comSize, dec, 0, dec.length);
+      int compressedSize = qatSession.compress(src, 0, src.length, dst, 0, dst.length);
+      int decompressedSize = qatSession.decompress(dst, 0, compressedSize, dec, 0, dec.length);
 
-      assertTrue(comSize > 0);
-      assertEquals(decSize, src.length);
+      assertTrue(compressedSize > 0);
+      assertEquals(decompressedSize, src.length);
       assertTrue(Arrays.equals(src, dec));
     } catch (QatException | IOException e) {
       fail(e.getMessage());
@@ -765,12 +765,12 @@ public class QatTest {
       byte[] dst = new byte[qatSession.maxCompressedLength(src.length)];
       byte[] dec = new byte[src.length];
 
-      int comSize = qatSession.compress(src, 3, src.length - 3, dst, 0, dst.length);
+      int compressedSize = qatSession.compress(src, 3, src.length - 3, dst, 0, dst.length);
 
-      int decSize = qatSession.decompress(dst, 0, comSize, dec, 3, dec.length - 3);
+      int decompressedSize = qatSession.decompress(dst, 0, compressedSize, dec, 3, dec.length - 3);
 
-      assertTrue(comSize > 0);
-      assertEquals(decSize, src.length - 3);
+      assertTrue(compressedSize > 0);
+      assertEquals(decompressedSize, src.length - 3);
 
       String book2 = new String(src, StandardCharsets.UTF_8);
       assertTrue(book2.substring(3).compareTo(new String(dec, StandardCharsets.UTF_8).substring(3)) == 0);
@@ -801,19 +801,19 @@ public class QatTest {
       dst.clear();
       dst.position(outOffset);
 
-      int comSize = qatSession.compress(src, dst);
+      int compressedSize = qatSession.compress(src, dst);
       int comLen = dst.position() - outOffset;
-      assertEquals(comSize, comLen);
+      assertEquals(compressedSize, comLen);
 
       ByteBuffer result = ByteBuffer.allocate(data.length + 100);
       dst.flip();
       dst.position(outOffset);
 
-      int decSize = qatSession.decompress(dst, result);
+      int decompressedSize = qatSession.decompress(dst, result);
       src.flip();
       result.flip();
 
-      assertEquals(decSize, data.length);
+      assertEquals(decompressedSize, data.length);
       assertTrue(result.compareTo(src) == 0);
 
     } catch (QatException | IllegalArgumentException e) {
@@ -836,15 +836,15 @@ public class QatTest {
       srcBuf.put(src);
       srcBuf.flip();
 
-      int comSize = qatSession.compress(srcBuf, comBuf);
+      int compressedSize = qatSession.compress(srcBuf, comBuf);
       comBuf.flip();
 
-      int decSize = qatSession.decompress(comBuf, decBuf);
+      int decompressedSize = qatSession.decompress(comBuf, decBuf);
       decBuf.flip();
-      decBuf.get(dec, 0, decSize);
+      decBuf.get(dec, 0, decompressedSize);
 
-      assertTrue(comSize > 0);
-      assertEquals(decSize, src.length);
+      assertTrue(compressedSize > 0);
+      assertEquals(decompressedSize, src.length);
       assertTrue(Arrays.equals(src, dec));
     } catch (QatException | IOException | IllegalArgumentException e) {
       fail(e.getMessage());
@@ -866,16 +866,16 @@ public class QatTest {
       srcBuf.put(src);
       srcBuf.flip();
 
-      int comSize = qatSession.compress(srcBuf, comBuf);
+      int compressedSize = qatSession.compress(srcBuf, comBuf);
       comBuf.flip();
 
-      int decSize = qatSession.decompress(comBuf, decBuf);
+      int decompressedSize = qatSession.decompress(comBuf, decBuf);
 
       decBuf.flip();
-      decBuf.get(dec, 0, decSize);
+      decBuf.get(dec, 0, decompressedSize);
 
-      assertTrue(comSize > 0);
-      assertEquals(decSize, src.length);
+      assertTrue(compressedSize > 0);
+      assertEquals(decompressedSize, src.length);
       assertTrue(Arrays.equals(src, dec));
     } catch (QatException | IOException e) {
       fail(e.getMessage());
@@ -896,16 +896,16 @@ public class QatTest {
       srcBuf.put(src);
       srcBuf.flip();
 
-      int comSize = qatSession.compress(srcBuf, comBuf);
+      int compressedSize = qatSession.compress(srcBuf, comBuf);
       comBuf.flip();
 
-      int decSize = qatSession.decompress(comBuf, decBuf);
+      int decompressedSize = qatSession.decompress(comBuf, decBuf);
 
       decBuf.flip();
-      decBuf.get(dec, 0, decSize);
+      decBuf.get(dec, 0, decompressedSize);
 
-      assertTrue(comSize > 0);
-      assertEquals(decSize, src.length);
+      assertTrue(compressedSize > 0);
+      assertEquals(decompressedSize, src.length);
       assertTrue(Arrays.equals(src, dec));
     } catch (QatException | IOException e) {
       fail(e.getMessage());
