@@ -44,14 +44,14 @@ import org.openjdk.jmh.annotations.Measurement;
 import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Mode;
-import com.intel.qat.QatSession;
+import com.intel.qat.QatZip;
 import java.util.Random;
 import java.util.zip.Deflater;
 
 public class MyBenchmark {
 
   @State(Scope.Thread)
-  public static class QatZip {
+  public static class QatCompressor {
 
     private static int ASCII_LOW = 33;
     private static int ASCII_HIGH = 126;
@@ -61,18 +61,17 @@ public class MyBenchmark {
     private static int pinMemSize;
     */
 
-    //@Param({"100", "1024", "1048576"})
-    @Param({"1048576"})
+    @Param({"128", "1024", "1048576"})
     private static int srcLen;
 
-    private QatSession qatSession;
+    private QatZip qatSession;
 
     private byte[] src;
     private byte[] dst;
 
     @Setup(Level.Trial)
     public void setup() {
-      qatSession = new QatSession();
+      qatSession = new QatZip();
 
       src = new byte[srcLen];
       dst = new byte[qatSession.maxCompressedLength(srcLen)];
@@ -103,8 +102,7 @@ public class MyBenchmark {
     private static int ASCII_LOW = 33;
     private static int ASCII_HIGH = 126;
     
-    //@Param({"100", "1024", "1048576"})
-    @Param({"1048576"})
+    @Param({"128", "1024", "1048576"})
     private static int srcLen;
     
     private Deflater deflater;
@@ -141,7 +139,7 @@ public class MyBenchmark {
     }
   }
 
-  public void compress(QatZip qatZip) {
+  public void compress(QatCompressor qatZip) {
     qatZip.compress();
   }
 

@@ -7,7 +7,7 @@ package com.intel.qat.fuzzing;
 
 import com.code_intelligence.jazzer.api.FuzzedDataProvider;
 import com.intel.qat.QatException;
-import com.intel.qat.QatSession;
+import com.intel.qat.QatZip;
 import java.nio.ByteBuffer;
 
 public class TestMixedTypesTwo {
@@ -22,7 +22,7 @@ public class TestMixedTypesTwo {
       srcBuf.put(src, 0, src.length);
       srcBuf.flip();
 
-      QatSession qatSession = new QatSession();
+      QatZip qatSession = new QatZip();
       int compressedSize = qatSession.maxCompressedLength(src.length);
 
       assert compressedSize > 0;

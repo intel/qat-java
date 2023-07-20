@@ -7,7 +7,7 @@ package com.intel.qat.fuzzing;
 
 import com.code_intelligence.jazzer.api.FuzzedDataProvider;
 import com.intel.qat.QatException;
-import com.intel.qat.QatSession;
+import com.intel.qat.QatZip;
 import java.util.Arrays;
 import java.util.Random;
 
@@ -21,8 +21,7 @@ public class TestWithCompressionLengthAndRetry {
       int retryCount = new Random().nextInt(20);
 
       byte[] src = data.consumeRemainingAsBytes();
-      QatSession qatSession =
-          new QatSession(QatSession.CompressionAlgorithm.DEFLATE, comLevel, QatSession.Mode.AUTO, retryCount);
+      QatZip qatSession = new QatZip(QatZip.CompressionAlgorithm.DEFLATE, comLevel, QatZip.Mode.AUTO, retryCount);
 
       byte[] dst = new byte[qatSession.maxCompressedLength(src.length)];
       byte[] dec = new byte[src.length];

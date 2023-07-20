@@ -29,11 +29,11 @@ typedef int (*kernel_func)(JNIEnv *env, QzSession_T *sess,
  * A type for storing QAT session and pinned memory buffers.
  */
 struct Session_T {
-  QzSession_T *qz_session;      /** A pointer to the QAT session. */
-  unsigned char *pin_mem_src;   /** A pointer to the source buffer. */
-  unsigned char *pin_mem_dst;   /** A pointer to the destination buffer. */
-  int pin_mem_src_size;         /** The size of the source buffer. */
-  int pin_mem_dst_size;         /** The size of the destination buffer. */
+  QzSession_T *qz_session;    /** A pointer to the QAT session. */
+  unsigned char *pin_mem_src; /** A pointer to the source buffer. */
+  unsigned char *pin_mem_dst; /** A pointer to the destination buffer. */
+  int pin_mem_src_size;       /** The size of the source buffer. */
+  int pin_mem_dst_size;       /** The size of the destination buffer. */
 };
 
 /**
@@ -298,7 +298,7 @@ static int compress_or_decompress(kernel_func kf, JNIEnv *env,
  *
  * Class:     com_intel_qat_InternalJNI
  * Method:    setup
- * Signature: (Lcom/intel/qat/QatSession;IJII)V
+ * Signature: (Lcom/intel/qat/QatZip;IJII)V
  */
 JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_setup(
     JNIEnv *env, jobject obj, jobject qat_session_obj, jint sw_backup,

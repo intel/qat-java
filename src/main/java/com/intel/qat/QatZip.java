@@ -13,7 +13,7 @@ import java.nio.ReadOnlyBufferException;
  * Defines APIs for creation of setting up hardware based QAT session(with or
  * without software backup, compression and decompression APIs
  */
-public class QatSession {
+public class QatZip {
   /**
    * Default compression is set to 6, this is to align with default compression
    * mode chosen as ZLIB
@@ -69,7 +69,7 @@ public class QatSession {
   /**
    * Constructs a new QAT session object using deflate.
    */
-  public QatSession() {
+  public QatZip() {
     this(CompressionAlgorithm.DEFLATE, DEFAULT_COMPRESS_LEVEL, Mode.AUTO, DEFAULT_RETRY_COUNT);
   }
 
@@ -78,7 +78,7 @@ public class QatSession {
    *
    * @param mode the mode of operation (HARDWARE - only hardware, AUTO - hardware with a software failover.)
    */
-  public QatSession(Mode mode) {
+  public QatZip(Mode mode) {
     this(CompressionAlgorithm.DEFLATE, DEFAULT_COMPRESS_LEVEL, mode, DEFAULT_RETRY_COUNT);
   }
 
@@ -87,7 +87,7 @@ public class QatSession {
    *
    * @param compressionAlgorithm the compression algorithm (deflate or LZ4).
    */
-  public QatSession(CompressionAlgorithm compressionAlgorithm) {
+  public QatZip(CompressionAlgorithm compressionAlgorithm) {
     this(compressionAlgorithm, DEFAULT_COMPRESS_LEVEL, Mode.AUTO, DEFAULT_RETRY_COUNT);
   }
 
@@ -97,7 +97,7 @@ public class QatSession {
    * @param compressionAlgorithm the compression algorithm (deflate or LZ4).
    * @param mode the mode of operation (HARDWARE - only hardware, AUTO - hardware with a software failover.)
    */
-  public QatSession(CompressionAlgorithm compressionAlgorithm, Mode mode) {
+  public QatZip(CompressionAlgorithm compressionAlgorithm, Mode mode) {
     this(compressionAlgorithm, DEFAULT_COMPRESS_LEVEL, mode, DEFAULT_RETRY_COUNT);
   }
 
@@ -107,7 +107,7 @@ public class QatSession {
    * @param compressionAlgorithm the compression algorithm (deflate or LZ4).
    * @param compressionLevel the compression level.
    */
-  public QatSession(CompressionAlgorithm compressionAlgorithm, int compressionLevel) {
+  public QatZip(CompressionAlgorithm compressionAlgorithm, int compressionLevel) {
     this(compressionAlgorithm, compressionLevel, Mode.AUTO, DEFAULT_RETRY_COUNT);
   }
 
@@ -118,7 +118,7 @@ public class QatSession {
    * @param compressionLevel the compression level.
    * @param mode the mode of operation (HARDWARE - only hardware, AUTO - hardware with a software failover.)
    */
-  public QatSession(CompressionAlgorithm compressionAlgorithm, int compressionLevel, Mode mode) {
+  public QatZip(CompressionAlgorithm compressionAlgorithm, int compressionLevel, Mode mode) {
     this(compressionAlgorithm, compressionLevel, mode, DEFAULT_RETRY_COUNT);
   }
 
@@ -130,7 +130,7 @@ public class QatSession {
    * @param mode the mode of operation (HARDWARE - only hardware, AUTO - hardware with a software failover.)
    * @param retryCount how many times to seek for a hardware resources before giving up.
    */
-  public QatSession(CompressionAlgorithm compressionAlgorithm, int compressionLevel, Mode mode, int retryCount) {
+  public QatZip(CompressionAlgorithm compressionAlgorithm, int compressionLevel, Mode mode, int retryCount) {
     this(compressionAlgorithm, compressionLevel, mode, retryCount, DEFAULT_PIN_MEM_SIZE);
   }
 
@@ -144,7 +144,7 @@ public class QatSession {
    * @param pinnedMemorySize the size of the internal buffer used for compression/decompression (for advanced users).
    * @throws QatException if QAT session cannot be created.
    */
-  public QatSession(CompressionAlgorithm compressionAlgorithm, int compressionLevel, Mode mode, int retryCount,
+  public QatZip(CompressionAlgorithm compressionAlgorithm, int compressionLevel, Mode mode, int retryCount,
       long pinnedMemorySize) throws QatException {
     if (!validateParams(compressionAlgorithm, compressionLevel, retryCount))
       throw new IllegalArgumentException("Invalid compression level or retry count.");
@@ -374,19 +374,19 @@ public class QatSession {
    * Gets a cleaner object.
    */
   Runnable getCleaner() {
-    return new QatSessionCleaner(session);
+    return new QatZipCleaner(session);
   }
 
   /**
    * A QAT session cleaner that cleans up QAT session.
    */
-  static class QatSessionCleaner implements Runnable {
+  static class QatZipCleaner implements Runnable {
     private long qzSession;
 
     /**
      * Constructs a Cleaner object to clean up QAT session.
      */
-    public QatSessionCleaner(long qzSession) {
+    public QatZipCleaner(long qzSession) {
       this.qzSession = qzSession;
     }
 

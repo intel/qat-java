@@ -7,7 +7,7 @@ package com.intel.qat.fuzzing;
 
 import com.code_intelligence.jazzer.api.FuzzedDataProvider;
 import com.intel.qat.QatException;
-import com.intel.qat.QatSession;
+import com.intel.qat.QatZip;
 import java.util.Arrays;
 import java.util.Random;
 
@@ -17,7 +17,7 @@ public class TestByteArrayWithParams {
       if (data.remainingBytes() == 0)
         return;
 
-      QatSession qatSession = new QatSession();
+      QatZip qatSession = new QatZip();
 
       byte[] src = data.consumeRemainingAsBytes();
       byte[] dst = new byte[qatSession.maxCompressedLength(src.length)];
