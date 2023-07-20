@@ -21,7 +21,7 @@ public class TestWithCompressionLengthAndRetry {
       int retryCount = new Random().nextInt(20);
 
       byte[] src = data.consumeRemainingAsBytes();
-      QatZip qatSession = new QatZip(QatZip.CompressionAlgorithm.DEFLATE, comLevel, QatZip.Mode.AUTO, retryCount);
+      QatZip qatSession = new QatZip(QatZip.Codec.DEFLATE, comLevel, QatZip.Mode.AUTO, retryCount);
 
       byte[] dst = new byte[qatSession.maxCompressedLength(src.length)];
       byte[] dec = new byte[src.length];

@@ -54,7 +54,7 @@ public class QatZip {
   /**
    * The compression algorithm -- either DEFLATE or LZ4.
    */
-  public static enum CompressionAlgorithm {
+  public static enum Codec {
     /**
      * ZLIB compression
      */
@@ -70,7 +70,7 @@ public class QatZip {
    * Constructs a new QAT session object using deflate.
    */
   public QatZip() {
-    this(CompressionAlgorithm.DEFLATE, DEFAULT_COMPRESS_LEVEL, Mode.AUTO, DEFAULT_RETRY_COUNT);
+    this(Codec.DEFLATE, DEFAULT_COMPRESS_LEVEL, Mode.AUTO, DEFAULT_RETRY_COUNT);
   }
 
   /**
@@ -79,78 +79,77 @@ public class QatZip {
    * @param mode the mode of operation (HARDWARE - only hardware, AUTO - hardware with a software failover.)
    */
   public QatZip(Mode mode) {
-    this(CompressionAlgorithm.DEFLATE, DEFAULT_COMPRESS_LEVEL, mode, DEFAULT_RETRY_COUNT);
+    this(Codec.DEFLATE, DEFAULT_COMPRESS_LEVEL, mode, DEFAULT_RETRY_COUNT);
   }
 
   /**
    * Constructs a new QAT session using the given compression algorithm.
    *
-   * @param compressionAlgorithm the compression algorithm (deflate or LZ4).
+   * @param codec the compression algorithm (deflate or LZ4).
    */
-  public QatZip(CompressionAlgorithm compressionAlgorithm) {
-    this(compressionAlgorithm, DEFAULT_COMPRESS_LEVEL, Mode.AUTO, DEFAULT_RETRY_COUNT);
+  public QatZip(Codec codec) {
+    this(codec, DEFAULT_COMPRESS_LEVEL, Mode.AUTO, DEFAULT_RETRY_COUNT);
   }
 
   /**
    * Constructs a new QAT session using the given compression algorithm and operation mode.
    *
-   * @param compressionAlgorithm the compression algorithm (deflate or LZ4).
+   * @param codec the compression algorithm (deflate or LZ4).
    * @param mode the mode of operation (HARDWARE - only hardware, AUTO - hardware with a software failover.)
    */
-  public QatZip(CompressionAlgorithm compressionAlgorithm, Mode mode) {
-    this(compressionAlgorithm, DEFAULT_COMPRESS_LEVEL, mode, DEFAULT_RETRY_COUNT);
+  public QatZip(Codec codec, Mode mode) {
+    this(codec, DEFAULT_COMPRESS_LEVEL, mode, DEFAULT_RETRY_COUNT);
   }
 
   /**
    * Constructs a new QAT session using the given compression algorithm and level.
    *
-   * @param compressionAlgorithm the compression algorithm (deflate or LZ4).
-   * @param compressionLevel the compression level.
+   * @param codec the compression algorithm (deflate or LZ4).
+   * @param level the compression level.
    */
-  public QatZip(CompressionAlgorithm compressionAlgorithm, int compressionLevel) {
-    this(compressionAlgorithm, compressionLevel, Mode.AUTO, DEFAULT_RETRY_COUNT);
+  public QatZip(Codec codec, int level) {
+    this(codec, level, Mode.AUTO, DEFAULT_RETRY_COUNT);
   }
 
   /**
    * Constructs a QAT session  using the given compression algorithm, level, and mode of operation.
    *
-   * @param compressionAlgorithm the compression algorithm (deflate or LZ4).
-   * @param compressionLevel the compression level.
+   * @param codec the compression algorithm (deflate or LZ4).
+   * @param level the compression level.
    * @param mode the mode of operation (HARDWARE - only hardware, AUTO - hardware with a software failover.)
    */
-  public QatZip(CompressionAlgorithm compressionAlgorithm, int compressionLevel, Mode mode) {
-    this(compressionAlgorithm, compressionLevel, mode, DEFAULT_RETRY_COUNT);
+  public QatZip(Codec codec, int level, Mode mode) {
+    this(codec, level, mode, DEFAULT_RETRY_COUNT);
   }
 
   /**
    * Constructs a QAT session using the given parameters.
    *
-   * @param compressionAlgorithm the compression algorithm (deflate or LZ4).
-   * @param compressionLevel the compression level.
+   * @param codec the compression algorithm (deflate or LZ4).
+   * @param level the compression level.
    * @param mode the mode of operation (HARDWARE - only hardware, AUTO - hardware with a software failover.)
    * @param retryCount how many times to seek for a hardware resources before giving up.
    */
-  public QatZip(CompressionAlgorithm compressionAlgorithm, int compressionLevel, Mode mode, int retryCount) {
-    this(compressionAlgorithm, compressionLevel, mode, retryCount, DEFAULT_PIN_MEM_SIZE);
+  public QatZip(Codec codec, int level, Mode mode, int retryCount) {
+    this(codec, level, mode, retryCount, DEFAULT_PIN_MEM_SIZE);
   }
 
   /**
    * Constructs a QAT session using the given parameters.
    *
-   * @param compressionAlgorithm the compression algorithm (deflate or LZ4).
-   * @param compressionLevel the compression level.
+   * @param codec the compression algorithm (deflate or LZ4).
+   * @param level the compression level.
    * @param mode the mode of operation (HARDWARE - only hardware, AUTO - hardware with a software failover.)
    * @param retryCount how many times to seek for a hardware resources before giving up.
    * @param pinnedMemorySize the size of the internal buffer used for compression/decompression (for advanced users).
    * @throws QatException if QAT session cannot be created.
    */
-  public QatZip(CompressionAlgorithm compressionAlgorithm, int compressionLevel, Mode mode, int retryCount,
-      long pinnedMemorySize) throws QatException {
-    if (!validateParams(compressionAlgorithm, compressionLevel, retryCount))
+  public QatZip(Codec codec, int level, Mode mode, int retryCount, long pinnedMemorySize) throws QatException {
+    if (!validateParams(codec, level, retryCount))
       throw new IllegalArgumentException("Invalid compression level or retry count.");
 
     this.retryCount = retryCount;
-    InternalJNI.setup(this, mode.ordinal(), pinnedMemorySize, compressionAlgorithm.ordinal(), compressionLevel);
+    InternalJNI.setup(this, mode.ordinal(), pinnedMemorySize, codec.ordinal(), level);
     isValid = true;
   }
 
@@ -178,6 +177,63 @@ public class QatZip {
       throw new IllegalStateException();
 
     return InternalJNI.maxCompressedSize(session, len);
+  }
+
+  /**
+   * Compresses the source array and stores the result in the destination array. Returns the actual number of bytes of
+   * data compressed.
+   *
+   * @param src the source array holding the source data.
+   * @param dst the destination array for the compressed data.
+   * @return the size of the compressed data in bytes.
+   */
+  public int compress(byte[] src, byte[] dst) {
+    return compress(src, 0, src.length, dst, 0, dst.length);
+  }
+
+  /**
+   * Compresses the source array and stores the result in the destination array. Returns the actual number of bytes of
+   * data compressed.
+   *
+   * @param src the source array holding the source data.
+   * @param srcOffset the start offset of the source data.
+   * @param srcLen the length of source data to compress.
+   * @param dst the destination array for the compressed data.
+   * @return the size of the compressed data in bytes.
+   */
+  public int compress(byte[] src, int srcOffset, int srcLen, byte[] dst) {
+    return compress(src, srcOffset, srcLen, dst, 0, dst.length);
+  }
+
+  /**
+   * Compresses the source array, starting at the given offset, and stores the result in the destination array starting
+   * at the given destination offset. Returns the actual number of bytes of data compressed.
+   *
+   * @param src the source array holding the source data.
+   * @param srcOffset the start offset of the source data.
+   * @param srcLen the length of source data to compress.
+   * @param dst the destination array for the compressed data.
+   * @param dstOffset the destination offset where to start storing the compressed data.
+   * @param dstLen the maximum length that can be written to the destination array.
+   * @return the size of the compressed data in bytes.
+   */
+  public int compress(byte[] src, int srcOffset, int srcLen, byte[] dst, int dstOffset, int dstLen) {
+    if (!isValid)
+      throw new IllegalStateException();
+
+    if (src == null || dst == null || srcLen == 0 || dst.length == 0)
+      throw new IllegalArgumentException("Either source or destination array or both have size 0 or null value.");
+
+    if (srcOffset < 0 || (srcLen > src.length) || srcOffset >= src.length)
+      throw new ArrayIndexOutOfBoundsException("Source offset is out of bounds.");
+
+    int compressedSize = InternalJNI.compressArrayOrBuffer(
+        session, null, src, srcOffset, srcOffset + srcLen, dst, dstOffset, dstOffset + dstLen, retryCount);
+
+    if (compressedSize < 0)
+      throw new QatException("QAT: Compression failed");
+
+    return compressedSize;
   }
 
   /**
@@ -234,34 +290,60 @@ public class QatZip {
   }
 
   /**
-   * Compresses the source array and stores the result in the destination array. Returns the actual number of bytes of
-   * data compressed.
+   * Decompresses the source array and stores the result in the destination array. Returns the actual number of bytes of
+   * data decompressed.
    *
-   * @param src the source array holding the source data.
-   * @param srcOffset the start offset of the source data.
-   * @param srcLen the length of source data to compress.
-   * @param dst the destination array for the compressed data.
-   * @param dstOffset the destination offset where to start storing the compressed data.
-   * @param dstLen the maximum length that can be written to the destination array.
-   * @return the size of the compressed data in bytes.
+   * @param src the source array holding the compressed data.
+   * @param dst the destination array for the decompressed data.
+   * @return the size of the decompressed data in bytes.
    */
-  public int compress(byte[] src, int srcOffset, int srcLen, byte[] dst, int dstOffset, int dstLen) {
+  public int decompress(byte[] src, byte[] dst) {
+    return decompress(src, 0, src.length, dst, 0, dst.length);
+  }
+
+  /**
+   * Decompresses the source array and stores the result in the destination array. Returns the actual number of bytes of
+   * data decompressed.
+   *
+   * @param src the source array holding the compressed data.
+   * @param srcOffset the start offset of the source.
+   * @param srcLen the length of source data to decompress.
+   * @param dst the destination array for the decompressed data.
+   * @return the size of the decompressed data in bytes.
+   */
+  public int decompress(byte[] src, int srcOffset, int srcLen, byte[] dst) {
+    return decompress(src, srcOffset, srcLen, dst, 0, dst.length);
+  }
+
+  /**
+   * Decompresses the source array, starting at the given offset, and stores the result in the destination array
+   * starting at the given destination offset. Returns the actual number of bytes of data decompressed.
+   *
+   * @param src the source array holding the compressed data.
+   * @param srcOffset the start offset of the source.
+   * @param srcLen the length of source data to decompress.
+   * @param dst the destination array for the decompressed data.
+   * @param dstOffset the destination offset where to start storing the decompressed data.
+   * @param dstLen the maximum length that can be written to the destination array.
+   * @return the size of the decompressed data in bytes.
+   */
+  public int decompress(byte[] src, int srcOffset, int srcLen, byte[] dst, int dstOffset, int dstLen) {
     if (!isValid)
       throw new IllegalStateException();
 
     if (src == null || dst == null || srcLen == 0 || dst.length == 0)
-      throw new IllegalArgumentException("Either source or destination array or both have size 0 or null value.");
+      throw new IllegalArgumentException("Empty source or/and destination byte array(s).");
 
     if (srcOffset < 0 || (srcLen > src.length) || srcOffset >= src.length)
       throw new ArrayIndexOutOfBoundsException("Source offset is out of bounds.");
 
-    int compressedSize = InternalJNI.compressArrayOrBuffer(
+    int decompressedSize = InternalJNI.decompressArrayOrBuffer(
         session, null, src, srcOffset, srcOffset + srcLen, dst, dstOffset, dstOffset + dstLen, retryCount);
 
-    if (compressedSize < 0)
-      throw new QatException("QAT: Compression failed");
+    if (decompressedSize < 0)
+      throw new QatException("QAT: decompression failed");
 
-    return compressedSize;
+    return decompressedSize;
   }
 
   /**
@@ -319,46 +401,15 @@ public class QatZip {
   }
 
   /**
-   * Decompresses the source array and stores the result in the destination array. Returns the actual number of bytes of
-   * data decompressed.
-   *
-   * @param src the source array holding the compressed data.
-   * @param srcOffset the start offset of the source.
-   * @param srcLen the length of source data to decompress.
-   * @param dst the destination array for the decompressed data.
-   * @param dstOffset the destination offset where to start storing the decompressed data.
-   * @param dstLen the maximum length that can be written to the destination array.
-   * @return the size of the decompressed data in bytes.
-   */
-  public int decompress(byte[] src, int srcOffset, int srcLen, byte[] dst, int dstOffset, int dstLen) {
-    if (!isValid)
-      throw new IllegalStateException();
-
-    if (src == null || dst == null || srcLen == 0 || dst.length == 0)
-      throw new IllegalArgumentException("Empty source or/and destination byte array(s).");
-
-    if (srcOffset < 0 || (srcLen > src.length) || srcOffset >= src.length)
-      throw new ArrayIndexOutOfBoundsException("Source offset is out of bounds.");
-
-    int decompressedSize = InternalJNI.decompressArrayOrBuffer(
-        session, null, src, srcOffset, srcOffset + srcLen, dst, dstOffset, dstOffset + dstLen, retryCount);
-
-    if (decompressedSize < 0)
-      throw new QatException("QAT: decompression failed");
-
-    return decompressedSize;
-  }
-
-  /**
    * Validates compression level and retry counts.
    *
-   * @param compressionAlgorithm the compression algorithm (deflate or LZ4).
-   * @param compressionLevel the compression level.
+   * @param codec the compression algorithm (deflate or LZ4).
+   * @param level the compression level.
    * @param retryCount how many times to seek for a hardware resources before giving up.
    * @return true if validation was successful, false otherwise.
    */
-  private boolean validateParams(CompressionAlgorithm compressionAlgorithm, int compressionLevel, int retryCount) {
-    return !(retryCount < 0 || compressionLevel < 0 || (compressionAlgorithm.ordinal() == 0 && compressionLevel > 9));
+  private boolean validateParams(Codec codec, int level, int retryCount) {
+    return !(retryCount < 0 || level < 0 || (codec.ordinal() == 0 && level > 9));
   }
 
   /**
@@ -366,14 +417,14 @@ public class QatZip {
    *
    * @param qzSessionReference the reference to the C-level session object.
    */
-  static void cleanUp(long qzSessionReference) {
+  private static void cleanup(long qzSessionReference) {
     InternalJNI.teardown(qzSessionReference);
   }
 
   /**
    * Gets a cleaner object.
    */
-  public Runnable getCleaner() {
+  Runnable getCleaner() {
     return new QatZipCleaner(session);
   }
 
@@ -393,7 +444,7 @@ public class QatZip {
     @Override
     public void run() {
       if (qzSession != 0) {
-        cleanUp(qzSession);
+        cleanup(qzSession);
         qzSession = 0;
       } else {
         System.err.println("A bug in cleaning up session. Please report.");
