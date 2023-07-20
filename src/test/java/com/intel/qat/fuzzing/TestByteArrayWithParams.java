@@ -27,7 +27,7 @@ public class TestByteArrayWithParams {
       int compressedSize = qatSession.compress(src, srcOffset, src.length - srcOffset, dst, 0, dst.length);
       int decompressedSize = qatSession.decompress(dst, 0, compressedSize, dec, 0, dec.length);
 
-      qatSession.endSession();
+      qatSession.end();
 
       assert Arrays.equals(Arrays.copyOfRange(src, srcOffset, src.length), Arrays.copyOfRange(dec, 0, decompressedSize))
           : "The source and decompressed arrays do not match.";

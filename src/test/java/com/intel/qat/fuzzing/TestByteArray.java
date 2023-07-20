@@ -23,7 +23,7 @@ public class TestByteArray {
 
       int compressedSize = qatSession.compress(src, 0, src.length, dst, 0, dst.length);
       qatSession.decompress(dst, 0, compressedSize, dec, 0, dec.length);
-      qatSession.endSession();
+      qatSession.end();
 
       assert Arrays.equals(src, dec) : "The source and decompressed arrays do not match.";
     } catch (QatException e) {

@@ -159,7 +159,7 @@ public class QatZip {
    *
    * @throws QatException if QAT session cannot be gracefully ended.
    */
-  public void endSession() throws QatException {
+  public void end() throws QatException {
     if (!isValid)
       throw new IllegalStateException();
     InternalJNI.teardown(session);

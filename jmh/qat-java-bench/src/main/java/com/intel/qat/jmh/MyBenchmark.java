@@ -83,7 +83,7 @@ public class MyBenchmark {
 
     @TearDown(Level.Trial)
     public void tearDown() {
-      qatSession.endSession();
+      qatSession.end();
     }
 
     @Benchmark

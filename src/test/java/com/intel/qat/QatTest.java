@@ -44,7 +44,7 @@ public class QatTest {
   @AfterEach
   public void cleanupSession() {
     if (qatSession != null)
-      qatSession.endSession();
+      qatSession.end();
   }
 
   @Test
@@ -107,7 +107,7 @@ public class QatTest {
   public void testTearDown() {
     try {
       QatZip qatSession = new QatZip();
-      qatSession.endSession();
+      qatSession.end();
     } catch (QatException e) {
       fail(e.getMessage());
     }
@@ -118,8 +118,8 @@ public class QatTest {
     assumeTrue(QatTestSuite.FORCE_HARDWARE);
     try {
       QatZip qatSession = new QatZip(QatZip.Codec.LZ4, 0, QatZip.Mode.HARDWARE);
-      qatSession.endSession();
-      qatSession.endSession();
+      qatSession.end();
+      qatSession.end();
     } catch (IllegalStateException is) {
       assertTrue(true);
     } catch (IllegalArgumentException | QatException e) {
@@ -203,7 +203,7 @@ public class QatTest {
   public void maxCompressedLengthPostTearDown() {
     try {
       QatZip qatSession = new QatZip();
-      qatSession.endSession();
+      qatSession.end();
       qatSession.maxCompressedLength(100);
       fail();
     } catch (IllegalStateException e) {
@@ -715,7 +715,7 @@ public class QatTest {
       byte[] src = getSourceArray(len);
       byte[] dst = new byte[2 * src.length];
 
-      qatSession.endSession();
+      qatSession.end();
       qatSession.compress(src, 0, src.length, dst, 0, dst.length);
     } catch (IllegalStateException is) {
       assertTrue(true);
@@ -733,7 +733,7 @@ public class QatTest {
       byte[] src = getSourceArray(len);
       byte[] dst = new byte[2 * src.length];
 
-      qatSession.endSession();
+      qatSession.end();
       qatSession.compress(src, 0, src.length, dst, 0, dst.length);
       fail();
     } catch (IllegalStateException is) {
@@ -750,7 +750,7 @@ public class QatTest {
       byte[] src = getSourceArray(len);
       byte[] dst = new byte[2 * src.length];
 
-      qatSession.endSession();
+      qatSession.end();
       qatSession.compress(src, 0, src.length, dst, 0, dst.length);
 
       fail();
@@ -773,7 +773,7 @@ public class QatTest {
       srcBuf.put(src, 0, src.length);
       srcBuf.flip();
 
-      qatSession.endSession();
+      qatSession.end();
       qatSession.compress(srcBuf, dstBuf);
 
       fail();
@@ -792,7 +792,7 @@ public class QatTest {
       byte[] dst = new byte[2 * src.length];
       qatSession.compress(src, 0, src.length, dst, 0, dst.length);
 
-      qatSession.endSession();
+      qatSession.end();
       qatSession.decompress(src, 0, src.length, dst, 0, dst.length);
 
       fail();
@@ -819,7 +819,7 @@ public class QatTest {
       qatSession.compress(srcBuf, dstBuf);
 
       dstBuf.flip();
-      qatSession.endSession();
+      qatSession.end();
       qatSession.decompress(dstBuf, decBuf);
 
       fail();
