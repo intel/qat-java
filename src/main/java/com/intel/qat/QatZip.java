@@ -373,7 +373,7 @@ public class QatZip {
   /**
    * Gets a cleaner object.
    */
-  Runnable getCleaner() {
+  public Runnable getCleaner() {
     return new QatZipCleaner(session);
   }
 
