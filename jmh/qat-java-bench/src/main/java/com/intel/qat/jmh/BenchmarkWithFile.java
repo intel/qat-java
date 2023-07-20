@@ -64,7 +64,7 @@ public class BenchmarkWithFile {
     private byte[] src;
     private byte[] dst;
 
-    @Param({"4096", "65536", "131072", "262144", "524288", "1048576"})
+    @Param({"65536"})
     private int pinMemSize;
 
     @Setup(Level.Trial)
