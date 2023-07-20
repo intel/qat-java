@@ -64,9 +64,12 @@ public class BenchmarkWithFile {
     private byte[] src;
     private byte[] dst;
 
+    @Param({"4096", "65536", "131072", "262144", "524288", "1048576"})
+    private int pinMemSize;
+
     @Setup(Level.Trial)
     public void setup() {
-      zipper = new QatZipper(Codec.DEFLATE, 6, QatZipper.Mode.HARDWARE, 64 * 1024);
+      zipper = new QatZipper(Codec.DEFLATE, 6, QatZipper.Mode.HARDWARE, pinMemSize);
       try {
         src = Files.readAllBytes(Paths.get(fileName));
         dst = new byte[zipper.maxCompressedLength(src.length)];
