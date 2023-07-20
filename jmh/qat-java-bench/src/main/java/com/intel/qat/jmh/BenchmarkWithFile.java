@@ -56,7 +56,6 @@ import java.nio.file.Paths;
 
 public class BenchmarkWithFile {
 
-  private static String fileName = "samples/dickens";
 
   @State(Scope.Thread)
   public static class QatCompressor {
@@ -67,9 +66,14 @@ public class BenchmarkWithFile {
     @Param({"65536"})
     private int pinMemSize;
 
+    @Param({""})
+    private String fileName;
+
     @Setup(Level.Trial)
     public void setup() {
+      System.out.println(pinMemSize);
       zipper = new QatZipper(Codec.DEFLATE, 6, QatZipper.Mode.HARDWARE, pinMemSize);
+
       try {
         src = Files.readAllBytes(Paths.get(fileName));
         dst = new byte[zipper.maxCompressedLength(src.length)];
@@ -99,6 +103,9 @@ public class BenchmarkWithFile {
     private byte[] src;
     private byte[] dst;
 
+    @Param({""})
+    private String fileName;
+
     @Setup(Level.Trial)
     public void setup() {
       deflater = new Deflater(6);
@@ -127,11 +134,11 @@ public class BenchmarkWithFile {
     }
   }
 
-  public void compress(QatCompressor qatZip) {
-    qatZip.compress();
-  }
-
-  public void compress(JavaZipDeflater deflate) {
-    deflate.compress();
+  public static void main(String... args) throws RunnerException {
+    Options opts = new OptionsBuilder()
+                       .include(".*")
+                       .jvmArgs("-Xms1g", "-Xmx1g")
+                       .build();
+    new Runner(opts).run();
   }
 }
