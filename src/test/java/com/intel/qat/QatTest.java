@@ -97,7 +97,18 @@ public class QatTest {
   public void testFourArgConstructorHW() {
     assumeTrue(QatTestSuite.FORCE_HARDWARE);
     try {
-      zipper = new QatZipper(QatZipper.Codec.DEFLATE, 6, QatZipper.Mode.HARDWARE, QatZipper.DEFAULT_RETRY_COUNT);
+      zipper = new QatZipper(QatZipper.Codec.DEFLATE, 6, QatZipper.Mode.HARDWARE, QatZipper.DEFAULT_PIN_MEM_SIZE);
+    } catch (IllegalArgumentException | QatException e) {
+      fail(e.getMessage());
+    }
+  }
+
+  @Test
+  public void testFiveArgConstructorHW() {
+    assumeTrue(QatTestSuite.FORCE_HARDWARE);
+    try {
+      zipper = new QatZipper(QatZipper.Codec.DEFLATE, 6, QatZipper.Mode.HARDWARE, QatZipper.DEFAULT_PIN_MEM_SIZE,
+          QatZipper.DEFAULT_RETRY_COUNT);
     } catch (IllegalArgumentException | QatException e) {
       fail(e.getMessage());
     }
@@ -182,7 +193,7 @@ public class QatTest {
   @Test
   public void testInvalidCompressionLevel() {
     try {
-      zipper = new QatZipper(QatZipper.Codec.DEFLATE, 10, QatZipper.Mode.AUTO, 6);
+      zipper = new QatZipper(QatZipper.Codec.DEFLATE, 10);
       fail();
     } catch (IllegalArgumentException e) {
       assertTrue(true);
@@ -192,7 +203,7 @@ public class QatTest {
   @Test
   public void testInvalidRetryCount() {
     try {
-      zipper = new QatZipper(QatZipper.Codec.DEFLATE, 10, QatZipper.Mode.AUTO, -1);
+      zipper = new QatZipper(QatZipper.Codec.DEFLATE, 10, QatZipper.Mode.AUTO, QatZipper.DEFAULT_PIN_MEM_SIZE, -1);
       fail();
     } catch (IllegalArgumentException e) {
       assertTrue(true);

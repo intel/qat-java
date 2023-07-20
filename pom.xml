@@ -21,6 +21,7 @@
         </license>
     </licenses>
     <properties>
+        <maven.compiler.release>11</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <java.version>17</java.version>
         <!--suppress UnresolvedMavenProperty -->
@@ -380,7 +381,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-javadoc-plugin</artifactId>
-                <version>3.1.1</version>
+                <version>3.2.0</version>
                 <configuration>
                     <source>8</source>
                     <javadocVersion>1.0.0</javadocVersion>
