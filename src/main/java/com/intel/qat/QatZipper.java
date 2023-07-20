@@ -13,7 +13,7 @@ import java.nio.ReadOnlyBufferException;
  * Defines APIs for creation of setting up hardware based QAT session(with or
  * without software backup, compression and decompression APIs
  */
-public class QatZip {
+public class QatZipper {
   /**
    * Default compression is set to 6, this is to align with default compression
    * mode chosen as ZLIB
@@ -69,7 +69,7 @@ public class QatZip {
   /**
    * Constructs a new QAT session object using deflate.
    */
-  public QatZip() {
+  public QatZipper() {
     this(Codec.DEFLATE, DEFAULT_COMPRESS_LEVEL, Mode.AUTO, DEFAULT_RETRY_COUNT);
   }
 
@@ -78,7 +78,7 @@ public class QatZip {
    *
    * @param mode the mode of operation (HARDWARE - only hardware, AUTO - hardware with a software failover.)
    */
-  public QatZip(Mode mode) {
+  public QatZipper(Mode mode) {
     this(Codec.DEFLATE, DEFAULT_COMPRESS_LEVEL, mode, DEFAULT_RETRY_COUNT);
   }
 
@@ -87,7 +87,7 @@ public class QatZip {
    *
    * @param codec the compression algorithm (deflate or LZ4).
    */
-  public QatZip(Codec codec) {
+  public QatZipper(Codec codec) {
     this(codec, DEFAULT_COMPRESS_LEVEL, Mode.AUTO, DEFAULT_RETRY_COUNT);
   }
 
@@ -97,7 +97,7 @@ public class QatZip {
    * @param codec the compression algorithm (deflate or LZ4).
    * @param mode the mode of operation (HARDWARE - only hardware, AUTO - hardware with a software failover.)
    */
-  public QatZip(Codec codec, Mode mode) {
+  public QatZipper(Codec codec, Mode mode) {
     this(codec, DEFAULT_COMPRESS_LEVEL, mode, DEFAULT_RETRY_COUNT);
   }
 
@@ -107,7 +107,7 @@ public class QatZip {
    * @param codec the compression algorithm (deflate or LZ4).
    * @param level the compression level.
    */
-  public QatZip(Codec codec, int level) {
+  public QatZipper(Codec codec, int level) {
     this(codec, level, Mode.AUTO, DEFAULT_RETRY_COUNT);
   }
 
@@ -118,7 +118,7 @@ public class QatZip {
    * @param level the compression level.
    * @param mode the mode of operation (HARDWARE - only hardware, AUTO - hardware with a software failover.)
    */
-  public QatZip(Codec codec, int level, Mode mode) {
+  public QatZipper(Codec codec, int level, Mode mode) {
     this(codec, level, mode, DEFAULT_RETRY_COUNT);
   }
 
@@ -130,7 +130,7 @@ public class QatZip {
    * @param mode the mode of operation (HARDWARE - only hardware, AUTO - hardware with a software failover.)
    * @param retryCount how many times to seek for a hardware resources before giving up.
    */
-  public QatZip(Codec codec, int level, Mode mode, int retryCount) {
+  public QatZipper(Codec codec, int level, Mode mode, int retryCount) {
     this(codec, level, mode, retryCount, DEFAULT_PIN_MEM_SIZE);
   }
 
@@ -144,7 +144,7 @@ public class QatZip {
    * @param pinnedMemorySize the size of the internal buffer used for compression/decompression (for advanced users).
    * @throws QatException if QAT session cannot be created.
    */
-  public QatZip(Codec codec, int level, Mode mode, int retryCount, long pinnedMemorySize) throws QatException {
+  public QatZipper(Codec codec, int level, Mode mode, int retryCount, long pinnedMemorySize) throws QatException {
     if (!validateParams(codec, level, retryCount))
       throw new IllegalArgumentException("Invalid compression level or retry count.");
 
@@ -424,20 +424,20 @@ public class QatZip {
   /**
    * Gets a cleaner object.
    */
-  Runnable getCleaner() {
-    return new QatZipCleaner(session);
+  public Runnable getCleaner() {
+    return new QatZipperCleaner(session);
   }
 
   /**
    * A QAT session cleaner that cleans up QAT session.
    */
-  static class QatZipCleaner implements Runnable {
+  static class QatZipperCleaner implements Runnable {
     private long qzSession;
 
     /**
      * Constructs a Cleaner object to clean up QAT session.
      */
-    public QatZipCleaner(long qzSession) {
+    public QatZipperCleaner(long qzSession) {
       this.qzSession = qzSession;
     }
 

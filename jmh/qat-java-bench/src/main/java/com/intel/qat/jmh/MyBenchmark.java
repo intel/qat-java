@@ -44,7 +44,7 @@ import org.openjdk.jmh.annotations.Measurement;
 import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Mode;
-import com.intel.qat.QatZip;
+import com.intel.qat.QatZipper;
 import java.util.Random;
 import java.util.zip.Deflater;
 
@@ -64,17 +64,17 @@ public class MyBenchmark {
     @Param({"128", "1024", "4096", "65536", "134072", "262144", "524288", "1048576"})
     private static int srcLen;
 
-    private QatZip qatSession;
+    private QatZipper zipper;
 
     private byte[] src;
     private byte[] dst;
 
     @Setup(Level.Trial)
     public void setup() {
-      qatSession = new QatZip();
+      zipper = new QatZipper();
 
       src = new byte[srcLen];
-      dst = new byte[qatSession.maxCompressedLength(srcLen)];
+      dst = new byte[zipper.maxCompressedLength(srcLen)];
       
       Random r = new Random(123456789L);
       for (int i = 0; i < srcLen; i++)
@@ -83,7 +83,7 @@ public class MyBenchmark {
 
     @TearDown(Level.Trial)
     public void tearDown() {
-      qatSession.end();
+      zipper.end();
     }
 
     @Benchmark
@@ -92,7 +92,7 @@ public class MyBenchmark {
     @Measurement(iterations = 3)
     @BenchmarkMode(Mode.Throughput)  
     public void compress() {
-      qatSession.compress(src, 0, src.length, dst, 0, dst.length);
+      zipper.compress(src, 0, src.length, dst, 0, dst.length);
     }
   }
 

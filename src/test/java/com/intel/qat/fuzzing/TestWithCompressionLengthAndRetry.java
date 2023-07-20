@@ -7,7 +7,7 @@ package com.intel.qat.fuzzing;
 
 import com.code_intelligence.jazzer.api.FuzzedDataProvider;
 import com.intel.qat.QatException;
-import com.intel.qat.QatZip;
+import com.intel.qat.QatZipper;
 import java.util.Arrays;
 import java.util.Random;
 
@@ -21,15 +21,15 @@ public class TestWithCompressionLengthAndRetry {
       int retryCount = new Random().nextInt(20);
 
       byte[] src = data.consumeRemainingAsBytes();
-      QatZip qatSession = new QatZip(QatZip.Codec.DEFLATE, comLevel, QatZip.Mode.AUTO, retryCount);
+      QatZipper zipper = new QatZipper(QatZipper.Codec.DEFLATE, comLevel, QatZipper.Mode.AUTO, retryCount);
 
-      byte[] dst = new byte[qatSession.maxCompressedLength(src.length)];
+      byte[] dst = new byte[zipper.maxCompressedLength(src.length)];
       byte[] dec = new byte[src.length];
 
-      int compressedSize = qatSession.compress(src, 0, src.length, dst, 0, dst.length);
-      qatSession.decompress(dst, 0, compressedSize, dec, 0, dec.length);
+      int compressedSize = zipper.compress(src, 0, src.length, dst, 0, dst.length);
+      zipper.decompress(dst, 0, compressedSize, dec, 0, dec.length);
 
-      qatSession.end();
+      zipper.end();
 
       assert Arrays.equals(src, dec) : "The source and decompressed arrays do not match.";
     } catch (Exception e) {

@@ -7,7 +7,7 @@ package com.intel.qat.fuzzing;
 
 import com.code_intelligence.jazzer.api.FuzzedDataProvider;
 import com.intel.qat.QatException;
-import com.intel.qat.QatZip;
+import com.intel.qat.QatZipper;
 import java.util.Arrays;
 import java.util.Random;
 
@@ -17,17 +17,17 @@ public class TestByteArrayWithParams {
       if (data.remainingBytes() == 0)
         return;
 
-      QatZip qatSession = new QatZip();
+      QatZipper zipper = new QatZipper();
 
       byte[] src = data.consumeRemainingAsBytes();
-      byte[] dst = new byte[qatSession.maxCompressedLength(src.length)];
+      byte[] dst = new byte[zipper.maxCompressedLength(src.length)];
       byte[] dec = new byte[src.length];
 
       int srcOffset = new Random().nextInt(src.length);
-      int compressedSize = qatSession.compress(src, srcOffset, src.length - srcOffset, dst, 0, dst.length);
-      int decompressedSize = qatSession.decompress(dst, 0, compressedSize, dec, 0, dec.length);
+      int compressedSize = zipper.compress(src, srcOffset, src.length - srcOffset, dst, 0, dst.length);
+      int decompressedSize = zipper.decompress(dst, 0, compressedSize, dec, 0, dec.length);
 
-      qatSession.end();
+      zipper.end();
 
       assert Arrays.equals(Arrays.copyOfRange(src, srcOffset, src.length), Arrays.copyOfRange(dec, 0, decompressedSize))
           : "The source and decompressed arrays do not match.";

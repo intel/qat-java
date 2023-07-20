@@ -298,7 +298,7 @@ static int compress_or_decompress(kernel_func kf, JNIEnv *env,
  *
  * Class:     com_intel_qat_InternalJNI
  * Method:    setup
- * Signature: (Lcom/intel/qat/QatZip;IJII)V
+ * Signature: (Lcom/intel/qat/QatZipper;IJII)V
  */
 JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_setup(
     JNIEnv *env, jobject obj, jobject qat_session_obj, jint sw_backup,

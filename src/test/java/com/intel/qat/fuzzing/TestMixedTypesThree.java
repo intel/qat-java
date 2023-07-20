@@ -7,7 +7,7 @@ package com.intel.qat.fuzzing;
 
 import com.code_intelligence.jazzer.api.FuzzedDataProvider;
 import com.intel.qat.QatException;
-import com.intel.qat.QatZip;
+import com.intel.qat.QatZipper;
 import java.nio.ByteBuffer;
 
 public class TestMixedTypesThree {
@@ -22,21 +22,21 @@ public class TestMixedTypesThree {
       srcBuf.put(src, 0, src.length);
       srcBuf.flip();
 
-      QatZip qatSession = new QatZip();
-      int compressedSize = qatSession.maxCompressedLength(src.length);
+      QatZipper zipper = new QatZipper();
+      int compressedSize = zipper.maxCompressedLength(src.length);
 
       assert compressedSize > 0;
       ByteBuffer readonlyBuf = srcBuf.asReadOnlyBuffer();
       srcBuf.flip();
 
       ByteBuffer comBuf = ByteBuffer.allocate(compressedSize);
-      qatSession.compress(readonlyBuf, comBuf);
+      zipper.compress(readonlyBuf, comBuf);
       comBuf.flip();
 
       ByteBuffer decBuf = ByteBuffer.allocate(src.length);
-      qatSession.decompress(comBuf, decBuf);
+      zipper.decompress(comBuf, decBuf);
 
-      qatSession.end();
+      zipper.end();
 
       assert srcBuf.compareTo(decBuf) == 0 : "The source and decompressed buffers do not match.";
     } catch (QatException e) {
