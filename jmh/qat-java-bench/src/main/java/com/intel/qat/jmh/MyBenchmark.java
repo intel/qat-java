@@ -61,7 +61,7 @@ public class MyBenchmark {
     private static int pinMemSize;
     */
 
-    @Param({"128", "1024", "1048576"})
+    @Param({"128", "1024", "4096", "65536", "134072", "262144", "524288", "1048576"})
     private static int srcLen;
 
     private QatZip qatSession;
@@ -102,7 +102,7 @@ public class MyBenchmark {
     private static int ASCII_LOW = 33;
     private static int ASCII_HIGH = 126;
     
-    @Param({"128", "1024", "1048576"})
+    @Param({"128", "1024", "4096", "65536", "134072", "262144", "524288", "1048576"})
     private static int srcLen;
     
     private Deflater deflater;
