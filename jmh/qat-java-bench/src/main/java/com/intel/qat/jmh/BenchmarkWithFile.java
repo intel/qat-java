@@ -51,11 +51,25 @@ import org.openjdk.jmh.runner.Runner;
 import com.intel.qat.QatZipper;
 import com.intel.qat.QatZipper.Codec;
 import java.util.zip.Deflater;
+import java.util.zip.Inflater;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.io.FileOutputStream;
+import java.io.IOException;
 
 public class BenchmarkWithFile {
 
+  private static final int SOURCE_FILE_SIZE = 10192446;
+
+  private static void writeToFile(byte[] bytes, int len, String fileName) throws IOException {
+    byte[] tba = new byte[len];
+    for (int i = 0; i < len; i++)
+      tba[i] = bytes[i];
+
+    try (FileOutputStream fos = new FileOutputStream(fileName)) {
+      fos.write(tba);
+    }        
+  }
 
   @State(Scope.Thread)
   public static class QatCompressor {
@@ -73,10 +87,13 @@ public class BenchmarkWithFile {
     public void setup() {
       System.out.println(pinMemSize);
       zipper = new QatZipper(Codec.DEFLATE, 6, QatZipper.Mode.HARDWARE, pinMemSize);
-
       try {
         src = Files.readAllBytes(Paths.get(fileName));
         dst = new byte[zipper.maxCompressedLength(src.length)];
+
+        // compress and write to file one time
+        int r = zipper.compress(src, dst);
+        writeToFile(dst, r, fileName + ".qat.gz");
       } catch (Exception e) {
         e.printStackTrace();
       }
@@ -93,7 +110,54 @@ public class BenchmarkWithFile {
     @Measurement(iterations = 3)
     @BenchmarkMode(Mode.Throughput)  
     public void compress() {
-      zipper.compress(src, 0, src.length, dst, 0, dst.length);
+      zipper.compress(src, dst);
+    }
+  }
+
+  @State(Scope.Thread)
+  public static class QatDecompressor {
+    private QatZipper zipper;
+    private byte[] src;
+    private byte[] dst;
+
+    @Param({"65536"})
+    private int pinMemSize;
+
+    @Param({""})
+    private String fileName;
+
+    @Param({"0"})
+    private int srcFileSize;
+
+    @Setup(Level.Trial)
+    public void setup() {
+      System.out.println(pinMemSize);
+      zipper = new QatZipper(Codec.DEFLATE, 6, QatZipper.Mode.HARDWARE, pinMemSize);
+
+      try {
+        src = Files.readAllBytes(Paths.get(fileName));
+        dst = new byte[srcFileSize];
+
+        // decompress and write to file to verify correctness
+        int r = zipper.decompress(src, dst);
+        writeToFile(dst, r, fileName + ".qat.decompressed");
+      } catch (Exception e) {
+        e.printStackTrace();
+      }
+    }
+
+    @TearDown(Level.Trial)
+    public void tearDown() {
+      zipper.end();
+    }
+
+    @Benchmark
+    @Fork(warmups = 1, value = 2)
+    @Warmup(iterations = 2)
+    @Measurement(iterations = 3)
+    @BenchmarkMode(Mode.Throughput)  
+    public void decompress() {
+      zipper.decompress(src, dst);
     }
   }
 
@@ -112,6 +176,12 @@ public class BenchmarkWithFile {
       try {
         src = Files.readAllBytes(Paths.get(fileName));
         dst = new byte[2 * src.length];
+
+        // compress and write to file one time
+        deflater.setInput(src);
+        int r = deflater.deflate(dst);
+        deflater.reset();
+        writeToFile(dst, r, fileName + ".javazip.gz");
       } catch (Exception e) {
         e.printStackTrace();
       }
@@ -134,6 +204,55 @@ public class BenchmarkWithFile {
     }
   }
 
+  @State(Scope.Thread)
+  public static class JavaZipInflater {
+    private Inflater inflater;
+    private byte[] src;
+    private byte[] dst;
+
+    @Param({""})
+    private String fileName;
+    
+    @Param({"0"})
+    private int srcFileSize;
+
+    @Setup(Level.Trial)
+    public void setup() {
+      inflater = new Inflater();
+      try {
+        src = Files.readAllBytes(Paths.get(fileName));
+        dst = new byte[srcFileSize];
+
+        // inflate to file to verify correctness
+        inflater.setInput(src);
+        int r = inflater.inflate(dst);
+        inflater.reset();
+        writeToFile(dst, r, fileName + ".javazip.decompressed");
+      } catch (Exception e) {
+        e.printStackTrace();
+      }
+    }
+
+    @TearDown(Level.Trial)
+    public void tearDown() {
+      inflater.end();
+    }
+
+    @Benchmark
+    @Fork(warmups = 1, value = 2)
+    @Warmup(iterations = 2)
+    @Measurement(iterations = 3)
+    @BenchmarkMode(Mode.Throughput)  
+    public void decompress() {
+      try {
+        inflater.setInput(src);
+        inflater.inflate(dst);
+        inflater.reset();
+      } catch (Exception e) {
+        e.printStackTrace();
+      }
+    }
+  }
   public static void main(String... args) throws RunnerException {
     Options opts = new OptionsBuilder()
                        .include(".*")
