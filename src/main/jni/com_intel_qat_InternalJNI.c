@@ -210,8 +210,7 @@ static int decompress(JNIEnv *env, QzSession_T *sess, unsigned char *src_ptr,
       retry_count--;
     }
   }
-  if (src_len == 0 ||
-      (status != QZ_OK && status != QZ_BUF_ERROR && status != QZ_DATA_ERROR)) {
+  if (status != QZ_OK && status != QZ_BUF_ERROR && status != QZ_DATA_ERROR) {
     throw_exception(env, status, "Error occurred while decompressing data.");
     return status;
   }
@@ -279,7 +278,7 @@ static int compress_or_decompress(kernel_func kf, JNIEnv *env,
         kf(env, qat_session->qz_session, pin_src_ptr, src_size, pin_dst_ptr,
            dst_size, &bytes_read, &bytes_written, retry_count, is_last);
 
-    if (status != QZ_OK) break;
+    if (status != QZ_OK || bytes_read == 0) break;
 
     memcpy(dst_start, pin_dst_ptr, bytes_written);
 
