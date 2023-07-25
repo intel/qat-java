@@ -105,7 +105,7 @@ public class BenchmarkWithFile {
     }
 
     @Benchmark
-    @Fork(warmups = 1, value = 2)
+    @Fork(warmups = 1, value = 1)
     @Warmup(iterations = 2)
     @Measurement(iterations = 3)
     @BenchmarkMode(Mode.Throughput)  
@@ -152,7 +152,7 @@ public class BenchmarkWithFile {
     }
 
     @Benchmark
-    @Fork(warmups = 1, value = 2)
+    @Fork(warmups = 1, value = 1)
     @Warmup(iterations = 2)
     @Measurement(iterations = 3)
     @BenchmarkMode(Mode.Throughput)  
@@ -193,7 +193,7 @@ public class BenchmarkWithFile {
     }
 
     @Benchmark
-    @Fork(warmups = 1, value = 2)
+    @Fork(warmups = 1, value = 1)
     @Warmup(iterations = 2)
     @Measurement(iterations = 3)
     @BenchmarkMode(Mode.Throughput)  
@@ -239,7 +239,7 @@ public class BenchmarkWithFile {
     }
 
     @Benchmark
-    @Fork(warmups = 1, value = 2)
+    @Fork(warmups = 1, value = 1)
     @Warmup(iterations = 2)
     @Measurement(iterations = 3)
     @BenchmarkMode(Mode.Throughput)  
