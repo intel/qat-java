@@ -430,19 +430,19 @@ public class QatZipper {
    * Gets a cleaner object.
    */
   public Runnable getCleaner() {
-    return new QatZipperCleaner(session);
+    return new QatCleaner(session);
   }
 
   /**
    * A QAT session cleaner that cleans up QAT session.
    */
-  static class QatZipperCleaner implements Runnable {
+  static class QatCleaner implements Runnable {
     private long qzSession;
 
     /**
      * Constructs a Cleaner object to clean up QAT session.
      */
-    public QatZipperCleaner(long qzSession) {
+    public QatCleaner(long qzSession) {
       this.qzSession = qzSession;
     }
 
