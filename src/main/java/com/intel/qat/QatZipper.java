@@ -20,7 +20,14 @@ public class QatZipper {
    */
   public static final int DEFAULT_COMPRESS_LEVEL = 6;
 
+  /**
+   * The minimum size for pinned memory.
+   */ 
   private static final int PIN_MEM_MIN = 128 * 1024;
+
+  /**
+   * The maximum size for pinned memory.
+   */ 
   private static final int PIN_MEM_MAX = 2 * 1024 * 1024;
 
   /**
