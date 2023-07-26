@@ -341,6 +341,7 @@ JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_setup(
   numa_id = numa_node_of_cpu(sched_getcpu());
 
   if (pin_mem_size != 0) {
+    pin_mem_size = next_power_of_2(pin_mem_size);
     allocate_pin_mem(
         env, qat_session, sw_backup, pin_mem_size,
         qzMaxCompressedLength(pin_mem_size, qat_session->qz_session));

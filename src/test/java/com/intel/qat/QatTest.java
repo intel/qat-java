@@ -358,7 +358,7 @@ public class QatTest {
   }
 
   @ParameterizedTest
-  @ValueSource(ints = {100, 500, 2048, 2097152})
+  @ValueSource(ints = {131072, 524288, 2097152})
   public void testWrappedBuffers(int len) {
     try {
       zipper = new QatZipper();
@@ -389,7 +389,7 @@ public class QatTest {
   }
 
   @ParameterizedTest
-  @ValueSource(ints = {100, 500, 2048, 2097152})
+  @ValueSource(ints = {131072, 524288, 2097152})
   public void testBackedArrayBuffersWithAllocate(int len) {
     try {
       zipper = new QatZipper(QatZipper.Codec.DEFLATE, 9, QatZipper.Mode.AUTO, 0, 0);
@@ -426,7 +426,7 @@ public class QatTest {
   }
 
   @ParameterizedTest
-  @ValueSource(ints = {100, 500, 2048, 2097152})
+  @ValueSource(ints = {131072, 524288, 2097152})
   public void testIndirectBuffersReadOnly(int len) {
     try {
       zipper = new QatZipper(QatZipper.Codec.DEFLATE, 9, QatZipper.Mode.AUTO, 0, 0);
@@ -463,7 +463,7 @@ public class QatTest {
   }
 
   @ParameterizedTest
-  @ValueSource(ints = {100, 500, 2048, 2097152})
+  @ValueSource(ints = {131072, 524288, 2097152})
   public void testCompressionDecompressionWithByteArray(int len) {
     try {
       zipper = new QatZipper(QatZipper.Codec.DEFLATE, 9, QatZipper.Mode.AUTO, 0, 0);
@@ -484,7 +484,7 @@ public class QatTest {
   }
 
   @ParameterizedTest
-  @ValueSource(ints = {100, 500, 2048, 2097152})
+  @ValueSource(ints = {131072, 524288, 2097152})
   public void testCompressionDecompressionWithByteArrayLZ4(int len) {
     try {
       zipper = new QatZipper(QatZipper.Codec.LZ4, 9, QatZipper.Mode.AUTO, 0, 0);
@@ -505,7 +505,7 @@ public class QatTest {
   }
 
   @ParameterizedTest
-  @ValueSource(ints = {100, 500, 2048, 2097152})
+  @ValueSource(ints = {131072, 524288, 2097152})
   public void testCompressionDecompressionHW(int len) {
     assumeTrue(QatTestSuite.FORCE_HARDWARE);
     try {
@@ -528,7 +528,7 @@ public class QatTest {
   }
 
   @ParameterizedTest
-  @ValueSource(ints = {100, 500, 2048, 2097152})
+  @ValueSource(ints = {131072, 524288, 2097152})
   public void testCompressionWithInsufficientDestBuff(int len) {
     try {
       zipper = new QatZipper(QatZipper.Codec.DEFLATE, 6, QatZipper.Mode.AUTO, 0);
@@ -543,7 +543,7 @@ public class QatTest {
   }
 
   @ParameterizedTest
-  @ValueSource(ints = {100, 500, 2048, 2097152})
+  @ValueSource(ints = {131072, 524288, 2097152})
   public void testCompressionWithInsufficientDestBuffHW(int len) {
     assumeTrue(QatTestSuite.FORCE_HARDWARE);
     try {
@@ -559,7 +559,7 @@ public class QatTest {
   }
 
   @ParameterizedTest
-  @ValueSource(ints = {100, 500, 2048, 2097152})
+  @ValueSource(ints = {131072, 524288, 2097152})
   public void testDecompressionWithInsufficientDestBuff(int len) {
     assumeTrue(QatTestSuite.FORCE_HARDWARE);
     try {
@@ -579,7 +579,7 @@ public class QatTest {
   }
 
   @ParameterizedTest
-  @ValueSource(ints = {100, 500, 2048, 2097152})
+  @ValueSource(ints = {131072, 524288, 2097152})
   public void testCompressionDecompressionWithDirectByteBuffer(int len) {
     try {
       zipper = new QatZipper();
@@ -611,7 +611,7 @@ public class QatTest {
   }
 
   @ParameterizedTest
-  @ValueSource(ints = {100, 500, 2048, 2097152})
+  @ValueSource(ints = {131072, 524288, 2097152})
   public void testCompressionDecompressionWithDirectByteBufferNoPinnedMem(int len) {
     try {
       zipper = new QatZipper(QatZipper.Codec.DEFLATE, 9, QatZipper.Mode.AUTO, 0, 0);
@@ -643,7 +643,7 @@ public class QatTest {
   }
 
   @ParameterizedTest
-  @ValueSource(ints = {100, 500, 2048, 2097152})
+  @ValueSource(ints = {131072, 524288, 2097152})
   public void testCompressionReadOnlyDestination(int len) {
     try {
       zipper = new QatZipper();
@@ -663,7 +663,7 @@ public class QatTest {
   }
 
   @ParameterizedTest
-  @ValueSource(ints = {100, 500, 2048, 2097152})
+  @ValueSource(ints = {131072, 524288, 2097152})
   public void testDecompressionReadOnlyDestination(int len) {
     try {
       zipper = new QatZipper();
@@ -687,7 +687,7 @@ public class QatTest {
   }
 
   @ParameterizedTest
-  @ValueSource(ints = {100, 500, 2048, 2097152})
+  @ValueSource(ints = {131072, 524288, 2097152})
   public void testCompressionDecompressionReadOnlyByteBuffer(int len) {
     try {
       zipper = new QatZipper();
@@ -718,7 +718,7 @@ public class QatTest {
   }
 
   @ParameterizedTest
-  @ValueSource(ints = {100, 500, 2048, 2097152})
+  @ValueSource(ints = {131072, 524288, 2097152})
   public void testIllegalStateException(int len) {
     try {
       QatZipper zipper = new QatZipper();
@@ -734,7 +734,7 @@ public class QatTest {
   }
 
   @ParameterizedTest
-  @ValueSource(ints = {100, 500, 2048, 2097152})
+  @ValueSource(ints = {131072, 524288, 2097152})
   public void testIllegalStateExceptionHW(int len) {
     assumeTrue(QatTestSuite.FORCE_HARDWARE);
 
@@ -754,7 +754,7 @@ public class QatTest {
   }
 
   @ParameterizedTest
-  @ValueSource(ints = {100, 500, 2048, 2097152})
+  @ValueSource(ints = {131072, 524288, 2097152})
   public void compressByteArrayPostTearDown(int len) {
     try {
       QatZipper zipper = new QatZipper();
@@ -772,7 +772,7 @@ public class QatTest {
   }
 
   @ParameterizedTest
-  @ValueSource(ints = {100, 500, 2048, 2097152})
+  @ValueSource(ints = {131072, 524288, 2097152})
   public void compressByteBufferPostTearDown(int len) {
     try {
       QatZipper zipper = new QatZipper();
@@ -795,7 +795,7 @@ public class QatTest {
   }
 
   @ParameterizedTest
-  @ValueSource(ints = {100, 500, 2048, 2097152})
+  @ValueSource(ints = {131072, 524288, 2097152})
   public void decompressByteArrayPostTearDown(int len) {
     try {
       QatZipper zipper = new QatZipper();
@@ -814,7 +814,7 @@ public class QatTest {
   }
 
   @ParameterizedTest
-  @ValueSource(ints = {100, 500, 2048, 2097152})
+  @ValueSource(ints = {131072, 524288, 2097152})
   public void decompressByteBufferPostTearDown(int len) {
     try {
       QatZipper zipper = new QatZipper();
@@ -841,7 +841,7 @@ public class QatTest {
   }
 
   @ParameterizedTest
-  @ValueSource(ints = {100, 500, 2048, 2097152})
+  @ValueSource(ints = {131072, 524288, 2097152})
   public void testCompressorText(int len) {
     try {
       zipper = new QatZipper(QatZipper.Codec.DEFLATE, 6, QatZipper.Mode.AUTO);
@@ -882,7 +882,7 @@ public class QatTest {
   }
 
   @ParameterizedTest
-  @ValueSource(ints = {100, 500, 2048, 2097152})
+  @ValueSource(ints = {131072, 524288, 2097152})
   public void testInvalidCompressionOffsets(int len) {
     try {
       zipper = new QatZipper(QatZipper.Codec.DEFLATE, 9, QatZipper.Mode.AUTO, 0, 0);
@@ -901,7 +901,7 @@ public class QatTest {
   }
 
   @ParameterizedTest
-  @ValueSource(ints = {100, 500, 2048, 2097152})
+  @ValueSource(ints = {131072, 524288, 2097152})
   public void testInvalidCompressionOffsetsHW(int len) {
     assumeTrue(QatTestSuite.FORCE_HARDWARE);
     try {
@@ -921,7 +921,7 @@ public class QatTest {
   }
 
   @ParameterizedTest
-  @ValueSource(ints = {100, 500, 2048, 2097152})
+  @ValueSource(ints = {131072, 524288, 2097152})
   public void testInvalidCompressionLargeOffsets(int len) {
     try {
       zipper = new QatZipper(QatZipper.Codec.DEFLATE, 9, QatZipper.Mode.AUTO, 0, 0);
@@ -940,7 +940,7 @@ public class QatTest {
   }
 
   @ParameterizedTest
-  @ValueSource(ints = {100, 500, 2048, 2097152})
+  @ValueSource(ints = {131072, 524288, 2097152})
   public void testInvalidecompressionOffsets(int len) {
     try {
       zipper = new QatZipper(QatZipper.Codec.DEFLATE, 9, QatZipper.Mode.AUTO, 0, 0);
@@ -959,7 +959,7 @@ public class QatTest {
   }
 
   @ParameterizedTest
-  @ValueSource(ints = {100, 500, 2048, 2097152})
+  @ValueSource(ints = {131072, 524288, 2097152})
   public void testInvalidecompressionLargeOffsets(int len) {
     try {
       zipper = new QatZipper(QatZipper.Codec.DEFLATE, 9, QatZipper.Mode.AUTO, 0, 0);

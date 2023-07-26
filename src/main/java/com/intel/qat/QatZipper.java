@@ -20,11 +20,14 @@ public class QatZipper {
    */
   public static final int DEFAULT_COMPRESS_LEVEL = 6;
 
+  private static final int PIN_MEM_MIN = 128 * 1024;
+  private static final int PIN_MEM_MAX = 2 * 1024 * 1024;
+
   /**
-   * Default PINNED memory allocated is set as 480 KB. This accelerates HW based
+   * Default PINNED memory allocated is set as 512 KB. This accelerates HW based
    * compression/decompression
    */
-  public final static long DEFAULT_PIN_MEM_SIZE = 491520L;
+  public final static long DEFAULT_PIN_MEM_SIZE = 512 * 1024;
 
   /**
    * If retryCount is set as 0, it means no retries in compress/decompress,
@@ -150,6 +153,10 @@ public class QatZipper {
    * @throws QatException if QAT session cannot be created.
    */
   public QatZipper(Codec codec, int level, Mode mode, long pinMemSize, int retryCount) throws QatException {
+    if (pinMemSize != 0 && (pinMemSize < PIN_MEM_MIN || pinMemSize > PIN_MEM_MAX))
+      throw new IllegalArgumentException(
+          "Pinned memory size must be in the range (" + (PIN_MEM_MIN / 1024) + ", " + (PIN_MEM_MAX / 1024) + ") KB.");
+
     if (!validateParams(codec, level, retryCount))
       throw new IllegalArgumentException("Invalid compression level or retry count.");
 

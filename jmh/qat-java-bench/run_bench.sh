@@ -1,7 +1,7 @@
 #!/bin/bash
 mvn clean install
 
-dataset=(dickens) # mozilla mr nci ooffice osdb reymont samba sao webster xml x-ray)
+dataset=(mozilla) # dickens mozilla mr nci ooffice osdb reymont samba sao webster xml x-ray)
 url=https://sun.aei.polsl.pl//~sdeor/corpus
 
 for data in ${dataset[@]}; do
@@ -18,6 +18,7 @@ for data in ${dataset[@]}; do
   java -jar target/benchmarks.jar BenchmarkWithFile.QatDecompressor \
   -p pinMemSize=65536 -p fileName=samples/${data}.qat.gz -p srcFileSize=${file_size}
 
+<<COMMENT
   sleep 10
 
   java -jar target/benchmarks.jar BenchmarkWithFile.JavaZipDeflater \
@@ -29,5 +30,6 @@ for data in ${dataset[@]}; do
   -p fileName=samples/${data}.javazip.gz -p srcFileSize=${file_size}
 
   sleep 10
+COMMENT
 done
 

@@ -21,7 +21,8 @@ public class TestWithCompressionLengthAndRetry {
       int retryCount = new Random().nextInt(20);
 
       byte[] src = data.consumeRemainingAsBytes();
-      QatZipper zipper = new QatZipper(QatZipper.Codec.DEFLATE, comLevel, QatZipper.Mode.AUTO, retryCount);
+      QatZipper zipper = new QatZipper(
+          QatZipper.Codec.DEFLATE, comLevel, QatZipper.Mode.AUTO, QatZipper.DEFAULT_PIN_MEM_SIZE, retryCount);
 
       byte[] dst = new byte[zipper.maxCompressedLength(src.length)];
       byte[] dec = new byte[src.length];

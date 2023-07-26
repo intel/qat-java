@@ -88,3 +88,21 @@ void throw_exception(JNIEnv *env, jlong err_code, const char *err_msg)
   snprintf(buff, sizeof(buff), "%s: %s", get_error_msg(err_code), err_msg);
   (*env)->ThrowNew(env, Exception, buff);
 }
+
+/**
+ * Evaluates the next power of 2.
+ *
+ * @param n a number.
+ * @return the next power of 2 for the argument n.
+ */
+unsigned int next_power_of_2(unsigned int n)
+{
+  n--;
+  n |= n >> 1;
+  n |= n >> 2;
+  n |= n >> 4;
+  n |= n >> 8;
+  n |= n >> 16;
+  n++;
+  return n;
+}
