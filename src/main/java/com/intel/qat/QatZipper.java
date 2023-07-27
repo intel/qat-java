@@ -21,22 +21,6 @@ public class QatZipper {
   public static final int DEFAULT_COMPRESS_LEVEL = 6;
 
   /**
-   * The minimum size for pinned memory.
-   */ 
-  private static final int PIN_MEM_MIN = 128 * 1024;
-
-  /**
-   * The maximum size for pinned memory.
-   */ 
-  private static final int PIN_MEM_MAX = 2 * 1024 * 1024;
-
-  /**
-   * Default PINNED memory allocated is set as 512 KB. This accelerates HW based
-   * compression/decompression
-   */
-  public final static long DEFAULT_PIN_MEM_SIZE = 512 * 1024;
-
-  /**
    * If retryCount is set as 0, it means no retries in compress/decompress,
    * non-zero value means there will be retries
    */
@@ -85,7 +69,7 @@ public class QatZipper {
    * Constructs a new QAT session object using deflate.
    */
   public QatZipper() {
-    this(Codec.DEFLATE, DEFAULT_COMPRESS_LEVEL, Mode.AUTO, DEFAULT_PIN_MEM_SIZE, DEFAULT_RETRY_COUNT);
+    this(Codec.DEFLATE, DEFAULT_COMPRESS_LEVEL, Mode.AUTO, DEFAULT_RETRY_COUNT);
   }
 
   /**
@@ -94,7 +78,7 @@ public class QatZipper {
    * @param mode the mode of operation (HARDWARE - only hardware, AUTO - hardware with a software failover.)
    */
   public QatZipper(Mode mode) {
-    this(Codec.DEFLATE, DEFAULT_COMPRESS_LEVEL, mode, DEFAULT_PIN_MEM_SIZE, DEFAULT_RETRY_COUNT);
+    this(Codec.DEFLATE, DEFAULT_COMPRESS_LEVEL, mode, DEFAULT_RETRY_COUNT);
   }
 
   /**
@@ -103,7 +87,7 @@ public class QatZipper {
    * @param codec the compression algorithm (deflate or LZ4).
    */
   public QatZipper(Codec codec) {
-    this(codec, DEFAULT_COMPRESS_LEVEL, Mode.AUTO, DEFAULT_PIN_MEM_SIZE, DEFAULT_RETRY_COUNT);
+    this(codec, DEFAULT_COMPRESS_LEVEL, Mode.AUTO, DEFAULT_RETRY_COUNT);
   }
 
   /**
@@ -113,7 +97,7 @@ public class QatZipper {
    * @param mode the mode of operation (HARDWARE - only hardware, AUTO - hardware with a software failover.)
    */
   public QatZipper(Codec codec, Mode mode) {
-    this(codec, DEFAULT_COMPRESS_LEVEL, mode, DEFAULT_PIN_MEM_SIZE, DEFAULT_RETRY_COUNT);
+    this(codec, DEFAULT_COMPRESS_LEVEL, mode, DEFAULT_RETRY_COUNT);
   }
 
   /**
@@ -123,7 +107,7 @@ public class QatZipper {
    * @param level the compression level.
    */
   public QatZipper(Codec codec, int level) {
-    this(codec, level, Mode.AUTO, DEFAULT_PIN_MEM_SIZE, DEFAULT_RETRY_COUNT);
+    this(codec, level, Mode.AUTO, DEFAULT_RETRY_COUNT);
   }
 
   /**
@@ -134,7 +118,7 @@ public class QatZipper {
    * @param mode the mode of operation (HARDWARE - only hardware, AUTO - hardware with a software failover.)
    */
   public QatZipper(Codec codec, int level, Mode mode) {
-    this(codec, level, mode, DEFAULT_PIN_MEM_SIZE, DEFAULT_RETRY_COUNT);
+    this(codec, level, mode, DEFAULT_RETRY_COUNT);
   }
 
   /**
@@ -143,32 +127,15 @@ public class QatZipper {
    * @param codec the compression algorithm (deflate or LZ4).
    * @param level the compression level.
    * @param mode the mode of operation (HARDWARE - only hardware, AUTO - hardware with a software failover.)
-   * @param pinMemSize the size of the internal buffer used for compression/decompression (for advanced users).
-   */
-  public QatZipper(Codec codec, int level, Mode mode, long pinMemSize) {
-    this(codec, level, mode, pinMemSize, DEFAULT_RETRY_COUNT);
-  }
-
-  /**
-   * Constructs a QAT session using the given parameters.
-   *
-   * @param codec the compression algorithm (deflate or LZ4).
-   * @param level the compression level.
-   * @param mode the mode of operation (HARDWARE - only hardware, AUTO - hardware with a software failover.)
-   * @param pinMemSize the size of the internal buffer used for compression/decompression (for advanced users).
    * @param retryCount how many times to seek for a hardware resources before giving up.
    * @throws QatException if QAT session cannot be created.
    */
-  public QatZipper(Codec codec, int level, Mode mode, long pinMemSize, int retryCount) throws QatException {
-    if (pinMemSize != 0 && (pinMemSize < PIN_MEM_MIN || pinMemSize > PIN_MEM_MAX))
-      throw new IllegalArgumentException(
-          "Pinned memory size must be in the range (" + (PIN_MEM_MIN / 1024) + ", " + (PIN_MEM_MAX / 1024) + ") KB.");
-
+  public QatZipper(Codec codec, int level, Mode mode, int retryCount) throws QatException {
     if (!validateParams(codec, level, retryCount))
       throw new IllegalArgumentException("Invalid compression level or retry count.");
 
     this.retryCount = retryCount;
-    InternalJNI.setup(this, mode.ordinal(), pinMemSize, codec.ordinal(), level);
+    InternalJNI.setup(this, mode.ordinal(), codec.ordinal(), level);
     isValid = true;
   }
 

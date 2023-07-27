@@ -77,16 +77,12 @@ public class BenchmarkWithFile {
     private byte[] src;
     private byte[] dst;
 
-    @Param({"65536"})
-    private int pinMemSize;
-
     @Param({""})
     private String fileName;
 
     @Setup(Level.Trial)
     public void setup() {
-      System.out.println(pinMemSize);
-      zipper = new QatZipper(Codec.DEFLATE, 6, QatZipper.Mode.HARDWARE, pinMemSize);
+      zipper = new QatZipper(Codec.DEFLATE, 6, QatZipper.Mode.HARDWARE);
       try {
         src = Files.readAllBytes(Paths.get(fileName));
         dst = new byte[zipper.maxCompressedLength(src.length)];
@@ -120,9 +116,6 @@ public class BenchmarkWithFile {
     private byte[] src;
     private byte[] dst;
 
-    @Param({"65536"})
-    private int pinMemSize;
-
     @Param({""})
     private String fileName;
 
@@ -131,8 +124,7 @@ public class BenchmarkWithFile {
 
     @Setup(Level.Trial)
     public void setup() {
-      System.out.println(pinMemSize);
-      zipper = new QatZipper(Codec.DEFLATE, 6, QatZipper.Mode.HARDWARE, pinMemSize);
+      zipper = new QatZipper(Codec.DEFLATE, 6, QatZipper.Mode.HARDWARE);
 
       try {
         src = Files.readAllBytes(Paths.get(fileName));
