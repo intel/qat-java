@@ -3,12 +3,9 @@
  *
  * SPDX-License-Identifier: BSD
  ******************************************************************************/
-#define _GNU_SOURCE
 
 #include "com_intel_qat_InternalJNI.h"
 
-#include <numa.h>
-#include <sched.h>
 #include <stdlib.h>
 
 #include "qatzip.h"
@@ -16,8 +13,6 @@
 
 #define DEFLATE_ALGORITHM 0
 #define POLLING_MODE QZ_BUSY_POLLING
-
-static __thread int numa_id;
 
 /**
  * The fieldID for java.nio.ByteBuffer/position
@@ -177,16 +172,11 @@ JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_setup(
   else
     status = setup_lz4_session(qz_session, comp_level);
 
-  if (comp_alg == DEFLATE_ALGORITHM && QZ_OK != status) {
-    throw_exception(env, status, "Error occurred while setting up a session.");
-    return;
-  }
-  if (status != QZ_OK && status != QZ_DUPLICATE) {
+  if (status != QZ_OK) {
     qzClose(qz_session);
     throw_exception(env, status, "Error occurred while setting up a session.");
     return;
   }
-  numa_id = numa_node_of_cpu(sched_getcpu());
 
   jclass qz_clazz = (*env)->FindClass(env, "com/intel/qat/QatZipper");
   jfieldID qz_session_field = (*env)->GetFieldID(env, qz_clazz, "session", "J");
