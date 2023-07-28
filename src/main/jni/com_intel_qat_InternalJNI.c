@@ -23,17 +23,16 @@ static jfieldID nio_bytebuffer_position_id;
  * Setups a QAT session for DEFLATE.
  *
  * @param qz_session a pointer to the QzSession_T.
- * @param compression_level the compression level to use.
+ * @param level the compression level to use.
  */
-static int setup_deflate_session(QzSession_T *qz_session,
-                                 int compression_level) {
+static int setup_deflate_session(QzSession_T *qz_session, int level) {
   QzSessionParamsDeflate_T deflate_params;
 
   int status = qzGetDefaultsDeflate(&deflate_params);
   if (status != QZ_OK) return status;
 
   deflate_params.data_fmt = QZ_DEFLATE_GZIP_EXT;
-  deflate_params.common_params.comp_lvl = compression_level;
+  deflate_params.common_params.comp_lvl = level;
   deflate_params.common_params.polling_mode = POLLING_MODE;
 
   return qzSetupSessionDeflate(qz_session, &deflate_params);
@@ -43,17 +42,17 @@ static int setup_deflate_session(QzSession_T *qz_session,
  * Setups a QAT session for LZ4.
  *
  * @param qz_session a pointer to the QzSession_T.
- * @param compression_level the compression level to use.
+ * @param level the compression level to use.
  * @return QZ_OK (0) if successful, non-zero otherwise.
  */
-static int setup_lz4_session(QzSession_T *qz_session, int compression_level) {
+static int setup_lz4_session(QzSession_T *qz_session, int level) {
   QzSessionParamsLZ4_T lz4_params;
 
   int status = qzGetDefaultsLZ4(&lz4_params);
   if (status != QZ_OK) return status;
 
   lz4_params.common_params.polling_mode = POLLING_MODE;
-  lz4_params.common_params.comp_lvl = compression_level;
+  lz4_params.common_params.comp_lvl = level;
 
   return qzSetupSessionLZ4(qz_session, &lz4_params);
 }
@@ -70,16 +69,16 @@ static int setup_lz4_session(QzSession_T *qz_session, int compression_level) {
  * @param src_len the size of the source buffer.
  * @param dst_ptr the destination buffer.
  * @param dst_len the size of the destination buffer.
- * @param src_read an out parameter that stores the bytes read from the source
+ * @param bytes_read an out parameter that stores the bytes read from the source
  * buffer.
- * @param dst_written an out parameter that stores the bytes written to the
+ * @param bytes_written an out parameter that stores the bytes written to the
  * destination buffer.
  * @param retry_count the number of compression retries before we give up.
  * @return QZ_OK (0) if successful, non-zero otherwise.
  */
 static int compress(JNIEnv *env, QzSession_T *sess, unsigned char *src_ptr,
                     unsigned int src_len, unsigned char *dst_ptr,
-                    unsigned int dst_len, int *src_read, int *dst_written,
+                    unsigned int dst_len, int *bytes_read, int *bytes_written,
                     int retry_count) {
   int status = qzCompress(sess, src_ptr, &src_len, dst_ptr, &dst_len, 1);
 
@@ -91,12 +90,12 @@ static int compress(JNIEnv *env, QzSession_T *sess, unsigned char *src_ptr,
   }
 
   if (status != QZ_OK) {
-    throw_exception(env, status, "Error occurred while compressiong data.");
+    throw_exception(env, status, "Error occurred while compressing data.");
     return status;
   }
 
-  *src_read = src_len;
-  *dst_written = dst_len;
+  *bytes_read = src_len;
+  *bytes_written = dst_len;
 
   return QZ_OK;
 }
@@ -113,16 +112,16 @@ static int compress(JNIEnv *env, QzSession_T *sess, unsigned char *src_ptr,
  * @param src_len the size of the source buffer.
  * @param dst_ptr the destination buffer.
  * @param dst_len the size of the destination buffer.
- * @param src_read an out parameter that stores the bytes read from the source
+ * @param bytes_read an out parameter that stores the bytes read from the source
  * buffer.
- * @param dst_written an out parameter that stores the bytes written to the
+ * @param bytes_written an out parameter that stores the bytes written to the
  * destination buffer.
  * @param retry_count the number of decompression retries before we give up.
  * @return QZ_OK (0) if successful, non-zero otherwise.
  */
 static int decompress(JNIEnv *env, QzSession_T *sess, unsigned char *src_ptr,
                       unsigned int src_len, unsigned char *dst_ptr,
-                      unsigned int dst_len, int *src_read, int *dst_written,
+                      unsigned int dst_len, int *bytes_read, int *bytes_written,
                       int retry_count) {
   int status = qzDecompress(sess, src_ptr, &src_len, dst_ptr, &dst_len);
   if (status == QZ_NOSW_NO_INST_ATTACH && retry_count > 0) {
@@ -137,8 +136,8 @@ static int decompress(JNIEnv *env, QzSession_T *sess, unsigned char *src_ptr,
     return status;
   }
 
-  *src_read = src_len;
-  *dst_written = dst_len;
+  *bytes_read = src_len;
+  *bytes_written = dst_len;
 
   return QZ_OK;
 }
@@ -151,8 +150,8 @@ static int decompress(JNIEnv *env, QzSession_T *sess, unsigned char *src_ptr,
  * Signature: (Lcom/intel/qat/QatZipper;IJII)V
  */
 JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_setup(
-    JNIEnv *env, jobject obj, jobject qat_zipper, jint sw_backup, jint comp_alg,
-    jint comp_level) {
+    JNIEnv *env, jobject obj, jobject qat_zipper, jint sw_backup, jint codec,
+    jint level) {
   (void)obj;
 
   // save the fieldID of nio.ByteBuffer.position
@@ -167,10 +166,10 @@ JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_setup(
     return;
   }
 
-  if (comp_alg == DEFLATE_ALGORITHM)
-    status = setup_deflate_session(qz_session, comp_level);
+  if (codec == DEFLATE_ALGORITHM)
+    status = setup_deflate_session(qz_session, level);
   else
-    status = setup_lz4_session(qz_session, comp_level);
+    status = setup_lz4_session(qz_session, level);
 
   if (status != QZ_OK) {
     qzClose(qz_session);
@@ -202,20 +201,20 @@ jint JNICALL Java_com_intel_qat_InternalJNI_compressDirectByteBuffer(
   unsigned char *dst_ptr =
       (unsigned char *)(*env)->GetDirectBufferAddress(env, dst_buf);
 
-  int src_read = 0;
-  int dst_written = 0;
+  int bytes_read = 0;
+  int bytes_written = 0;
 
   compress(env, qz_session, src_ptr + src_pos, src_lim - src_pos,
-           dst_ptr + dst_pos, dst_lim - dst_pos, &src_read, &dst_written,
+           dst_ptr + dst_pos, dst_lim - dst_pos, &bytes_read, &bytes_written,
            retry_count);
 
   // set src and dest buffer positions
   (*env)->SetIntField(env, src_buf, nio_bytebuffer_position_id,
-                      src_pos + src_read);
+                      src_pos + bytes_read);
   (*env)->SetIntField(env, dst_buf, nio_bytebuffer_position_id,
-                      dst_pos + dst_written);
+                      dst_pos + bytes_written);
 
-  return dst_written;
+  return bytes_written;
 }
 
 /*
@@ -238,11 +237,11 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_compressArrayOrBuffer(
   unsigned char *dst_ptr =
       (unsigned char *)(*env)->GetByteArrayElements(env, dst_arr, NULL);
 
-  int src_read = 0;
-  int dst_written = 0;
+  int bytes_read = 0;
+  int bytes_written = 0;
 
   compress(env, qz_session, src_ptr + src_pos, src_lim - src_pos,
-           dst_ptr + dst_pos, dst_lim - dst_pos, &src_read, &dst_written,
+           dst_ptr + dst_pos, dst_lim - dst_pos, &bytes_read, &bytes_written,
            retry_count);
 
   (*env)->ReleaseByteArrayElements(env, src_arr, (jbyte *)src_ptr, 0);
@@ -250,10 +249,10 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_compressArrayOrBuffer(
 
   if (src_buf) {  // is indirect ByteBuffer
     (*env)->SetIntField(env, src_buf, nio_bytebuffer_position_id,
-                        src_pos + src_read);
+                        src_pos + bytes_read);
   }
 
-  return dst_written;
+  return bytes_written;
 }
 
 /*
@@ -276,20 +275,20 @@ Java_com_intel_qat_InternalJNI_decompressDirectByteBuffer(
   unsigned char *dst_ptr =
       (unsigned char *)(*env)->GetDirectBufferAddress(env, dst_buf);
 
-  int src_read = 0;
-  int dst_written = 0;
+  int bytes_read = 0;
+  int bytes_written = 0;
 
   decompress(env, qz_session, src_ptr + src_pos, src_lim - src_pos,
-             dst_ptr + dst_pos, dst_lim - dst_pos, &src_read, &dst_written,
+             dst_ptr + dst_pos, dst_lim - dst_pos, &bytes_read, &bytes_written,
              retry_count);
 
   // set src and dest buffer positions
   (*env)->SetIntField(env, src_buf, nio_bytebuffer_position_id,
-                      src_pos + src_read);
+                      src_pos + bytes_read);
   (*env)->SetIntField(env, dst_buf, nio_bytebuffer_position_id,
-                      dst_pos + dst_written);
+                      dst_pos + bytes_written);
 
-  return dst_written;
+  return bytes_written;
 }
 
 /*
@@ -311,11 +310,11 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_decompressArrayOrBuffer(
   unsigned char *dst_ptr =
       (unsigned char *)(*env)->GetByteArrayElements(env, dst_arr, NULL);
 
-  int src_read = 0;
-  int dst_written = 0;
+  int bytes_read = 0;
+  int bytes_written = 0;
 
   decompress(env, qz_session, src_ptr + src_pos, src_lim - src_pos,
-             dst_ptr + dst_pos, dst_lim - dst_pos, &src_read, &dst_written,
+             dst_ptr + dst_pos, dst_lim - dst_pos, &bytes_read, &bytes_written,
              retry_count);
 
   (*env)->ReleaseByteArrayElements(env, src_arr, (jbyte *)src_ptr, 0);
@@ -324,9 +323,9 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_decompressArrayOrBuffer(
   // if indirect ByteBuffer, set its position
   if (src_buf)
     (*env)->SetIntField(env, src_buf, nio_bytebuffer_position_id,
-                        src_pos + src_read);
+                        src_pos + bytes_read);
 
-  return dst_written;
+  return bytes_written;
 }
 
 /*

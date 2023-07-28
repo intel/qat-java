@@ -409,6 +409,8 @@ public class QatZipper {
 
   /**
    * Gets a cleaner object.
+   *
+   * @return a QAT cleaner object.
    */
   public Runnable getCleaner() {
     return new QatCleaner(session);
