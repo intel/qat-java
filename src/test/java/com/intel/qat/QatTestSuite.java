@@ -13,5 +13,6 @@ import org.junit.platform.suite.api.Suite;
 @SelectPackages("com.intel.qat")
 public class QatTestSuite {
   private static String flag = System.getProperty("hardware.available");
-  public static final boolean FORCE_HARDWARE = (flag != null && flag.equals("true"));
+  public static final boolean FORCE_HARDWARE =
+      (flag != null && flag.equals("true"));
 }

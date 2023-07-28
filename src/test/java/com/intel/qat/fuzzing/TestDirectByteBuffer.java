@@ -36,7 +36,8 @@ public class TestDirectByteBuffer {
 
       zipper.end();
 
-      assert srcBuf.compareTo(decBuf) == 0 : "The source and decompressed buffers do not match.";
+      assert srcBuf.compareTo(decBuf)
+          == 0 : "The source and decompressed buffers do not match.";
     } catch (QatException e) {
       throw e;
     }
