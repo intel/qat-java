@@ -14,7 +14,6 @@ extern "C" {
 #endif
 
 void throw_exception(JNIEnv *env, jlong err_code, const char *msg);
-unsigned int next_power_of_2(unsigned int);
 
 #ifdef __cplusplus
 }

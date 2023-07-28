@@ -8,7 +8,6 @@ Language: Cpp
 ColumnLimit: 80
 MaxEmptyLinesToKeep: 1
 PointerAlignment: Right
-BreakBeforeBraces: Linux
 
 ---
 Language: Java

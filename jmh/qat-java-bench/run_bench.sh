@@ -1,7 +1,7 @@
 #!/bin/bash
 mvn clean install
 
-dataset=(dickens mozilla mr nci ooffice osdb reymont samba sao webster xml x-ray)
+dataset=(dickens) # mozilla mr nci ooffice osdb reymont samba sao webster xml x-ray)
 url=https://sun.aei.polsl.pl//~sdeor/corpus
 
 mkdir samples
