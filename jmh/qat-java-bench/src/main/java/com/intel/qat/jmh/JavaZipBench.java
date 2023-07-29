@@ -73,8 +73,7 @@ public class JavaZipBench {
       compressedLength = deflater.deflate(dst);
       deflater.reset();
 
-      // Prepare compressed array of size compressedLength
-      // important! JNI behavior is dependent of size of array
+      // Prepare compressed array of size EXACTLY compressedLength
       compressed = new byte[compressedLength];
       System.arraycopy(dst, 0, compressed, 0, compressedLength);
 
@@ -82,6 +81,11 @@ public class JavaZipBench {
       inflater.setInput(compressed);
       decompressedLength = inflater.inflate(decompressed);
       inflater.reset();
+
+      System.out.println("\n-------------------------");
+      System.out.printf("Compressed size: %d, ratio: %.2f\n", compressedLength,
+          (double) decompressedLength / compressedLength);
+      System.out.println("-------------------------");
     } catch (Exception e) {
       e.printStackTrace();
     }

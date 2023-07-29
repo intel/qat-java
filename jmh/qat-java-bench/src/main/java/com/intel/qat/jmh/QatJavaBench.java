@@ -33,7 +33,6 @@ package com.intel.qat.jmh;
 
 import com.intel.qat.QatZipper;
 import com.intel.qat.QatZipper.Codec;
-import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Collection;
@@ -48,12 +47,6 @@ import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.TearDown;
 import org.openjdk.jmh.annotations.Warmup;
-import org.openjdk.jmh.results.Result;
-import org.openjdk.jmh.results.RunResult;
-import org.openjdk.jmh.runner.Runner;
-import org.openjdk.jmh.runner.RunnerException;
-import org.openjdk.jmh.runner.options.Options;
-import org.openjdk.jmh.runner.options.OptionsBuilder;
 
 @State(Scope.Benchmark)
 public class QatJavaBench {
@@ -77,13 +70,17 @@ public class QatJavaBench {
       // Compress bytes
       compressedLength = zipper.compress(src, dst);
 
-      // Prepare compressed array of size compressedLength
-      // important! JNI behavior is dependent of size of array
+      // Prepare compressed array of size EXACTLY compressedLength
       compressed = new byte[compressedLength];
       System.arraycopy(dst, 0, compressed, 0, compressedLength);
 
       decompressed = new byte[src.length];
       decompressedLength = zipper.decompress(compressed, decompressed);
+
+      System.out.println("\n-------------------------");
+      System.out.printf("Compressed size: %d, ratio: %.2f\n", compressedLength,
+          (double) decompressedLength / compressedLength);
+      System.out.println("-------------------------");
     } catch (Exception e) {
       e.printStackTrace();
     }
@@ -108,29 +105,5 @@ public class QatJavaBench {
   @TearDown
   public void end() {
     zipper.end();
-  }
-
-  public static void main(String[] args) throws RunnerException {
-    if (args.length < 2)
-      throw new IllegalArgumentException("Input file required.");
-
-    Options opts = new OptionsBuilder()
-                       .include(QatJavaBench.class.getSimpleName())
-                       .include(JavaZipBench.class.getSimpleName())
-                       .forks(1)
-                       .param("fileName", args[1])
-                       .jvmArgs("-Xms4g", "-Xmx4g")
-                       .build();
-
-    Collection<RunResult> results = new Runner(opts).run();
-    System.out.println("-------------------------");
-
-    long fileSize = new File(args[1]).length();
-    for (RunResult rr : results) {
-      Result r = rr.getAggregatedResult().getPrimaryResult();
-      double speed = r.getScore() * fileSize / (1024 * 1024);
-      System.out.printf(
-          "%s\t%.2f MB/sec\n", rr.getParams().getBenchmark(), speed);
-    }
   }
 }
