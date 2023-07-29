@@ -16,6 +16,7 @@ public class InternalJNI {
    * JNI.
    */
   private InternalJNI() {}
+
   /**
    * loads libqatzip.so while loading through static block
    */
@@ -26,18 +27,23 @@ public class InternalJNI {
   static native void setup(QatZipper qatSessionObject, int softwareBackup,
       int compressionAlgo, int compressionLevel);
 
-  static native int teardown(long session);
   static native int maxCompressedSize(long session, long sourceSize);
+
   static native int compressDirectByteBuffer(long session, ByteBuffer src,
       int srcOffset, int srcLen, ByteBuffer dest, int destOffset, int destLen,
       int retryCount);
+
   static native int compressArrayOrBuffer(long session, ByteBuffer srcBuffer,
       byte[] src, int srcOffset, int srcLen, byte[] dest, int destOffset,
       int destLen, int retryCount);
+
   static native int decompressDirectByteBuffer(long session, ByteBuffer src,
       int srcOffset, int srcLen, ByteBuffer dest, int destOffset, int destLen,
       int retryCount);
+
   static native int decompressArrayOrBuffer(long session, ByteBuffer srcBuffer,
       byte[] src, int srcOffset, int srcLen, byte[] dest, int destOffset,
       int destLen, int retryCount);
+
+  static native int teardown(long session);
 }

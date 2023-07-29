@@ -272,9 +272,6 @@ public class QatZipper {
         InternalJNI.compressArrayOrBuffer(session, null, src, srcOffset,
             srcOffset + srcLen, dst, dstOffset, dstOffset + dstLen, retryCount);
 
-    if (compressedSize < 0)
-      throw new QatException("QAT: Compression failed");
-
     return compressedSize;
   }
 
@@ -328,9 +325,6 @@ public class QatZipper {
           session, src, srcArr, 0, srcLen, dstArr, 0, dstLen, retryCount);
       dst.put(dstArr, 0, compressedSize);
     }
-
-    if (compressedSize < 0)
-      throw new QatException("QAT: Compression failed");
 
     return compressedSize;
   }
@@ -392,9 +386,6 @@ public class QatZipper {
     int decompressedSize =
         InternalJNI.decompressArrayOrBuffer(session, null, src, srcOffset,
             srcOffset + srcLen, dst, dstOffset, dstOffset + dstLen, retryCount);
-
-    if (decompressedSize < 0)
-      throw new QatException("QAT: decompression failed");
 
     return decompressedSize;
   }

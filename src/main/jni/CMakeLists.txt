@@ -9,7 +9,7 @@ project(qat-java)
 
 set(CMAKE_BUILD_TYPE Release)
 set(CMAKE_C_COMPILER "/usr/bin/clang")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -shared -std=c11 -Wall -Wextra -Wpedantic -fPIC -fstack-protector-strong -I${JAVA_HOME}/include -I${JAVA_HOME}/include/linux -lqatzip -lnuma -lpthread")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -shared -std=c11 -Wall -Wextra -Wpedantic -fPIC -fstack-protector-strong -I${JAVA_HOME}/include -I${JAVA_HOME}/include/linux -lqatzip")
 set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -pie")
 
 # Build options
@@ -45,7 +45,3 @@ add_library(qat-java SHARED ${SOURCES})
 
 # Add dependency for qat library
 target_link_libraries(qat-java qatzip)
-
-#treat all warnings as errors, enable warnings
-#do not hardocde any path
-#check what SDL recommends and include accordingly

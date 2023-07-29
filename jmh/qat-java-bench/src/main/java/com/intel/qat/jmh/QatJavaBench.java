@@ -34,15 +34,12 @@ package com.intel.qat.jmh;
 import com.intel.qat.QatZipper;
 import com.intel.qat.QatZipper.Codec;
 import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Collection;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
-import org.openjdk.jmh.annotations.Level;
 import org.openjdk.jmh.annotations.Measurement;
 import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.Param;
@@ -51,8 +48,6 @@ import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.TearDown;
 import org.openjdk.jmh.annotations.Warmup;
-import org.openjdk.jmh.infra.Blackhole;
-import org.openjdk.jmh.results.BenchmarkResult;
 import org.openjdk.jmh.results.Result;
 import org.openjdk.jmh.results.RunResult;
 import org.openjdk.jmh.runner.Runner;
@@ -132,8 +127,7 @@ public class QatJavaBench {
 
     long fileSize = new File(args[1]).length();
     for (RunResult rr : results) {
-      BenchmarkResult ar = rr.getAggregatedResult();
-      Result r = ar.getPrimaryResult();
+      Result r = rr.getAggregatedResult().getPrimaryResult();
       double speed = r.getScore() * fileSize / (1024 * 1024);
       System.out.printf(
           "%s\t%.2f MB/sec\n", rr.getParams().getBenchmark(), speed);
