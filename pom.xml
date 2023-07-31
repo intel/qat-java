@@ -16,10 +16,35 @@
 
     <licenses>
         <license>
-            <name>MIT License</name>
-            <url>http://www.opensource.org/licenses/mit-license.php</url>
+            <name>BSD License</name>
+            <url>https://opensource.org/license/bsd-3-clause</url>
         </license>
     </licenses>
+    <developers>
+        <developer>
+            <name>Nishchal, Praveen</name>
+            <email>praveen.nishchal@intel.com</email>
+            <organization>Intel</organization>
+            <organizationUrl></organizationUrl>
+        </developer>
+        <developer>
+            <name>Mammo, Mulugeta</name>
+            <email>mulugeta.mammo@intel.com</email>
+            <organization>Intel</organization>
+            <organizationUrl></organizationUrl>
+        </developer>
+        <developer>
+            <name>Denloye, Olasoji</name>
+            <email>olasoji.denloye@intel.com</email>
+            <organization>Intel</organization>
+            <organizationUrl></organizationUrl>
+        </developer>
+    </developers>
+    <scm>
+        <connection>scm:git:git://github.com/intel/qat-java.git</connection>
+        <developerConnection>scm:git:git@github.com:intel/qat-java.git</developerConnection>
+        <url>https://github.com/intel/qat-java/tree/main</url>
+    </scm>
     <properties>
         <maven.compiler.release>11</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
