@@ -18,7 +18,7 @@ import java.nio.ReadOnlyBufferException;
  * This class provides methods that can be used to compress and decompress byte
  * arrays and byte buffers. Once compression and decompression methods are used,
  * a user should explicitly release resources used by this class by calling the
- * <tt>end()</tt> method.
+ * <code>end()</code> method.
  *
  * The following code snippet demonstrates how to use the class to compress and
  * decompress a string.
@@ -457,7 +457,7 @@ public class QatZipper {
    */
   private boolean validateParams(Codec codec, int level, int retryCount) {
     return !(
-        retryCount < 0 || level < 0 || (codec.ordinal() == 0 && level > 9));
+        retryCount < 0 || level < 1 || (codec.ordinal() == 0 && level > 9));
   }
 
   /**
