@@ -191,7 +191,7 @@ JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_setup(
  */
 jint JNICALL Java_com_intel_qat_InternalJNI_compressDirectByteBuffer(
     JNIEnv *env, jobject obj, jlong sess, jobject src_buf, jint src_pos,
-    jint src_lim, jobject dst_buf, jint dst_pos, jint dst_lim,
+    jint src_len, jobject dst_buf, jint dst_pos, jint dst_len,
     jint retry_count) {
   (void)obj;
 
@@ -204,9 +204,8 @@ jint JNICALL Java_com_intel_qat_InternalJNI_compressDirectByteBuffer(
   int bytes_read = 0;
   int bytes_written = 0;
 
-  compress(env, qz_session, src_ptr + src_pos, src_lim - src_pos,
-           dst_ptr + dst_pos, dst_lim - dst_pos, &bytes_read, &bytes_written,
-           retry_count);
+  compress(env, qz_session, src_ptr + src_pos, src_len, dst_ptr + dst_pos,
+           dst_len, &bytes_read, &bytes_written, retry_count);
 
   // set src and dest buffer positions
   (*env)->SetIntField(env, src_buf, nio_bytebuffer_position_id,
@@ -226,7 +225,7 @@ jint JNICALL Java_com_intel_qat_InternalJNI_compressDirectByteBuffer(
  */
 JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_compressArrayOrBuffer(
     JNIEnv *env, jobject obj, jlong sess, jobject src_buf, jbyteArray src_arr,
-    jint src_pos, jint src_lim, jbyteArray dst_arr, jint dst_pos, jint dst_lim,
+    jint src_pos, jint src_len, jbyteArray dst_arr, jint dst_pos, jint dst_len,
     jint retry_count) {
   (void)obj;
 
@@ -240,9 +239,8 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_compressArrayOrBuffer(
   int bytes_read = 0;
   int bytes_written = 0;
 
-  compress(env, qz_session, src_ptr + src_pos, src_lim - src_pos,
-           dst_ptr + dst_pos, dst_lim - dst_pos, &bytes_read, &bytes_written,
-           retry_count);
+  compress(env, qz_session, src_ptr + src_pos, src_len, dst_ptr + dst_pos,
+           dst_len, &bytes_read, &bytes_written, retry_count);
 
   (*env)->ReleaseByteArrayElements(env, src_arr, (jbyte *)src_ptr, 0);
   (*env)->ReleaseByteArrayElements(env, dst_arr, (jbyte *)dst_ptr, 0);
@@ -265,7 +263,7 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_compressArrayOrBuffer(
 JNIEXPORT jint JNICALL
 Java_com_intel_qat_InternalJNI_decompressDirectByteBuffer(
     JNIEnv *env, jobject obj, jlong sess, jobject src_buf, jint src_pos,
-    jint src_lim, jobject dst_buf, jint dst_pos, jint dst_lim,
+    jint src_len, jobject dst_buf, jint dst_pos, jint dst_len,
     jint retry_count) {
   (void)obj;
 
@@ -278,9 +276,8 @@ Java_com_intel_qat_InternalJNI_decompressDirectByteBuffer(
   int bytes_read = 0;
   int bytes_written = 0;
 
-  decompress(env, qz_session, src_ptr + src_pos, src_lim - src_pos,
-             dst_ptr + dst_pos, dst_lim - dst_pos, &bytes_read, &bytes_written,
-             retry_count);
+  decompress(env, qz_session, src_ptr + src_pos, src_len, dst_ptr + dst_pos,
+             dst_len, &bytes_read, &bytes_written, retry_count);
 
   // set src and dest buffer positions
   (*env)->SetIntField(env, src_buf, nio_bytebuffer_position_id,
@@ -300,7 +297,7 @@ Java_com_intel_qat_InternalJNI_decompressDirectByteBuffer(
  */
 JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_decompressArrayOrBuffer(
     JNIEnv *env, jobject obj, jlong sess, jobject src_buf, jbyteArray src_arr,
-    jint src_pos, jint src_lim, jbyteArray dst_arr, jint dst_pos, jint dst_lim,
+    jint src_pos, jint src_len, jbyteArray dst_arr, jint dst_pos, jint dst_len,
     jint retry_count) {
   (void)obj;
 
@@ -313,9 +310,8 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_decompressArrayOrBuffer(
   int bytes_read = 0;
   int bytes_written = 0;
 
-  decompress(env, qz_session, src_ptr + src_pos, src_lim - src_pos,
-             dst_ptr + dst_pos, dst_lim - dst_pos, &bytes_read, &bytes_written,
-             retry_count);
+  decompress(env, qz_session, src_ptr + src_pos, src_len, dst_ptr + dst_pos,
+             dst_len, &bytes_read, &bytes_written, retry_count);
 
   (*env)->ReleaseByteArrayElements(env, src_arr, (jbyte *)src_ptr, 0);
   (*env)->ReleaseByteArrayElements(env, dst_arr, (jbyte *)dst_ptr, 0);

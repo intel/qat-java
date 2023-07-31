@@ -31,8 +31,8 @@
 
 package com.intel.qat.jmh;
 
-import java.util.Collection;
 import java.io.File;
+import java.util.Collection;
 import org.openjdk.jmh.results.Result;
 import org.openjdk.jmh.results.RunResult;
 import org.openjdk.jmh.runner.Runner;
@@ -45,14 +45,13 @@ public class BenchmarkDriver {
     if (args.length < 2)
       throw new IllegalArgumentException("Input file required.");
 
-    Options opts =
-        new OptionsBuilder()
-            .include(QatJavaBench.class.getSimpleName())
-            .include(JavaZipBench.class.getSimpleName())
-            .forks(1)
-            .param("fileName", args[1])
-            .jvmArgs("-Xms4g", "-Xmx4g")
-            .build();
+    Options opts = new OptionsBuilder()
+                       .include(QatJavaBench.class.getSimpleName())
+                       .include(JavaZipBench.class.getSimpleName())
+                       .forks(1)
+                       .param("fileName", args[1])
+                       .jvmArgs("-Xms4g", "-Xmx4g")
+                       .build();
 
     Collection<RunResult> results = new Runner(opts).run();
     System.out.println("-------------------------");
