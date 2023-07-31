@@ -10,7 +10,7 @@ import java.nio.ByteBuffer;
 /**
  * Class with static native function declaration
  */
-public class InternalJNI {
+class InternalJNI {
   /**
    * This class contains static native method interface declarations required by
    * JNI.
