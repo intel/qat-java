@@ -268,9 +268,8 @@ public class QatZipper {
       throw new ArrayIndexOutOfBoundsException(
           "Source offset is out of bounds.");
 
-    int compressedSize =
-        InternalJNI.compressArrayOrBuffer(session, null, src, srcOffset,
-            srcOffset + srcLen, dst, dstOffset, dstOffset + dstLen, retryCount);
+    int compressedSize = InternalJNI.compressArrayOrBuffer(session, null, src,
+        srcOffset, srcLen, dst, dstOffset, dstLen, retryCount);
 
     return compressedSize;
   }
@@ -300,13 +299,13 @@ public class QatZipper {
 
     int compressedSize = 0;
     if (src.isDirect() && dst.isDirect()) {
-      compressedSize =
-          InternalJNI.compressDirectByteBuffer(session, src, src.position(),
-              src.limit(), dst, dst.position(), dst.limit(), retryCount);
+      compressedSize = InternalJNI.compressDirectByteBuffer(session, src,
+          src.position(), src.remaining(), dst, dst.position(), dst.remaining(),
+          retryCount);
     } else if (src.hasArray() && dst.hasArray()) {
       compressedSize = InternalJNI.compressArrayOrBuffer(session, src,
-          src.array(), src.position(), src.limit(), dst.array(), dst.position(),
-          dst.limit(), retryCount);
+          src.array(), src.position(), src.remaining(), dst.array(),
+          dst.position(), dst.remaining(), retryCount);
       dst.position(dst.position() + compressedSize);
     } else {
       int srcLen = src.remaining();
@@ -383,9 +382,8 @@ public class QatZipper {
       throw new ArrayIndexOutOfBoundsException(
           "Source offset is out of bounds.");
 
-    int decompressedSize =
-        InternalJNI.decompressArrayOrBuffer(session, null, src, srcOffset,
-            srcOffset + srcLen, dst, dstOffset, dstOffset + dstLen, retryCount);
+    int decompressedSize = InternalJNI.decompressArrayOrBuffer(session, null,
+        src, srcOffset, srcLen, dst, dstOffset, dstLen, retryCount);
 
     return decompressedSize;
   }
@@ -415,13 +413,13 @@ public class QatZipper {
 
     int decompressedSize = 0;
     if (src.isDirect() && dst.isDirect()) {
-      decompressedSize =
-          InternalJNI.decompressDirectByteBuffer(session, src, src.position(),
-              src.limit(), dst, dst.position(), dst.limit(), retryCount);
+      decompressedSize = InternalJNI.decompressDirectByteBuffer(session, src,
+          src.position(), src.remaining(), dst, dst.position(), dst.remaining(),
+          retryCount);
     } else if (src.hasArray() && dst.hasArray()) {
       decompressedSize = InternalJNI.decompressArrayOrBuffer(session, src,
-          src.array(), src.position(), src.limit(), dst.array(), dst.position(),
-          dst.limit(), retryCount);
+          src.array(), src.position(), src.remaining(), dst.array(),
+          dst.position(), dst.remaining(), retryCount);
       dst.position(dst.position() + decompressedSize);
     } else {
       int srcLen = src.remaining();
