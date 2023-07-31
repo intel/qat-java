@@ -164,7 +164,7 @@ public class QatTest {
     try {
       zipper = new QatZipper();
       ByteBuffer buf = null;
-      int compressedSize = zipper.decompress(buf, buf);
+      zipper.decompress(buf, buf);
       fail();
     } catch (IllegalArgumentException e) {
       assertTrue(true);
