@@ -50,7 +50,7 @@
                         <groupId>org.codehaus.mojo</groupId>
                         <executions>
                             <execution>
-                                <id>TestDriver</id>
+                                <id>FuzzerTest</id>
                                 <phase>test</phase>
                                 <goals>
                                     <goal>exec</goal>
@@ -66,7 +66,7 @@
                                         <classpath/>
                                         <argument>com.code_intelligence.jazzer.Jazzer</argument>
                                         <argument>
-                                            --target_class=com.intel.qat.fuzzing.TestDriver
+                                            --target_class=com.intel.qat.fuzzing.FuzzerTest
                                         </argument>
                                         <argument>--asan</argument>
                                         <argument>--native</argument>
