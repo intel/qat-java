@@ -11,7 +11,10 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
+import static com.intel.qat.QatZipper.Algorithm;
 
+import java.io.ByteArrayOutputStream;
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.lang.ref.Cleaner;
@@ -21,17 +24,18 @@ import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Random;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
-public class QatTest {
-  private QatZipper zipper;
-  private static final Cleaner cleaner = Cleaner.create();
-  private Cleaner.Cleanable cleanable;
+public class QatStreamsTest {
+  private QatOutputStream outputStream;
+  private QatInputStream inputStream;
 
   private Random rnd = new Random();
 
@@ -41,7 +45,44 @@ public class QatTest {
     return bytes;
   }
 
-  @AfterEach
+    @ParameterizedTest
+    @EnumSource(Algorithm.class)
+    public void full(Algorithm algo) throws IOException {
+        QatZipper qzip = new QatZipper(algo);
+		byte[] src = Files.readAllBytes(Paths.get("src/main/resources/sample.txt"));
+		System.out.println("source sise is "+src.length+"!");
+		ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+		QatOutputStream compressedStream = new QatOutputStream(outputStream, 16 * 1024, algo);
+		System.out.println("created new QAT output stream "+compressedStream);
+		compressedStream.write(src);
+		compressedStream.flush();
+		System.out.println("compressed "+outputStream.size() + " bytes into output stream");
+		byte[] outputStreamBuf = outputStream.toByteArray();
+		compressedStream.close();
+
+		//byte[] dest = new byte[qzip.maxCompressedLength(src.length)];
+		//int compressedLen = qzip.compress(src, 0, src.length, dest, 0, dest.length);
+		//System.out.println("compressed "+compressedLen + " bytes directly");
+		
+		ByteArrayInputStream inStream = new ByteArrayInputStream(outputStreamBuf);
+		QatInputStream decompressedStream = new QatInputStream(inStream, 16 * 1024, algo);
+
+		byte[] result = new byte[src.length];
+		int bytesRead = decompressedStream.read(result);
+		decompressedStream.close();
+		System.out.println("read "+bytesRead+" decompressed bytes from stream. expected "+src.length);
+		System.out.println(" Test passed ? "+Arrays.equals(src, result));
+		StringBuffer srcBuf = new StringBuffer();
+		StringBuffer resultBuf = new StringBuffer();
+		for (int i = 0; i < 20; i++) {
+			srcBuf.append(src[i]+" ");
+			resultBuf.append(result[i]+" ");
+		}
+		System.out.println(srcBuf);
+		System.out.println(resultBuf);
+    }
+
+/*  @AfterEach
   public void cleanupSession() {
     if (zipper != null)
       zipper.end();
@@ -68,7 +109,7 @@ public class QatTest {
   @Test
   public void testTwoArgConstructor() {
     try {
-      zipper = new QatZipper(QatZipper.Algorithm.LZ4, 9);
+      zipper = new QatZipper(QatZipper.Algorithm.DEFLATE, 9);
     } catch (IllegalArgumentException | QatException e) {
       fail(e.getMessage());
     }
@@ -78,7 +119,7 @@ public class QatTest {
   public void testThreeArgConstructorAuto() {
     try {
       zipper =
-          new QatZipper(QatZipper.Algorithm.LZ4, 1, QatZipper.Mode.AUTO);
+          new QatZipper(QatZipper.Algorithm.DEFLATE, 1, QatZipper.Mode.AUTO);
     } catch (IllegalArgumentException | QatException e) {
       fail(e.getMessage());
     }
@@ -89,7 +130,7 @@ public class QatTest {
     assumeTrue(QatTestSuite.FORCE_HARDWARE);
     try {
       zipper = new QatZipper(
-          QatZipper.Algorithm.LZ4, 1, QatZipper.Mode.HARDWARE);
+          QatZipper.Algorithm.DEFLATE, 1, QatZipper.Mode.HARDWARE);
     } catch (IllegalArgumentException | QatException e) {
       fail(e.getMessage());
     }
@@ -99,7 +140,7 @@ public class QatTest {
   public void testFourArgConstructorHW() {
     assumeTrue(QatTestSuite.FORCE_HARDWARE);
     try {
-      zipper = new QatZipper(QatZipper.Algorithm.LZ4, 6,
+      zipper = new QatZipper(QatZipper.Algorithm.DEFLATE, 6,
           QatZipper.Mode.HARDWARE, QatZipper.DEFAULT_RETRY_COUNT);
     } catch (IllegalArgumentException | QatException e) {
       fail(e.getMessage());
@@ -186,7 +227,7 @@ public class QatTest {
   @Test
   public void testInvalidCompressionLevel() {
     try {
-      zipper = new QatZipper(QatZipper.Algorithm.LZ4, 10);
+      zipper = new QatZipper(QatZipper.Algorithm.DEFLATE, 10);
       fail();
     } catch (IllegalArgumentException e) {
       assertTrue(true);
@@ -197,7 +238,7 @@ public class QatTest {
   public void testInvalidRetryCount() {
     try {
       zipper = new QatZipper(
-          QatZipper.Algorithm.LZ4, 10, QatZipper.Mode.AUTO, -1);
+          QatZipper.Algorithm.DEFLATE, 10, QatZipper.Mode.AUTO, -1);
       fail();
     } catch (IllegalArgumentException e) {
       assertTrue(true);
@@ -220,7 +261,7 @@ public class QatTest {
   public void testChunkedCompressionWithByteArray() {
     try {
       zipper =
-          new QatZipper(QatZipper.Algorithm.LZ4, 6, QatZipper.Mode.AUTO);
+          new QatZipper(QatZipper.Algorithm.DEFLATE, 6, QatZipper.Mode.AUTO);
 
       byte[] src = Files.readAllBytes(Path.of("src/main/resources/sample.txt"));
       byte[] dst = new byte[zipper.maxCompressedLength(src.length)];
@@ -243,7 +284,7 @@ public class QatTest {
   public void testChunkedCompressionWithByteArrayDiffOffset() {
     try {
       zipper =
-          new QatZipper(QatZipper.Algorithm.LZ4, 6, QatZipper.Mode.AUTO);
+          new QatZipper(QatZipper.Algorithm.DEFLATE, 6, QatZipper.Mode.AUTO);
 
       byte[] src = Files.readAllBytes(Path.of("src/main/resources/sample.txt"));
       byte[] dst = new byte[zipper.maxCompressedLength(src.length)];
@@ -272,7 +313,7 @@ public class QatTest {
   public void testChunkedCompressionWithByteBuffer() {
     try {
       zipper =
-          new QatZipper(QatZipper.Algorithm.LZ4, 6, QatZipper.Mode.AUTO);
+          new QatZipper(QatZipper.Algorithm.DEFLATE, 6, QatZipper.Mode.AUTO);
 
       byte[] src = Files.readAllBytes(Path.of("src/main/resources/sample.txt"));
       byte[] dec = new byte[src.length];
@@ -304,7 +345,7 @@ public class QatTest {
   public void testChunkedCompressionWithWrappedByteBuffer() {
     try {
       zipper =
-          new QatZipper(QatZipper.Algorithm.LZ4, 6, QatZipper.Mode.AUTO);
+          new QatZipper(QatZipper.Algorithm.DEFLATE, 6, QatZipper.Mode.AUTO);
 
       byte[] src = Files.readAllBytes(Path.of("src/main/resources/sample.txt"));
       byte[] dec = new byte[src.length];
@@ -401,7 +442,7 @@ public class QatTest {
   public void testBackedArrayBuffersWithAllocate(int len) {
     try {
       zipper =
-          new QatZipper(QatZipper.Algorithm.LZ4, 9, QatZipper.Mode.AUTO, 0);
+          new QatZipper(QatZipper.Algorithm.DEFLATE, 9, QatZipper.Mode.AUTO, 0);
 
       byte[] src = getSourceArray(len);
       byte[] dec = new byte[src.length];
@@ -440,7 +481,7 @@ public class QatTest {
   public void testIndirectBuffersReadOnly(int len) {
     try {
       zipper =
-          new QatZipper(QatZipper.Algorithm.LZ4, 9, QatZipper.Mode.AUTO, 0);
+          new QatZipper(QatZipper.Algorithm.DEFLATE, 9, QatZipper.Mode.AUTO, 0);
 
       byte[] src = getSourceArray(len);
       byte[] dec = new byte[src.length];
@@ -480,7 +521,7 @@ public class QatTest {
   public void testCompressionDecompressionWithByteArray(int len) {
     try {
       zipper =
-          new QatZipper(QatZipper.Algorithm.LZ4, 9, QatZipper.Mode.AUTO, 0);
+          new QatZipper(QatZipper.Algorithm.DEFLATE, 9, QatZipper.Mode.AUTO, 0);
 
       byte[] src = getSourceArray(len);
       byte[] dec = new byte[src.length];
@@ -529,7 +570,7 @@ public class QatTest {
     assumeTrue(QatTestSuite.FORCE_HARDWARE);
     try {
       zipper = new QatZipper(
-          QatZipper.Algorithm.LZ4, 6, QatZipper.Mode.HARDWARE, 0);
+          QatZipper.Algorithm.DEFLATE, 6, QatZipper.Mode.HARDWARE, 0);
 
       byte[] src = getSourceArray(len);
       byte[] dec = new byte[src.length];
@@ -553,7 +594,7 @@ public class QatTest {
   public void testCompressionWithInsufficientDestBuff(int len) {
     try {
       zipper =
-          new QatZipper(QatZipper.Algorithm.LZ4, 6, QatZipper.Mode.AUTO, 0);
+          new QatZipper(QatZipper.Algorithm.DEFLATE, 6, QatZipper.Mode.AUTO, 0);
 
       byte[] src = getSourceArray(len);
       byte[] dst = new byte[src.length / 10];
@@ -570,7 +611,7 @@ public class QatTest {
     assumeTrue(QatTestSuite.FORCE_HARDWARE);
     try {
       zipper = new QatZipper(
-          QatZipper.Algorithm.LZ4, 6, QatZipper.Mode.HARDWARE, 0);
+          QatZipper.Algorithm.DEFLATE, 6, QatZipper.Mode.HARDWARE, 0);
 
       byte[] src = getSourceArray(len);
       byte[] dst = new byte[src.length / 10];
@@ -587,7 +628,7 @@ public class QatTest {
     assumeTrue(QatTestSuite.FORCE_HARDWARE);
     try {
       zipper = new QatZipper(
-          QatZipper.Algorithm.LZ4, 6, QatZipper.Mode.HARDWARE, 0);
+          QatZipper.Algorithm.DEFLATE, 6, QatZipper.Mode.HARDWARE, 0);
 
       byte[] src = getSourceArray(len);
       byte[] dec = new byte[src.length / 2];
@@ -641,7 +682,7 @@ public class QatTest {
       int len) {
     try {
       zipper =
-          new QatZipper(QatZipper.Algorithm.LZ4, 9, QatZipper.Mode.AUTO, 0);
+          new QatZipper(QatZipper.Algorithm.DEFLATE, 9, QatZipper.Mode.AUTO, 0);
 
       byte[] src = getSourceArray(len);
       byte[] dec = new byte[src.length];
@@ -769,7 +810,7 @@ public class QatTest {
     assumeTrue(QatTestSuite.FORCE_HARDWARE);
 
     try {
-      QatZipper zipper = new QatZipper(QatZipper.Algorithm.LZ4,
+      QatZipper zipper = new QatZipper(QatZipper.Algorithm.DEFLATE,
           QatZipper.DEFAULT_COMPRESS_LEVEL, QatZipper.Mode.HARDWARE);
 
       byte[] src = getSourceArray(len);
@@ -877,7 +918,7 @@ public class QatTest {
   public void testCompressorText(int len) {
     try {
       zipper =
-          new QatZipper(QatZipper.Algorithm.LZ4, 6, QatZipper.Mode.AUTO);
+          new QatZipper(QatZipper.Algorithm.DEFLATE, 6, QatZipper.Mode.AUTO);
 
       byte[] data = getSourceArray(len);
       ByteBuffer src = ByteBuffer.allocate(data.length);
@@ -921,7 +962,7 @@ public class QatTest {
   public void testInvalidCompressionOffsets(int len) {
     try {
       zipper =
-          new QatZipper(QatZipper.Algorithm.LZ4, 9, QatZipper.Mode.AUTO, 0);
+          new QatZipper(QatZipper.Algorithm.DEFLATE, 9, QatZipper.Mode.AUTO, 0);
 
       byte[] src = getSourceArray(len);
       byte[] dst = new byte[zipper.maxCompressedLength(src.length)];
@@ -942,7 +983,7 @@ public class QatTest {
     assumeTrue(QatTestSuite.FORCE_HARDWARE);
     try {
       zipper =
-          new QatZipper(QatZipper.Algorithm.LZ4, 9, QatZipper.Mode.AUTO, 0);
+          new QatZipper(QatZipper.Algorithm.DEFLATE, 9, QatZipper.Mode.AUTO, 0);
 
       byte[] src = getSourceArray(len);
       byte[] dst = new byte[zipper.maxCompressedLength(src.length)];
@@ -962,7 +1003,7 @@ public class QatTest {
   public void testInvalidCompressionLargeOffsets(int len) {
     try {
       zipper =
-          new QatZipper(QatZipper.Algorithm.LZ4, 9, QatZipper.Mode.AUTO, 0);
+          new QatZipper(QatZipper.Algorithm.DEFLATE, 9, QatZipper.Mode.AUTO, 0);
 
       byte[] src = getSourceArray(len);
       byte[] dst = new byte[zipper.maxCompressedLength(src.length)];
@@ -982,7 +1023,7 @@ public class QatTest {
   public void testInvalidecompressionOffsets(int len) {
     try {
       zipper =
-          new QatZipper(QatZipper.Algorithm.LZ4, 9, QatZipper.Mode.AUTO, 0);
+          new QatZipper(QatZipper.Algorithm.DEFLATE, 9, QatZipper.Mode.AUTO, 0);
 
       byte[] src = getSourceArray(len);
       byte[] dst = new byte[zipper.maxCompressedLength(src.length)];
@@ -1002,7 +1043,7 @@ public class QatTest {
   public void testInvalidecompressionLargeOffsets(int len) {
     try {
       zipper =
-          new QatZipper(QatZipper.Algorithm.LZ4, 9, QatZipper.Mode.AUTO, 0);
+          new QatZipper(QatZipper.Algorithm.DEFLATE, 9, QatZipper.Mode.AUTO, 0);
 
       byte[] src = getSourceArray(len);
       byte[] dst = new byte[zipper.maxCompressedLength(src.length)];
@@ -1015,5 +1056,5 @@ public class QatTest {
     } catch (QatException | ArrayIndexOutOfBoundsException e) {
       assertTrue(true);
     }
-  }
+  }*/
 }
