@@ -32,7 +32,7 @@
 package com.intel.qat.jmh;
 
 import com.intel.qat.QatZipper;
-import com.intel.qat.QatZipper.Codec;
+import com.intel.qat.QatZipper.Algorithm;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Collection;
@@ -62,7 +62,7 @@ public class QatJavaBench {
 
   @Setup
   public void prepare() {
-    zipper = new QatZipper(Codec.DEFLATE, 6, QatZipper.Mode.HARDWARE);
+    zipper = new QatZipper(Algorithm.DEFLATE, 6, QatZipper.Mode.HARDWARE);
     try {
       src = Files.readAllBytes(Paths.get(fileName));
       dst = new byte[zipper.maxCompressedLength(src.length)];

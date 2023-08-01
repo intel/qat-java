@@ -28,9 +28,11 @@ import java.nio.ReadOnlyBufferException;
  *   String inputStr = "the quick brown fox jumps over the lazy dog";
  *   byte[] input = inputString.getBytes("UTF-8");
  *
+ *   // Create a buffer with enough size for compression
+ *   byte[] output = new byte[zipper.maxCompressedLength(input.length)];
+ *
  *   // Compress the bytes
  *   QatZipper zipper = new QatZipper();
- *   byte[] output = new byte[zipper.maxCompressedLength(input.length)];
  *   int resultLen = zipper.compress(input, output);
  *
  *   // Decompress the bytes into a String
@@ -92,7 +94,7 @@ public class QatZipper {
   /**
    * The compression algorithm -- either DEFLATE or LZ4.
    */
-  public static enum Codec {
+  public static enum Algorithm {
     /**
      * ZLIB compression
      */
@@ -108,7 +110,8 @@ public class QatZipper {
    * Constructs a new QAT session object using deflate.
    */
   public QatZipper() {
-    this(Codec.DEFLATE, DEFAULT_COMPRESS_LEVEL, Mode.AUTO, DEFAULT_RETRY_COUNT);
+    this(Algorithm.DEFLATE, DEFAULT_COMPRESS_LEVEL, Mode.AUTO,
+        DEFAULT_RETRY_COUNT);
   }
 
   /**
@@ -118,58 +121,58 @@ public class QatZipper {
    *     hardware with a software failover.)
    */
   public QatZipper(Mode mode) {
-    this(Codec.DEFLATE, DEFAULT_COMPRESS_LEVEL, mode, DEFAULT_RETRY_COUNT);
+    this(Algorithm.DEFLATE, DEFAULT_COMPRESS_LEVEL, mode, DEFAULT_RETRY_COUNT);
   }
 
   /**
    * Constructs a new QAT session using the given compression algorithm.
    *
-   * @param codec the compression algorithm (deflate or LZ4).
+   * @param algorithm the compression algorithm (deflate or LZ4).
    */
-  public QatZipper(Codec codec) {
-    this(codec, DEFAULT_COMPRESS_LEVEL, Mode.AUTO, DEFAULT_RETRY_COUNT);
+  public QatZipper(Algorithm algorithm) {
+    this(algorithm, DEFAULT_COMPRESS_LEVEL, Mode.AUTO, DEFAULT_RETRY_COUNT);
   }
 
   /**
    * Constructs a new QAT session using the given compression algorithm and
    * operation mode.
    *
-   * @param codec the compression algorithm (deflate or LZ4).
+   * @param algorithm the compression algorithm (deflate or LZ4).
    * @param mode the mode of operation (HARDWARE - only hardware, AUTO -
    *     hardware with a software failover.)
    */
-  public QatZipper(Codec codec, Mode mode) {
-    this(codec, DEFAULT_COMPRESS_LEVEL, mode, DEFAULT_RETRY_COUNT);
+  public QatZipper(Algorithm algorithm, Mode mode) {
+    this(algorithm, DEFAULT_COMPRESS_LEVEL, mode, DEFAULT_RETRY_COUNT);
   }
 
   /**
    * Constructs a new QAT session using the given compression algorithm and
    * level.
    *
-   * @param codec the compression algorithm (deflate or LZ4).
+   * @param algorithm the compression algorithm (deflate or LZ4).
    * @param level the compression level.
    */
-  public QatZipper(Codec codec, int level) {
-    this(codec, level, Mode.AUTO, DEFAULT_RETRY_COUNT);
+  public QatZipper(Algorithm algorithm, int level) {
+    this(algorithm, level, Mode.AUTO, DEFAULT_RETRY_COUNT);
   }
 
   /**
    * Constructs a QAT session  using the given compression algorithm, level, and
    * mode of operation.
    *
-   * @param codec the compression algorithm (deflate or LZ4).
+   * @param algorithm the compression algorithm (deflate or LZ4).
    * @param level the compression level.
    * @param mode the mode of operation (HARDWARE - only hardware, AUTO -
    *     hardware with a software failover.)
    */
-  public QatZipper(Codec codec, int level, Mode mode) {
-    this(codec, level, mode, DEFAULT_RETRY_COUNT);
+  public QatZipper(Algorithm algorithm, int level, Mode mode) {
+    this(algorithm, level, mode, DEFAULT_RETRY_COUNT);
   }
 
   /**
    * Constructs a QAT session using the given parameters.
    *
-   * @param codec the compression algorithm (deflate or LZ4).
+   * @param algorithm the compression algorithm (deflate or LZ4).
    * @param level the compression level.
    * @param mode the mode of operation (HARDWARE - only hardware, AUTO -
    *     hardware with a software failover.)
@@ -177,14 +180,14 @@ public class QatZipper {
    *     giving up.
    * @throws QatException if QAT session cannot be created.
    */
-  public QatZipper(Codec codec, int level, Mode mode, int retryCount)
+  public QatZipper(Algorithm algorithm, int level, Mode mode, int retryCount)
       throws QatException {
-    if (!validateParams(codec, level, retryCount))
+    if (!validateParams(algorithm, level, retryCount))
       throw new IllegalArgumentException(
           "Invalid compression level or retry count.");
 
     this.retryCount = retryCount;
-    InternalJNI.setup(this, mode.ordinal(), codec.ordinal(), level);
+    InternalJNI.setup(this, mode.ordinal(), algorithm.ordinal(), level);
     isValid = true;
   }
 
@@ -449,15 +452,16 @@ public class QatZipper {
   /**
    * Validates compression level and retry counts.
    *
-   * @param codec the compression algorithm (deflate or LZ4).
+   * @param algorithm the compression algorithm (deflate or LZ4).
    * @param level the compression level.
    * @param retryCount how many times to seek for a hardware resources before
    *     giving up.
    * @return true if validation was successful, false otherwise.
    */
-  private boolean validateParams(Codec codec, int level, int retryCount) {
+  private boolean validateParams(
+      Algorithm algorithm, int level, int retryCount) {
     return !(
-        retryCount < 0 || level < 1 || (codec.ordinal() == 0 && level > 9));
+        retryCount < 0 || level < 1 || (algorithm.ordinal() == 0 && level > 9));
   }
 
   /**

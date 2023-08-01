@@ -9,37 +9,15 @@
     <version>1.0.0</version>
     <packaging>jar</packaging>
     <name>qat-java</name>
-    <description>This project will provide JNI wrapper to communicate with the IntelÂ® QATZip, for use with IntelÂ® Quick Assist Technology, to improve the performance of compression and decompression operation.
+    <description>A Java library, based on QATzip, that provides hardware accelerated compression and decompression using Intel (R) QAT.
     </description>
     <url>https://github.com/intel/qat-java</url>
-
-
     <licenses>
         <license>
             <name>BSD License</name>
             <url>https://opensource.org/license/bsd-3-clause</url>
         </license>
     </licenses>
-    <developers>
-        <developer>
-            <name>Nishchal, Praveen</name>
-            <email>praveen.nishchal@intel.com</email>
-            <organization>Intel</organization>
-            <organizationUrl></organizationUrl>
-        </developer>
-        <developer>
-            <name>Mammo, Mulugeta</name>
-            <email>mulugeta.mammo@intel.com</email>
-            <organization>Intel</organization>
-            <organizationUrl></organizationUrl>
-        </developer>
-        <developer>
-            <name>Denloye, Olasoji</name>
-            <email>olasoji.denloye@intel.com</email>
-            <organization>Intel</organization>
-            <organizationUrl></organizationUrl>
-        </developer>
-    </developers>
     <scm>
         <connection>scm:git:git://github.com/intel/qat-java.git</connection>
         <developerConnection>scm:git:git@github.com:intel/qat-java.git</developerConnection>
@@ -48,7 +26,7 @@
     <properties>
         <maven.compiler.release>11</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <java.version>17</java.version>
+        <java.version>11</java.version>
         <!--suppress UnresolvedMavenProperty -->
         <skipTests>${fuzzing}</skipTests>
         <!-- we test upto a 4MB input -->
@@ -72,7 +50,7 @@
                         <groupId>org.codehaus.mojo</groupId>
                         <executions>
                             <execution>
-                                <id>TestByteArray</id>
+                                <id>TestDriver</id>
                                 <phase>test</phase>
                                 <goals>
                                     <goal>exec</goal>
@@ -88,182 +66,7 @@
                                         <classpath/>
                                         <argument>com.code_intelligence.jazzer.Jazzer</argument>
                                         <argument>
-                                            --target_class=com.intel.qat.fuzzing.TestByteArray
-                                        </argument>
-                                        <argument>--asan</argument>
-                                        <argument>--native</argument>
-                                        <commandlineArgs>${fuzzParameters}</commandlineArgs>
-                                    </arguments>
-                                </configuration>
-                            </execution>
-                            <execution>
-                                <id>TestByeArrayWithParams</id>
-                                <phase>test</phase>
-                                <goals>
-                                    <goal>exec</goal>
-                                </goals>
-                                <configuration>
-                                    <classpathScope>test</classpathScope>
-                                    <executable>java</executable>
-                                    <arguments>
-                                        <argument>-ea</argument>
-                                        <argument>-cp</argument>
-                                        <argument>${project.build.directory}/qat-java-1.0.0.jar</argument>
-                                        <argument>-cp</argument>
-                                        <classpath/>
-                                        <argument>com.code_intelligence.jazzer.Jazzer</argument>
-                                        <argument>
-                                            --target_class=com.intel.qat.fuzzing.TestByteArrayWithParams
-                                        </argument>
-                                        <argument>--asan</argument>
-                                        <argument>--native</argument>
-                                        <commandlineArgs>${fuzzParameters}</commandlineArgs>
-                                    </arguments>
-                                </configuration>
-                            </execution>
-                            <execution>
-                                <id>TestByteBuffer</id>
-                                <phase>test</phase>
-                                <goals>
-                                    <goal>exec</goal>
-                                </goals>
-                                <configuration>
-                                    <classpathScope>test</classpathScope>
-                                    <executable>java</executable>
-                                    <arguments>
-                                        <argument>-ea</argument>
-                                        <argument>-cp</argument>
-                                        <argument>${project.build.directory}/qat-java-1.0.0.jar</argument>
-                                        <argument>-cp</argument>
-                                        <classpath/>
-                                        <argument>com.code_intelligence.jazzer.Jazzer</argument>
-                                        <argument>
-                                            --target_class=com.intel.qat.fuzzing.TestByteBuffer
-                                        </argument>
-                                        <argument>--asan</argument>
-                                        <argument>--native</argument>
-                                        <commandlineArgs>${fuzzParameters}</commandlineArgs>
-                                    </arguments>
-                                </configuration>
-                            </execution>
-                            <execution>
-                                <id>TestDirectByteBuffer</id>
-                                <phase>test</phase>
-                                <goals>
-                                    <goal>exec</goal>
-                                </goals>
-                                <configuration>
-                                    <classpathScope>test</classpathScope>
-                                    <executable>java</executable>
-                                    <arguments>
-                                        <argument>-ea</argument>
-                                        <argument>-cp</argument>
-                                        <argument>${project.build.directory}/qat-java-1.0.0.jar</argument>
-                                        <argument>-cp</argument>
-                                        <classpath/>
-                                        <argument>com.code_intelligence.jazzer.Jazzer</argument>
-                                        <argument>
-                                            --target_class=com.intel.qat.fuzzing.TestDirectByteBuffer
-                                        </argument>
-                                        <argument>--asan</argument>
-                                        <argument>--native</argument>
-                                        <commandlineArgs>${fuzzParameters}</commandlineArgs>
-                                    </arguments>
-                                </configuration>
-                            </execution>
-                            <execution>
-                                <id>TestMixedTypesOne</id>
-                                <phase>test</phase>
-                                <goals>
-                                    <goal>exec</goal>
-                                </goals>
-                                <configuration>
-                                    <classpathScope>test</classpathScope>
-                                    <executable>java</executable>
-                                    <arguments>
-                                        <argument>-ea</argument>
-                                        <argument>-cp</argument>
-                                        <argument>${project.build.directory}/qat-java-1.0.0.jar</argument>
-                                        <argument>-cp</argument>
-                                        <classpath/>
-                                        <argument>com.code_intelligence.jazzer.Jazzer</argument>
-                                        <argument>
-                                            --target_class=com.intel.qat.fuzzing.TestMixedTypesOne
-                                        </argument>
-                                        <argument>--asan</argument>
-                                        <argument>--native</argument>
-                                        <commandlineArgs>${fuzzParameters}</commandlineArgs>
-                                    </arguments>
-                                </configuration>
-                            </execution>
-                            <execution>
-                                <id>TestMixedTypesTwo</id>
-                                <phase>test</phase>
-                                <goals>
-                                    <goal>exec</goal>
-                                </goals>
-                                <configuration>
-                                    <classpathScope>test</classpathScope>
-                                    <executable>java</executable>
-                                    <arguments>
-                                        <argument>-ea</argument>
-                                        <argument>-cp</argument>
-                                        <argument>${project.build.directory}/qat-java-1.0.0.jar</argument>
-                                        <argument>-cp</argument>
-                                        <classpath/>
-                                        <argument>com.code_intelligence.jazzer.Jazzer</argument>
-                                        <argument>
-                                            --target_class=com.intel.qat.fuzzing.TestMixedTypesTwo
-                                        </argument>
-                                        <argument>--asan</argument>
-                                        <argument>--native</argument>
-                                        <commandlineArgs>${fuzzParameters}</commandlineArgs>
-                                    </arguments>
-                                </configuration>
-                            </execution>
-                            <execution>
-                                <id>TestMixedTypesThree</id>
-                                <phase>test</phase>
-                                <goals>
-                                    <goal>exec</goal>
-                                </goals>
-                                <configuration>
-                                    <classpathScope>test</classpathScope>
-                                    <executable>java</executable>
-                                    <arguments>
-                                        <argument>-ea</argument>
-                                        <argument>-cp</argument>
-                                        <argument>${project.build.directory}/qat-java-1.0.0.jar</argument>
-                                        <argument>-cp</argument>
-                                        <classpath/>
-                                        <argument>com.code_intelligence.jazzer.Jazzer</argument>
-                                        <argument>
-                                            --target_class=com.intel.qat.fuzzing.TestMixedTypesThree
-                                        </argument>
-                                        <argument>--asan</argument>
-                                        <argument>--native</argument>
-                                        <commandlineArgs>${fuzzParameters}</commandlineArgs>
-                                    </arguments>
-                                </configuration>
-                            </execution>
-                            <execution>
-                                <id>TestWithCompressionLengthAndRetry</id>
-                                <phase>test</phase>
-                                <goals>
-                                    <goal>exec</goal>
-                                </goals>
-                                <configuration>
-                                    <classpathScope>test</classpathScope>
-                                    <executable>java</executable>
-                                    <arguments>
-                                        <argument>-ea</argument>
-                                        <argument>-cp</argument>
-                                        <argument>${project.build.directory}/qat-java-1.0.0.jar</argument>
-                                        <argument>-cp</argument>
-                                        <classpath/>
-                                        <argument>com.code_intelligence.jazzer.Jazzer</argument>
-                                        <argument>
-                                            --target_class=com.intel.qat.fuzzing.TestWithCompressionLengthAndRetry
+                                            --target_class=com.intel.qat.fuzzing.TestDriver
                                         </argument>
                                         <argument>--asan</argument>
                                         <argument>--native</argument>
@@ -372,7 +175,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <version>2.12.4</version>
+                <version>2.22.1</version>
                 <configuration>
                     <argLine>@{argLine} -Djava.library.path=${project.build.directory}/cbuild</argLine>
                     <includes>

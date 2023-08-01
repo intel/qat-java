@@ -150,8 +150,8 @@ static int decompress(JNIEnv *env, QzSession_T *sess, unsigned char *src_ptr,
  * Signature: (Lcom/intel/qat/QatZipper;IJII)V
  */
 JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_setup(
-    JNIEnv *env, jobject obj, jobject qat_zipper, jint sw_backup, jint codec,
-    jint level) {
+    JNIEnv *env, jobject obj, jobject qat_zipper, jint sw_backup,
+    jint comp_algorithm, jint level) {
   (void)obj;
 
   // save the fieldID of nio.ByteBuffer.position
@@ -166,7 +166,7 @@ JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_setup(
     return;
   }
 
-  if (codec == DEFLATE_ALGORITHM)
+  if (comp_algorithm == DEFLATE_ALGORITHM)
     status = setup_deflate_session(qz_session, level);
   else
     status = setup_lz4_session(qz_session, level);
