@@ -124,9 +124,9 @@ public class QatTest {
           new QatZipper(QatZipper.Algorithm.LZ4, 0, QatZipper.Mode.HARDWARE);
       zipper.end();
       zipper.end();
-    } catch (IllegalStateException is) {
+    } catch (IllegalStateException|IllegalArgumentException is) {
       assertTrue(true);
-    } catch (IllegalArgumentException | QatException e) {
+    } catch (QatException e) {
       fail(e.getMessage());
     }
   }

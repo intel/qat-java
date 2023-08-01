@@ -461,7 +461,7 @@ public class QatZipper {
   private boolean validateParams(
       Algorithm algorithm, int level, int retryCount) {
     return !(
-        retryCount < 0 || level < 1 || (algorithm.ordinal() == 0 && level > 9));
+        retryCount < 0 || level < 1 || level > 9);
   }
 
   /**
