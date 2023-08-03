@@ -24,30 +24,29 @@ import java.nio.ReadOnlyBufferException;
  * decompress a string.
  *
  * <code>
- * try {
- *   String inputStr = "the quick brown fox jumps over the lazy dog";
- *   byte[] input = inputString.getBytes("UTF-8");
+ *   try {
+ *     String inputStr = "Hello World!";
+ *     byte[] input = inputStr.getBytes();
  *
- *   // Create a buffer with enough size for compression
- *   byte[] output = new byte[zipper.maxCompressedLength(input.length)];
+ *     QatZipper zipper = new QatZipper();
+ *     // Create a buffer with enough size for compression
+ *     byte[] output = new byte[zipper.maxCompressedLength(input.length)];
  *
- *   // Compress the bytes
- *   QatZipper zipper = new QatZipper();
- *   int resultLen = zipper.compress(input, output);
+ *     // Compress the bytes
+ *     int resultLen = zipper.compress(input, output);
  *
- *   // Decompress the bytes into a String
- *   byte[] result = new byte[src.length];
- *   resultLen = zipper.decompress(output, result);
+ *     // Decompress the bytes into a String
+ *     byte[] result = new byte[input.length];
+ *     resultLen = zipper.decompress(output, result);
  *
- *   // Release resources
- *   zipper.end();
+ *     // Release resources
+ *     zipper.end();
  *
- *   // Convert the bytes into a String
- *   String outputString = new String(result, 0, resultLen);
- *
- * } catch (QatException qe) {
- *   // handle
- * }
+ *     // Convert the bytes into a String
+ *     String outputStr = new String(result, 0, resultLen);
+ *   } catch (QatException e) {
+ *     //
+ *   }
  * </code>
  *
  */

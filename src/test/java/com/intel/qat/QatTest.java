@@ -12,12 +12,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
-import java.io.File;
 import java.io.IOException;
 import java.lang.ref.Cleaner;
 import java.nio.ByteBuffer;
 import java.nio.ReadOnlyBufferException;
-import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -29,7 +27,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.junit.jupiter.params.provider.ValueSource;
 
 public class QatTest {
   private QatZipper zipper;
@@ -57,6 +54,35 @@ public class QatTest {
   public void cleanupSession() {
     if (zipper != null)
       zipper.end();
+  }
+
+  @Test
+  public void testHelloWorld() {
+    try {
+      String inputStr = "Hello World!";
+      byte[] input = inputStr.getBytes();
+
+      QatZipper zipper = new QatZipper();
+      // Create a buffer with enough size for compression
+      byte[] output = new byte[zipper.maxCompressedLength(input.length)];
+
+      // Compress the bytes
+      System.out.println("zipper: " + zipper);
+      int resultLen = zipper.compress(input, output);
+
+      // Decompress the bytes into a String
+      byte[] result = new byte[input.length];
+      resultLen = zipper.decompress(output, result);
+
+      // Release resources
+      zipper.end();
+
+      // Convert the bytes into a String
+      String outputStr = new String(result, 0, resultLen);
+      assertEquals(inputStr, outputStr);
+    } catch (QatException e) {
+      fail(e.getMessage());
+    }
   }
 
   @Test
