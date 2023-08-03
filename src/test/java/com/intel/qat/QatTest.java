@@ -67,7 +67,6 @@ public class QatTest {
       byte[] output = new byte[zipper.maxCompressedLength(input.length)];
 
       // Compress the bytes
-      System.out.println("zipper: " + zipper);
       int resultLen = zipper.compress(input, output);
 
       // Decompress the bytes into a String
