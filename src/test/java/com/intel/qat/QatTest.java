@@ -6,14 +6,14 @@
 
 package com.intel.qat;
 
+import static com.intel.qat.QatZipper.Algorithm;
+import static com.intel.qat.QatZipper.Mode;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import static org.junit.jupiter.api.Assumptions.assumeFalse;
-import static com.intel.qat.QatZipper.Mode;
-import static com.intel.qat.QatZipper.Algorithm;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.io.IOException;
 import java.lang.ref.Cleaner;
@@ -53,46 +53,32 @@ public class QatTest {
 
   public static Stream<Arguments> provideAlgorithmLevelParams() {
     return Stream.of(Arguments.of(Algorithm.DEFLATE, 1),
-        Arguments.of(Algorithm.DEFLATE, 2),
-        Arguments.of(Algorithm.DEFLATE, 3),
-        Arguments.of(Algorithm.DEFLATE, 4),
-        Arguments.of(Algorithm.DEFLATE, 5),
-        Arguments.of(Algorithm.DEFLATE, 6),
-        Arguments.of(Algorithm.DEFLATE, 7),
-        Arguments.of(Algorithm.DEFLATE, 8),
-        Arguments.of(Algorithm.DEFLATE, 9),
-        Arguments.of(Algorithm.LZ4, 1),
-        Arguments.of(Algorithm.LZ4, 2),
-        Arguments.of(Algorithm.LZ4, 3),
-        Arguments.of(Algorithm.LZ4, 4),
-        Arguments.of(Algorithm.LZ4, 5),
-        Arguments.of(Algorithm.LZ4, 6),
-        Arguments.of(Algorithm.LZ4, 7),
-        Arguments.of(Algorithm.LZ4, 8),
+        Arguments.of(Algorithm.DEFLATE, 2), Arguments.of(Algorithm.DEFLATE, 3),
+        Arguments.of(Algorithm.DEFLATE, 4), Arguments.of(Algorithm.DEFLATE, 5),
+        Arguments.of(Algorithm.DEFLATE, 6), Arguments.of(Algorithm.DEFLATE, 7),
+        Arguments.of(Algorithm.DEFLATE, 8), Arguments.of(Algorithm.DEFLATE, 9),
+        Arguments.of(Algorithm.LZ4, 1), Arguments.of(Algorithm.LZ4, 2),
+        Arguments.of(Algorithm.LZ4, 3), Arguments.of(Algorithm.LZ4, 4),
+        Arguments.of(Algorithm.LZ4, 5), Arguments.of(Algorithm.LZ4, 6),
+        Arguments.of(Algorithm.LZ4, 7), Arguments.of(Algorithm.LZ4, 8),
         Arguments.of(Algorithm.LZ4, 9));
   }
 
   public static Stream<Arguments> provideModeAlgorithmLengthParams() {
     return QatTestSuite.FORCE_HARDWARE
-        ? Stream.of(
-            Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 131072),
+        ? Stream.of(Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 131072),
             Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 524288),
             Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 2097152),
             Arguments.of(Mode.AUTO, Algorithm.LZ4, 131072),
             Arguments.of(Mode.AUTO, Algorithm.LZ4, 524288),
             Arguments.of(Mode.AUTO, Algorithm.LZ4, 2097152),
-            Arguments.of(
-                Mode.HARDWARE, Algorithm.DEFLATE, 131072),
-            Arguments.of(
-                Mode.HARDWARE, Algorithm.DEFLATE, 524288),
-            Arguments.of(
-                Mode.HARDWARE, Algorithm.DEFLATE, 2097152),
+            Arguments.of(Mode.HARDWARE, Algorithm.DEFLATE, 131072),
+            Arguments.of(Mode.HARDWARE, Algorithm.DEFLATE, 524288),
+            Arguments.of(Mode.HARDWARE, Algorithm.DEFLATE, 2097152),
             Arguments.of(Mode.HARDWARE, Algorithm.LZ4, 131072),
             Arguments.of(Mode.HARDWARE, Algorithm.LZ4, 524288),
-            Arguments.of(
-                Mode.HARDWARE, Algorithm.LZ4, 2097152))
-        : Stream.of(
-            Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 131072),
+            Arguments.of(Mode.HARDWARE, Algorithm.LZ4, 2097152))
+        : Stream.of(Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 131072),
             Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 524288),
             Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 2097152),
             Arguments.of(Mode.AUTO, Algorithm.LZ4, 131072),
@@ -100,7 +86,7 @@ public class QatTest {
   }
 
   public static boolean shouldSkip(Mode mode) {
-        return mode.equals(Mode.HARDWARE) && !QatTestSuite.FORCE_HARDWARE;
+    return mode.equals(Mode.HARDWARE) && !QatTestSuite.FORCE_HARDWARE;
   }
 
   private byte[] getSourceArray(int len) {
@@ -176,8 +162,7 @@ public class QatTest {
 
   @ParameterizedTest
   @MethodSource("provideModeAlgorithmParams")
-  public void testTwoArgConstructorAlgoAndMode(
-      Mode mode, Algorithm algo) {
+  public void testTwoArgConstructorAlgoAndMode(Mode mode, Algorithm algo) {
     try {
       zipper = new QatZipper(algo, mode);
     } catch (IllegalArgumentException | QatException e) {
@@ -231,8 +216,7 @@ public class QatTest {
   public void duplicateEndHW() {
     assumeTrue(QatTestSuite.FORCE_HARDWARE);
     try {
-      QatZipper zipper =
-          new QatZipper(Algorithm.LZ4, 0, Mode.HARDWARE);
+      QatZipper zipper = new QatZipper(Algorithm.LZ4, 0, Mode.HARDWARE);
       zipper.end();
       zipper.end();
     } catch (IllegalStateException | IllegalArgumentException is) {
@@ -312,8 +296,7 @@ public class QatTest {
   @Test
   public void testInvalidRetryCount() {
     try {
-      zipper = new QatZipper(
-          Algorithm.DEFLATE, 10, Mode.AUTO, -1);
+      zipper = new QatZipper(Algorithm.DEFLATE, 10, Mode.AUTO, -1);
       fail();
     } catch (IllegalArgumentException e) {
       assertTrue(true);
@@ -334,8 +317,7 @@ public class QatTest {
 
   @ParameterizedTest
   @MethodSource("provideModeAlgorithmParams")
-  public void testChunkedCompressionWithByteArray(
-      Mode mode, Algorithm algo) {
+  public void testChunkedCompressionWithByteArray(Mode mode, Algorithm algo) {
     try {
       zipper = new QatZipper(algo, 6, mode);
 
@@ -388,8 +370,7 @@ public class QatTest {
 
   @ParameterizedTest
   @MethodSource("provideModeAlgorithmParams")
-  public void testChunkedCompressionWithByteBuffer(
-      Mode mode, Algorithm algo) {
+  public void testChunkedCompressionWithByteBuffer(Mode mode, Algorithm algo) {
     try {
       zipper = new QatZipper(algo, 6, mode);
 
@@ -455,8 +436,7 @@ public class QatTest {
 
   @ParameterizedTest
   @MethodSource("provideModeAlgorithmLengthParams")
-  public void testWrappedBuffers(
-      Mode mode, Algorithm algo, int len) {
+  public void testWrappedBuffers(Mode mode, Algorithm algo, int len) {
     try {
       zipper = new QatZipper(algo, mode);
 
@@ -644,8 +624,7 @@ public class QatTest {
 
   @ParameterizedTest
   @MethodSource("provideModeAlgorithmLengthParams")
-  public void testIndirectBuffersReadOnly(
-      Mode mode, Algorithm algo, int len) {
+  public void testIndirectBuffersReadOnly(Mode mode, Algorithm algo, int len) {
     try {
       zipper = new QatZipper(algo, 9, mode, 0);
 
@@ -932,8 +911,7 @@ public class QatTest {
 
   @ParameterizedTest
   @MethodSource("provideModeAlgorithmLengthParams")
-  public void testIllegalStateException(
-      Mode mode, Algorithm algo, int len) {
+  public void testIllegalStateException(Mode mode, Algorithm algo, int len) {
     try {
       QatZipper zipper = new QatZipper(algo, mode);
 
@@ -949,9 +927,7 @@ public class QatTest {
 
   @ParameterizedTest
   @MethodSource("provideModeAlgorithmLengthParams")
-  public void testIllegalStateExceptionHW(
-      Mode mode, Algorithm algo, int len) {
-
+  public void testIllegalStateExceptionHW(Mode mode, Algorithm algo, int len) {
     try {
       QatZipper zipper =
           new QatZipper(algo, QatZipper.DEFAULT_COMPRESS_LEVEL, mode);
@@ -1062,8 +1038,7 @@ public class QatTest {
 
   @ParameterizedTest
   @MethodSource("provideModeAlgorithmLengthParams")
-  public void testCompressorText(
-      Mode mode, Algorithm algo, int len) {
+  public void testCompressorText(Mode mode, Algorithm algo, int len) {
     try {
       zipper = new QatZipper(algo, 6, mode);
 
