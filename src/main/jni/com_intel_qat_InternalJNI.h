@@ -34,20 +34,47 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_maxCompressedSize(
 
 /*
  * Class:     com_intel_qat_InternalJNI
+ * Method:    compressByteArray
+ * Signature: (J[BII[BIII)I
+ */
+JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_compressByteArray(
+    JNIEnv *, jclass, jlong, jbyteArray, jint, jint, jbyteArray, jint, jint,
+    jint);
+
+/*
+ * Class:     com_intel_qat_InternalJNI
+ * Method:    decompressByteArray
+ * Signature: (J[BII[BIII)I
+ */
+JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_decompressByteArray(
+    JNIEnv *, jclass, jlong, jbyteArray, jint, jint, jbyteArray, jint, jint,
+    jint);
+
+/*
+ * Class:     com_intel_qat_InternalJNI
+ * Method:    compressByteBuffer
+ * Signature: (JLjava/nio/ByteBuffer;[BII[BIII)I
+ */
+JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_compressByteBuffer(
+    JNIEnv *, jclass, jlong, jobject, jbyteArray, jint, jint, jbyteArray, jint,
+    jint, jint);
+
+/*
+ * Class:     com_intel_qat_InternalJNI
+ * Method:    decompressByteBuffer
+ * Signature: (JLjava/nio/ByteBuffer;[BII[BIII)I
+ */
+JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_decompressByteBuffer(
+    JNIEnv *, jclass, jlong, jobject, jbyteArray, jint, jint, jbyteArray, jint,
+    jint, jint);
+
+/*
+ * Class:     com_intel_qat_InternalJNI
  * Method:    compressDirectByteBuffer
  * Signature: (JLjava/nio/ByteBuffer;IILjava/nio/ByteBuffer;III)I
  */
 JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_compressDirectByteBuffer(
     JNIEnv *, jclass, jlong, jobject, jint, jint, jobject, jint, jint, jint);
-
-/*
- * Class:     com_intel_qat_InternalJNI
- * Method:    compressArrayOrBuffer
- * Signature: (JLjava/nio/ByteBuffer;[BII[BIII)I
- */
-JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_compressArrayOrBuffer(
-    JNIEnv *, jclass, jlong, jobject, jbyteArray, jint, jint, jbyteArray, jint,
-    jint, jint);
 
 /*
  * Class:     com_intel_qat_InternalJNI
@@ -62,13 +89,47 @@ Java_com_intel_qat_InternalJNI_decompressDirectByteBuffer(JNIEnv *, jclass,
 
 /*
  * Class:     com_intel_qat_InternalJNI
- * Method:    decompressArrayOrBuffer
- * Signature: (JLjava/nio/ByteBuffer;[BII[BIII)I
+ * Method:    compressDirectByteBufferSrc
+ * Signature: (JLjava/nio/ByteBuffer;II[BIII)I
  */
-JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_decompressArrayOrBuffer(
-    JNIEnv *, jclass, jlong, jobject, jbyteArray, jint, jint, jbyteArray, jint,
-    jint, jint);
+JNIEXPORT jint JNICALL
+Java_com_intel_qat_InternalJNI_compressDirectByteBufferSrc(JNIEnv *, jclass,
+                                                           jlong, jobject, jint,
+                                                           jint, jbyteArray,
+                                                           jint, jint, jint);
 
+/*
+ * Class:     com_intel_qat_InternalJNI
+ * Method:    decompressDirectByteBufferSrc
+ * Signature: (JLjava/nio/ByteBuffer;II[BIII)I
+ */
+JNIEXPORT jint JNICALL
+Java_com_intel_qat_InternalJNI_decompressDirectByteBufferSrc(
+    JNIEnv *, jclass, jlong, jobject, jint, jint, jbyteArray, jint, jint, jint);
+
+/*
+ * Class:     com_intel_qat_InternalJNI
+ * Method:    compressDirectByteBufferDst
+ * Signature: (J[BIILjava/nio/ByteBuffer;III)I
+ */
+JNIEXPORT jint JNICALL
+Java_com_intel_qat_InternalJNI_compressDirectByteBufferDst(JNIEnv *, jclass,
+                                                           jlong, jobject,
+                                                           jbyteArray, jint,
+                                                           jint, jobject, jint,
+                                                           jint, jint);
+
+/*
+ * Class:     com_intel_qat_InternalJNI
+ * Method:    decompressDirectByteBufferDst
+ * Signature: (J[BIILjava/nio/ByteBuffer;III)I
+ */
+JNIEXPORT jint JNICALL
+Java_com_intel_qat_InternalJNI_decompressDirectByteBufferDst(JNIEnv *, jclass,
+                                                             jlong, jobject,
+                                                             jbyteArray, jint,
+                                                             jint, jobject,
+                                                             jint, jint, jint);
 #ifdef __cplusplus
 }
 #endif

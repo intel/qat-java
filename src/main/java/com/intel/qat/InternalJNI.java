@@ -28,21 +28,43 @@ class InternalJNI {
 
   static native int maxCompressedSize(long session, long sourceSize);
 
-  static native int compressDirectByteBuffer(long session, ByteBuffer src,
-      int srcOff, int srcLen, ByteBuffer dst, int dstOff, int dstLen,
+  static native int compressByteArray(long session, byte[] src, int srcOff,
+      int srcLen, byte[] dst, int dstOff, int dstLen, int retryCount);
+
+  static native int decompressByteArray(long session, byte[] src, int srcOff,
+      int srcLen, byte[] dst, int dstOff, int dstLen, int retryCount);
+
+  static native int compressByteBuffer(long session, ByteBuffer srcBuffer,
+      byte[] src, int srcOff, int srcLen, byte[] dst, int dstOff, int dstLen,
       int retryCount);
 
-  static native int compressArrayOrBuffer(long session, ByteBuffer srcBuffer,
+  static native int decompressByteBuffer(long session, ByteBuffer srcBuffer,
       byte[] src, int srcOff, int srcLen, byte[] dst, int dstOff, int dstLen,
+      int retryCount);
+
+  static native int compressDirectByteBuffer(long session, ByteBuffer src,
+      int srcOff, int srcLen, ByteBuffer dst, int dstOff, int dstLen,
       int retryCount);
 
   static native int decompressDirectByteBuffer(long session, ByteBuffer src,
       int srcOff, int srcLen, ByteBuffer dst, int dstOff, int dstLen,
       int retryCount);
 
-  static native int decompressArrayOrBuffer(long session, ByteBuffer srcBuffer,
-      byte[] src, int srcOff, int srcLen, byte[] dst, int dstOff, int dstLen,
+  static native int compressDirectByteBufferSrc(long session, ByteBuffer src,
+      int srcOff, int srcLen, byte[] dstArr, int dstOff, int dstLen,
       int retryCount);
+
+  static native int decompressDirectByteBufferSrc(long session, ByteBuffer src,
+      int srcOff, int srcLen, byte[] dstArr, int dstOff, int dstLen,
+      int retryCount);
+
+  static native int compressDirectByteBufferDst(long session, ByteBuffer src,
+      byte[] srcArr, int srcOff, int srcLen, ByteBuffer dst, int dstOff,
+      int dstLen, int retryCount);
+
+  static native int decompressDirectByteBufferDst(long session, ByteBuffer src,
+      byte[] srcArr, int srcOff, int srcLen, ByteBuffer dst, int dstOff,
+      int dstLen, int retryCount);
 
   static native int teardown(long session);
 }

@@ -23,32 +23,31 @@ import java.nio.ReadOnlyBufferException;
  * The following code snippet demonstrates how to use the class to compress and
  * decompress a string.
  *
- * <blockquote><pre>
- * try {
- *   String inputStr = "the quick brown fox jumps over the lazy dog";
- *   byte[] input = inputString.getBytes("UTF-8");
+ * <code>
+ *   try {
+ *     String inputStr = "Hello World!";
+ *     byte[] input = inputStr.getBytes();
  *
- *   // Create a buffer with enough size for compression
- *   byte[] output = new byte[zipper.maxCompressedLength(input.length)];
+ *     QatZipper zipper = new QatZipper();
+ *     // Create a buffer with enough size for compression
+ *     byte[] output = new byte[zipper.maxCompressedLength(input.length)];
  *
- *   // Compress the bytes
- *   QatZipper zipper = new QatZipper();
- *   int resultLen = zipper.compress(input, output);
+ *     // Compress the bytes
+ *     int resultLen = zipper.compress(input, output);
  *
- *   // Decompress the bytes into a String
- *   byte[] result = new byte[src.length];
- *   resultLen = zipper.decompress(output, result);
+ *     // Decompress the bytes into a String
+ *     byte[] result = new byte[input.length];
+ *     resultLen = zipper.decompress(output, result);
  *
- *   // Release resources
- *   zipper.end();
+ *     // Release resources
+ *     zipper.end();
  *
- *   // Convert the bytes into a String
- *   String outputString = new String(result, 0, resultLen);
- *
- * } catch (QatException qe) {
- *   // handle
- * }
- * </pre></blockquote>
+ *     // Convert the bytes into a String
+ *     String outputStr = new String(result, 0, resultLen);
+ *   } catch (QatException e) {
+ *     //
+ *   }
+ * </code>
  *
  */
 public class QatZipper {
@@ -230,20 +229,6 @@ public class QatZipper {
   }
 
   /**
-   * Compresses the source array and stores the result in the destination array.
-   * Returns the actual number of bytes of data compressed.
-   *
-   * @param src the source array holding the source data.
-   * @param srcOffset the start offset of the source data.
-   * @param srcLen the length of source data to compress.
-   * @param dst the destination array for the compressed data.
-   * @return the size of the compressed data in bytes.
-   */
-  public int compress(byte[] src, int srcOffset, int srcLen, byte[] dst) {
-    return compress(src, srcOffset, srcLen, dst, 0, dst.length);
-  }
-
-  /**
    * Compresses the source array, starting at the given offset, and stores the
    * result in the destination array starting at the given destination offset.
    * Returns the actual number of bytes of data compressed.
@@ -271,8 +256,8 @@ public class QatZipper {
       throw new ArrayIndexOutOfBoundsException(
           "Source offset is out of bounds.");
 
-    int compressedSize = InternalJNI.compressArrayOrBuffer(session, null, src,
-        srcOffset, srcLen, dst, dstOffset, dstLen, retryCount);
+    int compressedSize = InternalJNI.compressByteArray(
+        session, src, srcOffset, srcLen, dst, dstOffset, dstLen, retryCount);
 
     return compressedSize;
   }
@@ -301,14 +286,23 @@ public class QatZipper {
       throw new ReadOnlyBufferException();
 
     int compressedSize = 0;
-    if (src.isDirect() && dst.isDirect()) {
+    if (src.hasArray() && dst.hasArray()) {
+      compressedSize = InternalJNI.compressByteBuffer(session, src, src.array(),
+          src.position(), src.remaining(), dst.array(), dst.position(),
+          dst.remaining(), retryCount);
+      dst.position(dst.position() + compressedSize);
+    } else if (src.isDirect() && dst.isDirect()) {
       compressedSize = InternalJNI.compressDirectByteBuffer(session, src,
           src.position(), src.remaining(), dst, dst.position(), dst.remaining(),
           retryCount);
-    } else if (src.hasArray() && dst.hasArray()) {
-      compressedSize = InternalJNI.compressArrayOrBuffer(session, src,
-          src.array(), src.position(), src.remaining(), dst.array(),
-          dst.position(), dst.remaining(), retryCount);
+    } else if (src.hasArray() && dst.isDirect()) {
+      compressedSize = InternalJNI.compressDirectByteBufferDst(session, src,
+          src.array(), src.position(), src.remaining(), dst, dst.position(),
+          dst.remaining(), retryCount);
+    } else if (src.isDirect() && dst.hasArray()) {
+      compressedSize = InternalJNI.compressDirectByteBufferSrc(session, src,
+          src.position(), src.remaining(), dst.array(), dst.position(),
+          dst.remaining(), retryCount);
       dst.position(dst.position() + compressedSize);
     } else {
       int srcLen = src.remaining();
@@ -323,8 +317,10 @@ public class QatZipper {
       src.position(src.position() - srcLen);
       dst.position(dst.position() - dstLen);
 
-      compressedSize = InternalJNI.compressArrayOrBuffer(
+      int srcPos = src.position();
+      compressedSize = InternalJNI.compressByteBuffer(
           session, src, srcArr, 0, srcLen, dstArr, 0, dstLen, retryCount);
+      src.position(srcPos + src.position());
       dst.put(dstArr, 0, compressedSize);
     }
 
@@ -341,20 +337,6 @@ public class QatZipper {
    */
   public int decompress(byte[] src, byte[] dst) {
     return decompress(src, 0, src.length, dst, 0, dst.length);
-  }
-
-  /**
-   * Decompresses the source array and stores the result in the destination
-   * array. Returns the actual number of bytes of data decompressed.
-   *
-   * @param src the source array holding the compressed data.
-   * @param srcOffset the start offset of the source.
-   * @param srcLen the length of source data to decompress.
-   * @param dst the destination array for the decompressed data.
-   * @return the size of the decompressed data in bytes.
-   */
-  public int decompress(byte[] src, int srcOffset, int srcLen, byte[] dst) {
-    return decompress(src, srcOffset, srcLen, dst, 0, dst.length);
   }
 
   /**
@@ -385,8 +367,8 @@ public class QatZipper {
       throw new ArrayIndexOutOfBoundsException(
           "Source offset is out of bounds.");
 
-    int decompressedSize = InternalJNI.decompressArrayOrBuffer(session, null,
-        src, srcOffset, srcLen, dst, dstOffset, dstLen, retryCount);
+    int decompressedSize = InternalJNI.decompressByteArray(
+        session, src, srcOffset, srcLen, dst, dstOffset, dstLen, retryCount);
 
     return decompressedSize;
   }
@@ -415,14 +397,23 @@ public class QatZipper {
       throw new ReadOnlyBufferException();
 
     int decompressedSize = 0;
-    if (src.isDirect() && dst.isDirect()) {
+    if (src.hasArray() && dst.hasArray()) {
+      decompressedSize = InternalJNI.decompressByteBuffer(session, src,
+          src.array(), src.position(), src.remaining(), dst.array(),
+          dst.position(), dst.remaining(), retryCount);
+      dst.position(dst.position() + decompressedSize);
+    } else if (src.isDirect() && dst.isDirect()) {
       decompressedSize = InternalJNI.decompressDirectByteBuffer(session, src,
           src.position(), src.remaining(), dst, dst.position(), dst.remaining(),
           retryCount);
-    } else if (src.hasArray() && dst.hasArray()) {
-      decompressedSize = InternalJNI.decompressArrayOrBuffer(session, src,
-          src.array(), src.position(), src.remaining(), dst.array(),
-          dst.position(), dst.remaining(), retryCount);
+    } else if (src.hasArray() && dst.isDirect()) {
+      decompressedSize = InternalJNI.decompressDirectByteBufferDst(session, src,
+          src.array(), src.position(), src.remaining(), dst, dst.position(),
+          dst.remaining(), retryCount);
+    } else if (src.isDirect() && dst.hasArray()) {
+      decompressedSize = InternalJNI.decompressDirectByteBufferSrc(session, src,
+          src.position(), src.remaining(), dst.array(), dst.position(),
+          dst.remaining(), retryCount);
       dst.position(dst.position() + decompressedSize);
     } else {
       int srcLen = src.remaining();
@@ -431,15 +422,16 @@ public class QatZipper {
       byte[] srcArr = new byte[srcLen];
       byte[] dstArr = new byte[dstLen];
 
-      // read into arrays
       src.get(srcArr);
       dst.get(dstArr);
 
-      // reset src and dst positions
       src.position(src.position() - srcLen);
       dst.position(dst.position() - dstLen);
-      decompressedSize = InternalJNI.decompressArrayOrBuffer(
+
+      int srcPos = src.position();
+      decompressedSize = InternalJNI.decompressByteBuffer(
           session, src, srcArr, 0, srcLen, dstArr, 0, dstLen, retryCount);
+      src.position(srcPos + src.position());
       dst.put(dstArr, 0, decompressedSize);
     }
 
@@ -460,8 +452,7 @@ public class QatZipper {
    */
   private boolean validateParams(
       Algorithm algorithm, int level, int retryCount) {
-    return !(
-        retryCount < 0 || level < 1 || level > 9);
+    return !(retryCount < 0 || level < 1 || level > 9);
   }
 
   /**
