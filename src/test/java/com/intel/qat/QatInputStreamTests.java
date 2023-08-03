@@ -13,6 +13,8 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
+import static com.intel.qat.QatZipper.Algorithm;
+import static com.intel.qat.QatZipper.Mode;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -28,12 +30,14 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Random;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
-import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.MethodSource;
 
 public class QatInputStreamTests {
   private static byte[] src;
@@ -68,20 +72,114 @@ public class QatInputStreamTests {
     lz4Bytes = outputStream.toByteArray();
   }
 
-  /*@AfterEach
-  public void cleanupSession() {
-      if (qzip != null)
-      qzip.end();
-  }*/
+  public static Stream<Arguments> provideModeAlgorithmParams() {
+    return QatTestSuite.FORCE_HARDWARE
+        ? Stream.of(Arguments.of(Mode.AUTO, Algorithm.DEFLATE),
+            Arguments.of(Mode.AUTO, Algorithm.LZ4),
+            Arguments.of(Mode.HARDWARE, Algorithm.DEFLATE),
+            Arguments.of(Mode.HARDWARE, Algorithm.LZ4))
+        : Stream.of(Arguments.of(Mode.AUTO, Algorithm.DEFLATE),
+            Arguments.of(Mode.AUTO, Algorithm.LZ4));
+  }
+
+    public static Stream<Arguments> provideModeAlgorithmLengthParams() {
+    return QatTestSuite.FORCE_HARDWARE
+        ? Stream.of(Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 16384),
+            Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 65536),
+            Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 524288),
+            Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 1048576),
+            Arguments.of(Mode.AUTO, Algorithm.LZ4, 16384),
+            Arguments.of(Mode.AUTO, Algorithm.LZ4, 65536),
+            Arguments.of(Mode.AUTO, Algorithm.LZ4, 524288),
+            Arguments.of(Mode.AUTO, Algorithm.LZ4, 1048576),
+            Arguments.of(Mode.HARDWARE, Algorithm.DEFLATE, 16384),
+            Arguments.of(Mode.HARDWARE, Algorithm.DEFLATE, 65536),
+            Arguments.of(Mode.HARDWARE, Algorithm.DEFLATE, 524288),
+            Arguments.of(Mode.HARDWARE, Algorithm.DEFLATE, 1048576),
+            Arguments.of(Mode.HARDWARE, Algorithm.LZ4, 16384),
+            Arguments.of(Mode.HARDWARE, Algorithm.LZ4, 65536),
+            Arguments.of(Mode.HARDWARE, Algorithm.LZ4, 524288),
+            Arguments.of(Mode.HARDWARE, Algorithm.LZ4, 1048576))
+        : Stream.of(Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 16384),
+            Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 65536),
+            Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 524288),
+            Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 1048576),
+            Arguments.of(Mode.AUTO, Algorithm.LZ4, 16384),
+            Arguments.of(Mode.AUTO, Algorithm.LZ4, 65536),
+            Arguments.of(Mode.AUTO, Algorithm.LZ4, 524288),
+            Arguments.of(Mode.AUTO, Algorithm.LZ4, 1048576));
+  }
+
+    public static Stream<Arguments> provideModeAlgorithmSkipLengthParams() {
+    return QatTestSuite.FORCE_HARDWARE
+        ? Stream.of(Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 0),
+            Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 1024),
+            Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 16384),
+            Arguments.of(Mode.AUTO, Algorithm.LZ4, 0),
+            Arguments.of(Mode.AUTO, Algorithm.LZ4, 1024),
+            Arguments.of(Mode.AUTO, Algorithm.LZ4, 16384),
+            Arguments.of(Mode.HARDWARE, Algorithm.DEFLATE, 0),
+            Arguments.of(Mode.HARDWARE, Algorithm.DEFLATE, 1024),
+            Arguments.of(Mode.HARDWARE, Algorithm.DEFLATE, 16384),
+            Arguments.of(Mode.HARDWARE, Algorithm.LZ4, 0),
+            Arguments.of(Mode.HARDWARE, Algorithm.LZ4, 1024),
+            Arguments.of(Mode.HARDWARE, Algorithm.LZ4, 16384))
+        : Stream.of(Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 0),
+            Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 1024),
+            Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 16384),
+            Arguments.of(Mode.AUTO, Algorithm.LZ4, 0),
+            Arguments.of(Mode.AUTO, Algorithm.LZ4, 1024),
+            Arguments.of(Mode.AUTO, Algorithm.LZ4, 16384));
+  }
+
+  public static Stream<Arguments> provideAlgorithmLevelParams() {
+    return Stream.of(Arguments.of(Algorithm.DEFLATE, 1),
+        Arguments.of(Algorithm.DEFLATE, 2), Arguments.of(Algorithm.DEFLATE, 3),
+        Arguments.of(Algorithm.DEFLATE, 4), Arguments.of(Algorithm.DEFLATE, 5),
+        Arguments.of(Algorithm.DEFLATE, 6), Arguments.of(Algorithm.DEFLATE, 7),
+        Arguments.of(Algorithm.DEFLATE, 8), Arguments.of(Algorithm.DEFLATE, 9),
+        Arguments.of(Algorithm.LZ4, 1), Arguments.of(Algorithm.LZ4, 2),
+        Arguments.of(Algorithm.LZ4, 3), Arguments.of(Algorithm.LZ4, 4),
+        Arguments.of(Algorithm.LZ4, 5), Arguments.of(Algorithm.LZ4, 6),
+        Arguments.of(Algorithm.LZ4, 7), Arguments.of(Algorithm.LZ4, 8),
+        Arguments.of(Algorithm.LZ4, 9));
+  }
 
   @ParameterizedTest
   @EnumSource(Algorithm.class)
-  public void testInputStreamReadAll1(Algorithm algo) throws IOException {
+  public void testConstructor(Algorithm algo) {
+    ByteArrayInputStream inputStream = new ByteArrayInputStream(
+        algo.equals(Algorithm.LZ4) ? lz4Bytes : deflateBytes);
+    byte[] result = new byte[src.length];
+    try {
+     try(QatInputStream decompressedStream = new QatInputStream(inputStream, 16 * 1024, algo)){}
+    } catch (IOException | IllegalArgumentException | QatException e) {
+        fail(e.getMessage());
+    }
+  }
+
+  @ParameterizedTest
+  @MethodSource("provideAlgorithmLevelParams")
+  public void testConstructor2(Algorithm algo, int level) {
+    ByteArrayInputStream inputStream = new ByteArrayInputStream(
+        algo.equals(Algorithm.LZ4) ? lz4Bytes : deflateBytes);
+    byte[] result = new byte[src.length];
+    try {
+     try(QatInputStream decompressedStream = new QatInputStream(inputStream, 16 * 1024, algo, level)){}
+    } catch (IOException | IllegalArgumentException | QatException e) {
+        fail(e.getMessage());
+    }
+  }
+
+
+  @ParameterizedTest
+  @MethodSource("provideModeAlgorithmLengthParams")
+  public void testInputStreamReadAll1(Mode mode, Algorithm algo, int bufferSize) throws IOException {
     ByteArrayInputStream inputStream = new ByteArrayInputStream(
         algo.equals(Algorithm.LZ4) ? lz4Bytes : deflateBytes);
     byte[] result = new byte[src.length];
     try (QatInputStream decompressedStream =
-             new QatInputStream(inputStream, 16 * 1024, algo)) {
+             new QatInputStream(inputStream, bufferSize, algo, mode)) {
       int read = decompressedStream.read(result);
       assertEquals(result.length, read);
     }
@@ -89,13 +187,13 @@ public class QatInputStreamTests {
   }
 
   @ParameterizedTest
-  @EnumSource(Algorithm.class)
-  public void testInputStreamReadAll3(Algorithm algo) throws IOException {
+  @MethodSource("provideModeAlgorithmLengthParams")
+  public void testInputStreamReadAll3(Mode mode, Algorithm algo, int bufferSize) throws IOException {
     ByteArrayInputStream inputStream = new ByteArrayInputStream(
         algo.equals(Algorithm.LZ4) ? lz4Bytes : deflateBytes);
     byte[] result = new byte[src.length];
     try (QatInputStream decompressedStream =
-             new QatInputStream(inputStream, 16 * 1024, algo)) {
+             new QatInputStream(inputStream, bufferSize, algo, mode)) {
       int i;
       int len = 0;
       for (i = 0; i < result.length; i += len) {
@@ -109,13 +207,13 @@ public class QatInputStreamTests {
   }
 
   @ParameterizedTest
-  @EnumSource(Algorithm.class)
-  public void testInputStreamReadByte(Algorithm algo) throws IOException {
+  @MethodSource("provideModeAlgorithmLengthParams")
+  public void testInputStreamReadByte(Mode mode, Algorithm algo, int bufferSize) throws IOException {
     ByteArrayInputStream inputStream = new ByteArrayInputStream(
         algo.equals(Algorithm.LZ4) ? lz4Bytes : deflateBytes);
     byte[] result = new byte[src.length];
     try (QatInputStream decompressedStream =
-             new QatInputStream(inputStream, 16 * 1024, algo)) {
+             new QatInputStream(inputStream, bufferSize, algo, mode)) {
       int i;
       int len = 0;
       for (i = 0; i < result.length; i += len) {
@@ -134,13 +232,13 @@ public class QatInputStreamTests {
   }
 
   @ParameterizedTest
-  @EnumSource(Algorithm.class)
-  public void testInputStreamReadAvailable(Algorithm algo) throws IOException {
+  @MethodSource("provideModeAlgorithmLengthParams")
+  public void testInputStreamReadAvailable(Mode mode, Algorithm algo, int bufferSize) throws IOException {
     ByteArrayInputStream inputStream = new ByteArrayInputStream(
         algo.equals(Algorithm.LZ4) ? lz4Bytes : deflateBytes);
     byte[] result = new byte[src.length];
     try (QatInputStream decompressedStream =
-             new QatInputStream(inputStream, 16 * 1024, algo)) {
+             new QatInputStream(inputStream, bufferSize, algo, mode)) {
       int i;
       int len = 0;
       for (i = 0; i < result.length; i += len) {
@@ -154,13 +252,13 @@ public class QatInputStreamTests {
   }
 
   @ParameterizedTest
-  @EnumSource(Algorithm.class)
-  public void testInputStreamClose(Algorithm algo) throws IOException {
+  @MethodSource("provideModeAlgorithmLengthParams")
+  public void testInputStreamClose(Mode mode, Algorithm algo, int bufferSize) throws IOException {
     ByteArrayInputStream inputStream = new ByteArrayInputStream(
         algo.equals(Algorithm.LZ4) ? lz4Bytes : deflateBytes);
     byte[] result = new byte[src.length];
     QatInputStream decompressedStream =
-        new QatInputStream(inputStream, 16 * 1024, algo);
+        new QatInputStream(inputStream, bufferSize, algo, mode);
     decompressedStream.close();
     try {
       decompressedStream.read(result);
@@ -171,26 +269,24 @@ public class QatInputStreamTests {
   }
 
   @ParameterizedTest
-  @EnumSource(Algorithm.class)
-  public void testInputStreamDoubleClose(Algorithm algo) throws IOException {
+  @MethodSource("provideModeAlgorithmLengthParams")
+  public void testInputStreamDoubleClose(Mode mode, Algorithm algo, int bufferSize) throws IOException {
     ByteArrayInputStream inputStream = new ByteArrayInputStream(
         algo.equals(Algorithm.LZ4) ? lz4Bytes : deflateBytes);
     byte[] result = new byte[src.length];
     QatInputStream decompressedStream =
-        new QatInputStream(inputStream, 16 * 1024, algo);
+        new QatInputStream(inputStream, bufferSize, algo, mode);
     decompressedStream.close();
     decompressedStream.close();
     assertTrue(true);
   }
 
   @ParameterizedTest
-  @EnumSource(Algorithm.class)
-  // parameterize skipBytes
-  public void testInputStreamSkip(Algorithm algo) throws IOException {
+  @MethodSource("provideModeAlgorithmSkipLengthParams")
+  public void testInputStreamSkip(Mode mode, Algorithm algo, int bytesToSkip) throws IOException {
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-    int bytesToSkip = 1 + rnd.nextInt(16 * 1024);
     try (QatOutputStream compressedStream =
-             new QatOutputStream(outputStream, 512 * 1024, algo)) {
+             new QatOutputStream(outputStream, 16 * 1024, algo, mode)) {
       compressedStream.write(src);
       compressedStream.write(new byte[bytesToSkip]);
       compressedStream.write(src);
@@ -201,7 +297,7 @@ public class QatInputStreamTests {
     byte[] result1 = new byte[src.length];
     byte[] result2 = new byte[src.length];
     try (QatInputStream decompressedStream =
-             new QatInputStream(inputStream, 512 * 1024, algo)) {
+             new QatInputStream(inputStream, 16 * 1024, algo, mode)) {
       int read = decompressedStream.read(result1);
       assertTrue(result1.length == read);
       long skipped = decompressedStream.skip(bytesToSkip);
@@ -211,5 +307,37 @@ public class QatInputStreamTests {
     }
     assertTrue(Arrays.equals(src, result1));
     assertTrue(Arrays.equals(src, result2));
+  }
+
+  @ParameterizedTest
+  @MethodSource("provideModeAlgorithmParams")
+  public void testInputStreamSkipNegative(Mode mode, Algorithm algo) throws IOException {
+    ByteArrayInputStream inputStream = new ByteArrayInputStream(
+        algo.equals(Algorithm.LZ4) ? lz4Bytes : deflateBytes);
+    byte[] result = new byte[src.length];
+    try (QatInputStream decompressedStream =
+             new QatInputStream(inputStream, 16 * 1024, algo, mode)) {
+      int skipped = (int)decompressedStream.skip(-5);
+      assertEquals(0, skipped);
+      int read = decompressedStream.read(result);
+      assertEquals(result.length, read);
+    }
+    assertTrue(Arrays.equals(src, result));
+  }
+
+  @ParameterizedTest
+  @MethodSource("provideModeAlgorithmParams")
+  public void testInputStreamReadEOF(Mode mode, Algorithm algo) throws IOException {
+    ByteArrayInputStream inputStream = new ByteArrayInputStream(
+        algo.equals(Algorithm.LZ4) ? lz4Bytes : deflateBytes);
+    byte[] result = new byte[src.length];
+    try (QatInputStream decompressedStream =
+             new QatInputStream(inputStream, 16 * 1024, algo, mode)) {
+      int read = decompressedStream.read(result);
+      assertEquals(result.length, read);
+      read = decompressedStream.read();
+      assertEquals(-1, read);
+    }
+    assertTrue(Arrays.equals(src, result));
   }
 }
