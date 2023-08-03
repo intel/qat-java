@@ -1093,6 +1093,51 @@ public class QatTest {
 
   @ParameterizedTest
   @MethodSource("provideModeAlgorithmLengthParams")
+  public void testVaryingOffset(
+  QatZipper.Mode mode, QatZipper.Algorithm algo, int len) {
+    try {
+      zipper = new QatZipper(algo, 6, mode);
+      byte[] data = getSourceArray(len);
+
+      final int inOffset = 2;
+      ByteBuffer src = ByteBuffer.allocate(inOffset + len + inOffset);
+      src.position(inOffset);
+      src.put(data, 0, len);
+      src.flip().position(inOffset);
+
+      int outOffset = 5;
+      ByteBuffer compressed = ByteBuffer.allocate(outOffset + zipper.maxCompressedLength(data.length) + outOffset);
+      byte[] garbage = new byte[compressed.capacity()];
+      new Random().nextBytes(garbage);
+      compressed.put(garbage);
+      compressed.position(outOffset).limit(compressed.capacity() - outOffset);
+
+      int compressedSize = zipper.compress(src, compressed);
+      assertEquals(inOffset + len, src.position());
+      assertEquals(inOffset + len, src.limit());
+      assertEquals(compressed.capacity() - outOffset, compressed.limit());
+      compressed.flip().position(outOffset);
+      int remaining = compressed.remaining();
+
+      ByteBuffer result = ByteBuffer.allocate(inOffset + len + inOffset);
+      result.position(inOffset).limit(result.capacity() - inOffset);
+      zipper.decompress(compressed, result);
+      assertEquals(outOffset + remaining, compressed.position());
+      assertEquals(outOffset + remaining, compressed.limit());
+      assertEquals(result.capacity() - inOffset, result.limit());
+
+      int decompressed = result.position() - inOffset;
+      assert decompressed == len : "Failed uncompressed size";
+      for (int i = 0; i < len; ++i)
+        assert data[i] == result.get(inOffset + i) : "Failed comparison on index: " + i;
+
+    } catch (QatException | IllegalArgumentException e) {
+      fail(e.getMessage());
+    }
+  }
+
+  @ParameterizedTest
+  @MethodSource("provideModeAlgorithmLengthParams")
   public void testInvalidCompressionOffsets(
       QatZipper.Mode mode, QatZipper.Algorithm algo, int len) {
     try {
