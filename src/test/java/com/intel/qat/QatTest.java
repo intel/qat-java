@@ -38,22 +38,51 @@ public class QatTest {
 
   private Random rnd = new Random();
 
-  public static Stream<Arguments> provideParams() {
+  public static Stream<Arguments> provideModeAlgorithmParams() {
+    return Stream.of(
+        Arguments.of(QatZipper.Mode.AUTO, QatZipper.Algorithm.DEFLATE),
+        Arguments.of(QatZipper.Mode.AUTO, QatZipper.Algorithm.LZ4),
+        Arguments.of(QatZipper.Mode.HARDWARE, QatZipper.Algorithm.DEFLATE),
+        Arguments.of(QatZipper.Mode.HARDWARE, QatZipper.Algorithm.LZ4));
+  }
+
+  public static Stream<Arguments> provideAlgorithmLevelParams() {
+    return Stream.of(Arguments.of(QatZipper.Algorithm.DEFLATE, 1),
+        Arguments.of(QatZipper.Algorithm.DEFLATE, 2),
+        Arguments.of(QatZipper.Algorithm.DEFLATE, 3),
+        Arguments.of(QatZipper.Algorithm.DEFLATE, 4),
+        Arguments.of(QatZipper.Algorithm.DEFLATE, 5),
+        Arguments.of(QatZipper.Algorithm.DEFLATE, 6),
+        Arguments.of(QatZipper.Algorithm.DEFLATE, 7),
+        Arguments.of(QatZipper.Algorithm.DEFLATE, 8),
+        Arguments.of(QatZipper.Algorithm.DEFLATE, 9),
+        Arguments.of(QatZipper.Algorithm.LZ4, 1),
+        Arguments.of(QatZipper.Algorithm.LZ4, 2),
+        Arguments.of(QatZipper.Algorithm.LZ4, 3),
+        Arguments.of(QatZipper.Algorithm.LZ4, 4),
+        Arguments.of(QatZipper.Algorithm.LZ4, 5),
+        Arguments.of(QatZipper.Algorithm.LZ4, 6),
+        Arguments.of(QatZipper.Algorithm.LZ4, 7),
+        Arguments.of(QatZipper.Algorithm.LZ4, 8),
+        Arguments.of(QatZipper.Algorithm.LZ4, 9));
+  }
+
+  public static Stream<Arguments> provideModeAlgorithmLengthParams() {
     return Stream.of(
         Arguments.of(QatZipper.Mode.AUTO, QatZipper.Algorithm.DEFLATE, 131072),
+        Arguments.of(QatZipper.Mode.AUTO, QatZipper.Algorithm.DEFLATE, 524288),
+        Arguments.of(QatZipper.Mode.AUTO, QatZipper.Algorithm.DEFLATE, 2097152),
+        Arguments.of(QatZipper.Mode.AUTO, QatZipper.Algorithm.LZ4, 131072),
+        Arguments.of(QatZipper.Mode.AUTO, QatZipper.Algorithm.LZ4, 524288),
+        Arguments.of(QatZipper.Mode.AUTO, QatZipper.Algorithm.LZ4, 2097152),
         Arguments.of(
             QatZipper.Mode.HARDWARE, QatZipper.Algorithm.DEFLATE, 131072),
-        Arguments.of(QatZipper.Mode.AUTO, QatZipper.Algorithm.LZ4, 131072),
-        Arguments.of(QatZipper.Mode.HARDWARE, QatZipper.Algorithm.LZ4, 131072),
-        Arguments.of(QatZipper.Mode.AUTO, QatZipper.Algorithm.DEFLATE, 524288),
         Arguments.of(
             QatZipper.Mode.HARDWARE, QatZipper.Algorithm.DEFLATE, 524288),
-        Arguments.of(QatZipper.Mode.AUTO, QatZipper.Algorithm.LZ4, 524288),
-        Arguments.of(QatZipper.Mode.HARDWARE, QatZipper.Algorithm.LZ4, 524288),
-        Arguments.of(QatZipper.Mode.AUTO, QatZipper.Algorithm.DEFLATE, 2097152),
         Arguments.of(
             QatZipper.Mode.HARDWARE, QatZipper.Algorithm.DEFLATE, 2097152),
-        Arguments.of(QatZipper.Mode.AUTO, QatZipper.Algorithm.LZ4, 2097152),
+        Arguments.of(QatZipper.Mode.HARDWARE, QatZipper.Algorithm.LZ4, 131072),
+        Arguments.of(QatZipper.Mode.HARDWARE, QatZipper.Algorithm.LZ4, 524288),
         Arguments.of(
             QatZipper.Mode.HARDWARE, QatZipper.Algorithm.LZ4, 2097152));
   }
@@ -70,13 +99,14 @@ public class QatTest {
       zipper.end();
   }
 
-  @Test
-  public void testHelloWorld() {
+  @ParameterizedTest
+  @MethodSource("provideAlgorithmLevelParams")
+  public void testHelloWorld(QatZipper.Algorithm algorithm, int level) {
     try {
       String inputStr = "Hello World!";
       byte[] input = inputStr.getBytes();
 
-      QatZipper zipper = new QatZipper();
+      QatZipper zipper = new QatZipper(algorithm, level);
       // Create a buffer with enough size for compression
       byte[] output = new byte[zipper.maxCompressedLength(input.length)];
 
@@ -128,9 +158,9 @@ public class QatTest {
   }
 
   @ParameterizedTest
-  @MethodSource("provideParams")
+  @MethodSource("provideModeAlgorithmParams")
   public void testTwoArgConstructorAlgoAndMode(
-      QatZipper.Mode mode, QatZipper.Algorithm algo, int len) {
+      QatZipper.Mode mode, QatZipper.Algorithm algo) {
     try {
       zipper = new QatZipper(algo, mode);
     } catch (IllegalArgumentException | QatException e) {
@@ -149,9 +179,9 @@ public class QatTest {
   }
 
   @ParameterizedTest
-  @MethodSource("provideParams")
+  @MethodSource("provideModeAlgorithmParams")
   public void testThreeArgConstructorAlgoComplevelMode(
-      QatZipper.Mode mode, QatZipper.Algorithm algo, int len) {
+      QatZipper.Mode mode, QatZipper.Algorithm algo) {
     try {
       zipper = new QatZipper(algo, 9, mode);
     } catch (IllegalArgumentException | QatException e) {
@@ -160,9 +190,9 @@ public class QatTest {
   }
 
   @ParameterizedTest
-  @MethodSource("provideParams")
+  @MethodSource("provideModeAlgorithmParams")
   public void testFourArgConstructorAlgoComplevelModeRetryCount(
-      QatZipper.Mode mode, QatZipper.Algorithm algo, int len) {
+      QatZipper.Mode mode, QatZipper.Algorithm algo) {
     try {
       zipper = new QatZipper(algo, 9, mode, 10);
     } catch (IllegalArgumentException | QatException e) {
@@ -286,9 +316,9 @@ public class QatTest {
   }
 
   @ParameterizedTest
-  @MethodSource("provideParams")
+  @MethodSource("provideModeAlgorithmParams")
   public void testChunkedCompressionWithByteArray(
-      QatZipper.Mode mode, QatZipper.Algorithm algo, int len) {
+      QatZipper.Mode mode, QatZipper.Algorithm algo) {
     try {
       zipper = new QatZipper(algo, 6, mode);
 
@@ -310,9 +340,9 @@ public class QatTest {
   }
 
   @ParameterizedTest
-  @MethodSource("provideParams")
+  @MethodSource("provideModeAlgorithmParams")
   public void testChunkedCompressionWithByteArrayDiffOffset(
-      QatZipper.Mode mode, QatZipper.Algorithm algo, int len) {
+      QatZipper.Mode mode, QatZipper.Algorithm algo) {
     try {
       zipper = new QatZipper(algo, 6, mode);
 
@@ -340,9 +370,9 @@ public class QatTest {
   }
 
   @ParameterizedTest
-  @MethodSource("provideParams")
+  @MethodSource("provideModeAlgorithmParams")
   public void testChunkedCompressionWithByteBuffer(
-      QatZipper.Mode mode, QatZipper.Algorithm algo, int len) {
+      QatZipper.Mode mode, QatZipper.Algorithm algo) {
     try {
       zipper = new QatZipper(algo, 6, mode);
 
@@ -373,9 +403,9 @@ public class QatTest {
   }
 
   @ParameterizedTest
-  @MethodSource("provideParams")
+  @MethodSource("provideModeAlgorithmParams")
   public void testChunkedCompressionWithWrappedByteBuffer(
-      QatZipper.Mode mode, QatZipper.Algorithm algo, int len) {
+      QatZipper.Mode mode, QatZipper.Algorithm algo) {
     try {
       zipper = new QatZipper(algo, 6, mode);
 
@@ -407,7 +437,7 @@ public class QatTest {
   }
 
   @ParameterizedTest
-  @MethodSource("provideParams")
+  @MethodSource("provideModeAlgorithmLengthParams")
   public void testWrappedBuffers(
       QatZipper.Mode mode, QatZipper.Algorithm algo, int len) {
     try {
@@ -440,7 +470,7 @@ public class QatTest {
   }
 
   @ParameterizedTest
-  @MethodSource("provideParams")
+  @MethodSource("provideModeAlgorithmLengthParams")
   public void testBackedArrayBuffersWithAllocate(
       QatZipper.Mode mode, QatZipper.Algorithm algo, int len) {
     try {
@@ -479,7 +509,7 @@ public class QatTest {
   }
 
   @ParameterizedTest
-  @MethodSource("provideParams")
+  @MethodSource("provideModeAlgorithmLengthParams")
   public void testDirectByteBufferSrcCompression(
       QatZipper.Mode mode, QatZipper.Algorithm algo, int len) {
     try {
@@ -518,7 +548,7 @@ public class QatTest {
   }
 
   @ParameterizedTest
-  @MethodSource("provideParams")
+  @MethodSource("provideModeAlgorithmLengthParams")
   public void testDirectByteBufferDstCompression(
       QatZipper.Mode mode, QatZipper.Algorithm algo, int len) {
     try {
@@ -557,7 +587,7 @@ public class QatTest {
   }
 
   @ParameterizedTest
-  @MethodSource("provideParams")
+  @MethodSource("provideModeAlgorithmLengthParams")
   public void testDirectByteBufferDstDecompression(
       QatZipper.Mode mode, QatZipper.Algorithm algo, int len) {
     try {
@@ -596,7 +626,7 @@ public class QatTest {
   }
 
   @ParameterizedTest
-  @MethodSource("provideParams")
+  @MethodSource("provideModeAlgorithmLengthParams")
   public void testIndirectBuffersReadOnly(
       QatZipper.Mode mode, QatZipper.Algorithm algo, int len) {
     try {
@@ -636,7 +666,7 @@ public class QatTest {
   }
 
   @ParameterizedTest
-  @MethodSource("provideParams")
+  @MethodSource("provideModeAlgorithmLengthParams")
   public void testCompressionDecompressionWithByteArray(
       QatZipper.Mode mode, QatZipper.Algorithm algo, int len) {
     try {
@@ -660,7 +690,7 @@ public class QatTest {
   }
 
   @ParameterizedTest
-  @MethodSource("provideParams")
+  @MethodSource("provideModeAlgorithmLengthParams")
   public void testCompressionDecompressionHW(
       QatZipper.Mode mode, QatZipper.Algorithm algo, int len) {
     assumeTrue(QatTestSuite.FORCE_HARDWARE);
@@ -685,7 +715,7 @@ public class QatTest {
   }
 
   @ParameterizedTest
-  @MethodSource("provideParams")
+  @MethodSource("provideModeAlgorithmLengthParams")
   public void testCompressionWithInsufficientDestBuff(
       QatZipper.Mode mode, QatZipper.Algorithm algo, int len) {
     try {
@@ -701,7 +731,7 @@ public class QatTest {
   }
 
   @ParameterizedTest
-  @MethodSource("provideParams")
+  @MethodSource("provideModeAlgorithmLengthParams")
   public void testCompressionWithInsufficientDestBuffHW(
       QatZipper.Mode mode, QatZipper.Algorithm algo, int len) {
     assumeTrue(QatTestSuite.FORCE_HARDWARE);
@@ -718,7 +748,7 @@ public class QatTest {
   }
 
   @ParameterizedTest
-  @MethodSource("provideParams")
+  @MethodSource("provideModeAlgorithmLengthParams")
   public void testDecompressionWithInsufficientDestBuff(
       QatZipper.Mode mode, QatZipper.Algorithm algo, int len) {
     assumeTrue(QatTestSuite.FORCE_HARDWARE);
@@ -739,7 +769,7 @@ public class QatTest {
   }
 
   @ParameterizedTest
-  @MethodSource("provideParams")
+  @MethodSource("provideModeAlgorithmLengthParams")
   public void testCompressionDecompressionWithDirectByteBuffer(
       QatZipper.Mode mode, QatZipper.Algorithm algo, int len) {
     try {
@@ -773,7 +803,7 @@ public class QatTest {
   }
 
   @ParameterizedTest
-  @MethodSource("provideParams")
+  @MethodSource("provideModeAlgorithmLengthParams")
   public void testCompressionDecompressionWithDirectByteBufferNoPinnedMem(
       QatZipper.Mode mode, QatZipper.Algorithm algo, int len) {
     try {
@@ -807,7 +837,7 @@ public class QatTest {
   }
 
   @ParameterizedTest
-  @MethodSource("provideParams")
+  @MethodSource("provideModeAlgorithmLengthParams")
   public void testCompressionReadOnlyDestination(
       QatZipper.Mode mode, QatZipper.Algorithm algo, int len) {
     try {
@@ -829,7 +859,7 @@ public class QatTest {
   }
 
   @ParameterizedTest
-  @MethodSource("provideParams")
+  @MethodSource("provideModeAlgorithmLengthParams")
   public void testDecompressionReadOnlyDestination(
       QatZipper.Mode mode, QatZipper.Algorithm algo, int len) {
     try {
@@ -855,7 +885,7 @@ public class QatTest {
   }
 
   @ParameterizedTest
-  @MethodSource("provideParams")
+  @MethodSource("provideModeAlgorithmLengthParams")
   public void testCompressionDecompressionReadOnlyByteBuffer(
       QatZipper.Mode mode, QatZipper.Algorithm algo, int len) {
     try {
@@ -887,7 +917,7 @@ public class QatTest {
   }
 
   @ParameterizedTest
-  @MethodSource("provideParams")
+  @MethodSource("provideModeAlgorithmLengthParams")
   public void testIllegalStateException(
       QatZipper.Mode mode, QatZipper.Algorithm algo, int len) {
     try {
@@ -904,7 +934,7 @@ public class QatTest {
   }
 
   @ParameterizedTest
-  @MethodSource("provideParams")
+  @MethodSource("provideModeAlgorithmLengthParams")
   public void testIllegalStateExceptionHW(
       QatZipper.Mode mode, QatZipper.Algorithm algo, int len) {
     assumeTrue(QatTestSuite.FORCE_HARDWARE);
@@ -925,7 +955,7 @@ public class QatTest {
   }
 
   @ParameterizedTest
-  @MethodSource("provideParams")
+  @MethodSource("provideModeAlgorithmLengthParams")
   public void compressByteArrayPostTearDown(
       QatZipper.Mode mode, QatZipper.Algorithm algo, int len) {
     try {
@@ -944,7 +974,7 @@ public class QatTest {
   }
 
   @ParameterizedTest
-  @MethodSource("provideParams")
+  @MethodSource("provideModeAlgorithmLengthParams")
   public void compressByteBufferPostTearDown(
       QatZipper.Mode mode, QatZipper.Algorithm algo, int len) {
     try {
@@ -969,7 +999,7 @@ public class QatTest {
   }
 
   @ParameterizedTest
-  @MethodSource("provideParams")
+  @MethodSource("provideModeAlgorithmLengthParams")
   public void decompressByteArrayPostTearDown(
       QatZipper.Mode mode, QatZipper.Algorithm algo, int len) {
     try {
@@ -989,7 +1019,7 @@ public class QatTest {
   }
 
   @ParameterizedTest
-  @MethodSource("provideParams")
+  @MethodSource("provideModeAlgorithmLengthParams")
   public void decompressByteBufferPostTearDown(
       QatZipper.Mode mode, QatZipper.Algorithm algo, int len) {
     try {
@@ -1018,7 +1048,7 @@ public class QatTest {
   }
 
   @ParameterizedTest
-  @MethodSource("provideParams")
+  @MethodSource("provideModeAlgorithmLengthParams")
   public void testCompressorText(
       QatZipper.Mode mode, QatZipper.Algorithm algo, int len) {
     try {
@@ -1062,7 +1092,7 @@ public class QatTest {
   }
 
   @ParameterizedTest
-  @MethodSource("provideParams")
+  @MethodSource("provideModeAlgorithmLengthParams")
   public void testInvalidCompressionOffsets(
       QatZipper.Mode mode, QatZipper.Algorithm algo, int len) {
     try {
@@ -1082,7 +1112,7 @@ public class QatTest {
   }
 
   @ParameterizedTest
-  @MethodSource("provideParams")
+  @MethodSource("provideModeAlgorithmLengthParams")
   public void testInvalidCompressionOffsetsHW(
       QatZipper.Mode mode, QatZipper.Algorithm algo, int len) {
     assumeTrue(QatTestSuite.FORCE_HARDWARE);
@@ -1103,7 +1133,7 @@ public class QatTest {
   }
 
   @ParameterizedTest
-  @MethodSource("provideParams")
+  @MethodSource("provideModeAlgorithmLengthParams")
   public void testInvalidCompressionLargeOffsets(
       QatZipper.Mode mode, QatZipper.Algorithm algo, int len) {
     try {
@@ -1123,7 +1153,7 @@ public class QatTest {
   }
 
   @ParameterizedTest
-  @MethodSource("provideParams")
+  @MethodSource("provideModeAlgorithmLengthParams")
   public void testInvalidecompressionOffsets(
       QatZipper.Mode mode, QatZipper.Algorithm algo, int len) {
     try {
@@ -1143,7 +1173,7 @@ public class QatTest {
   }
 
   @ParameterizedTest
-  @MethodSource("provideParams")
+  @MethodSource("provideModeAlgorithmLengthParams")
   public void testInvalidecompressionLargeOffsets(
       QatZipper.Mode mode, QatZipper.Algorithm algo, int len) {
     try {
