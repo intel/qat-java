@@ -5,7 +5,7 @@
  ******************************************************************************/
 
 /**
- * Defines APIs for data compression using Intel QuickAssit Technology.
+ * Defines APIs for data compression using Intel (R) QuickAssit Technology.
  */
 module com.intel.qat {
   exports com.intel.qat;

@@ -6,7 +6,7 @@
 
 /**
  * This package provides classes needed to compress and decompress data using
- * Intel's QuickAssist Technology.
+ * Intel's (R) QuickAssist Technology.
  *
  * @since 1.0
  * @see com.intel.qat

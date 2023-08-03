@@ -10,45 +10,43 @@ import java.nio.ByteBuffer;
 import java.nio.ReadOnlyBufferException;
 
 /**
- * This class provides support for hardware-accelerated compression and
- * decompression using Intel (R) QuickAssist Technology (QAT). The Qat-Java
- * library is dependent on and uses the <a
- * href="https://github.com/intel/QATzip">QATZip library</a>.
- *
+ * <p>
  * This class provides methods that can be used to compress and decompress byte
  * arrays and byte buffers. Once compression and decompression methods are used,
  * a user should explicitly release resources used by this class by calling the
  * <code>end()</code> method.
- *
+ * 
+ * <p>
  * The following code snippet demonstrates how to use the class to compress and
  * decompress a string.
  *
- * <code>
- *   try {
- *     String inputStr = "Hello World!";
- *     byte[] input = inputStr.getBytes();
- *
- *     QatZipper zipper = new QatZipper();
- *     // Create a buffer with enough size for compression
- *     byte[] output = new byte[zipper.maxCompressedLength(input.length)];
- *
- *     // Compress the bytes
- *     int resultLen = zipper.compress(input, output);
- *
- *     // Decompress the bytes into a String
- *     byte[] result = new byte[input.length];
- *     resultLen = zipper.decompress(output, result);
- *
- *     // Release resources
- *     zipper.end();
- *
- *     // Convert the bytes into a String
- *     String outputStr = new String(result, 0, resultLen);
- *   } catch (QatException e) {
- *     //
- *   }
- * </code>
- *
+ * <blockquote><pre>{@code
+    try {
+      String inputStr = "Hello World!";
+      byte[] input = inputStr.getBytes();
+ 
+      QatZipper zipper = new QatZipper();
+
+      // Create a buffer with enough size for compression
+      byte[] output = new byte[zipper.maxCompressedLength(input.length)];
+ 
+      // Compress the bytes
+      int resultLen = zipper.compress(input, output);
+ 
+      // Decompress the bytes into a String
+      byte[] result = new byte[input.length];
+      resultLen = zipper.decompress(output, result);
+ 
+      // Release resources
+      zipper.end();
+ 
+      // Convert the bytes into a String
+      String outputStr = new String(result, 0, resultLen);
+    } catch (QatException e) {
+      //
+    }
+ * }</pre></blockquote>
+ * 
  */
 public class QatZipper {
   /**
