@@ -183,6 +183,138 @@ JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_setup(
 }
 
 /*
+ * Compresses a byte array.
+ *
+ * Class:     com_intel_qat_InternalJNI
+ * Method:    compressByteArray
+ * Signature: (J[BII[BIII)I
+ */
+JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_compressByteArray(
+    JNIEnv *env, jobject obj, jlong sess, jbyteArray src_arr, jint src_pos,
+    jint src_len, jbyteArray dst_arr, jint dst_pos, jint dst_len,
+    jint retry_count) {
+  (void)obj;
+
+  QzSession_T *qz_session = (QzSession_T *)sess;
+
+  unsigned char *src_ptr =
+      (unsigned char *)(*env)->GetByteArrayElements(env, src_arr, NULL);
+  unsigned char *dst_ptr =
+      (unsigned char *)(*env)->GetByteArrayElements(env, dst_arr, NULL);
+
+  int bytes_read = 0;
+  int bytes_written = 0;
+
+  compress(env, qz_session, src_ptr + src_pos, src_len, dst_ptr + dst_pos,
+           dst_len, &bytes_read, &bytes_written, retry_count);
+
+  (*env)->ReleaseByteArrayElements(env, src_arr, (jbyte *)src_ptr, 0);
+  (*env)->ReleaseByteArrayElements(env, dst_arr, (jbyte *)dst_ptr, 0);
+
+  return bytes_written;
+}
+
+/*
+ * Decompresses a byte array.
+ *
+ * Class:     com_intel_qat_InternalJNI
+ * Method:    decompressByteArray
+ * Signature: (J[BII[BIII)I
+ */
+JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_decompressByteArray(
+    JNIEnv *env, jobject obj, jlong sess, jbyteArray src_arr, jint src_pos,
+    jint src_len, jbyteArray dst_arr, jint dst_pos, jint dst_len,
+    jint retry_count) {
+  (void)obj;
+
+  QzSession_T *qz_session = (QzSession_T *)sess;
+  unsigned char *src_ptr =
+      (unsigned char *)(*env)->GetByteArrayElements(env, src_arr, NULL);
+  unsigned char *dst_ptr =
+      (unsigned char *)(*env)->GetByteArrayElements(env, dst_arr, NULL);
+
+  int bytes_read = 0;
+  int bytes_written = 0;
+
+  decompress(env, qz_session, src_ptr + src_pos, src_len, dst_ptr + dst_pos,
+             dst_len, &bytes_read, &bytes_written, retry_count);
+
+  (*env)->ReleaseByteArrayElements(env, src_arr, (jbyte *)src_ptr, 0);
+  (*env)->ReleaseByteArrayElements(env, dst_arr, (jbyte *)dst_ptr, 0);
+
+  return bytes_written;
+}
+
+/*
+ * Compresses a byte buffer.
+ *
+ * Class:     com_intel_qat_InternalJNI
+ * Method:    compressByteBuffer
+ * Signature: (JLjava/nio/ByteBuffer;[BII[BIII)I
+ */
+JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_compressByteBuffer(
+    JNIEnv *env, jobject obj, jlong sess, jobject src_buf, jbyteArray src_arr,
+    jint src_pos, jint src_len, jbyteArray dst_arr, jint dst_pos, jint dst_len,
+    jint retry_count) {
+  (void)obj;
+
+  QzSession_T *qz_session = (QzSession_T *)sess;
+
+  unsigned char *src_ptr =
+      (unsigned char *)(*env)->GetByteArrayElements(env, src_arr, NULL);
+  unsigned char *dst_ptr =
+      (unsigned char *)(*env)->GetByteArrayElements(env, dst_arr, NULL);
+
+  int bytes_read = 0;
+  int bytes_written = 0;
+
+  compress(env, qz_session, src_ptr + src_pos, src_len, dst_ptr + dst_pos,
+           dst_len, &bytes_read, &bytes_written, retry_count);
+
+  (*env)->ReleaseByteArrayElements(env, src_arr, (jbyte *)src_ptr, 0);
+  (*env)->ReleaseByteArrayElements(env, dst_arr, (jbyte *)dst_ptr, 0);
+
+  (*env)->SetIntField(env, src_buf, nio_bytebuffer_position_id,
+                      src_pos + bytes_read);
+
+  return bytes_written;
+}
+
+/*
+ * Decompresses a byte buffer.
+ *
+ * Class:     com_intel_qat_InternalJNI
+ * Method:    decompressByteBuffer
+ * Signature: (JLjava/nio/ByteBuffer;[BII[BIII)I
+ */
+JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_decompressByteBuffer(
+    JNIEnv *env, jobject obj, jlong sess, jobject src_buf, jbyteArray src_arr,
+    jint src_pos, jint src_len, jbyteArray dst_arr, jint dst_pos, jint dst_len,
+    jint retry_count) {
+  (void)obj;
+
+  QzSession_T *qz_session = (QzSession_T *)sess;
+  unsigned char *src_ptr =
+      (unsigned char *)(*env)->GetByteArrayElements(env, src_arr, NULL);
+  unsigned char *dst_ptr =
+      (unsigned char *)(*env)->GetByteArrayElements(env, dst_arr, NULL);
+
+  int bytes_read = 0;
+  int bytes_written = 0;
+
+  decompress(env, qz_session, src_ptr + src_pos, src_len, dst_ptr + dst_pos,
+             dst_len, &bytes_read, &bytes_written, retry_count);
+
+  (*env)->ReleaseByteArrayElements(env, src_arr, (jbyte *)src_ptr, 0);
+  (*env)->ReleaseByteArrayElements(env, dst_arr, (jbyte *)dst_ptr, 0);
+
+  (*env)->SetIntField(env, src_buf, nio_bytebuffer_position_id,
+                      src_pos + bytes_read);
+
+  return bytes_written;
+}
+
+/*
  *  Compresses a direct byte buffer.
  *
  * Class:     com_intel_qat_InternalJNI
@@ -212,43 +344,6 @@ jint JNICALL Java_com_intel_qat_InternalJNI_compressDirectByteBuffer(
                       src_pos + bytes_read);
   (*env)->SetIntField(env, dst_buf, nio_bytebuffer_position_id,
                       dst_pos + bytes_written);
-
-  return bytes_written;
-}
-
-/*
- * Compresses a byte array or an array backed byte buffer.
- *
- * Class:     com_intel_qat_InternalJNI
- * Method:    compressArrayOrBuffer
- * Signature: (JLjava/nio/ByteBuffer;[BII[BIII)I
- */
-JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_compressArrayOrBuffer(
-    JNIEnv *env, jobject obj, jlong sess, jobject src_buf, jbyteArray src_arr,
-    jint src_pos, jint src_len, jbyteArray dst_arr, jint dst_pos, jint dst_len,
-    jint retry_count) {
-  (void)obj;
-
-  QzSession_T *qz_session = (QzSession_T *)sess;
-
-  unsigned char *src_ptr =
-      (unsigned char *)(*env)->GetByteArrayElements(env, src_arr, NULL);
-  unsigned char *dst_ptr =
-      (unsigned char *)(*env)->GetByteArrayElements(env, dst_arr, NULL);
-
-  int bytes_read = 0;
-  int bytes_written = 0;
-
-  compress(env, qz_session, src_ptr + src_pos, src_len, dst_ptr + dst_pos,
-           dst_len, &bytes_read, &bytes_written, retry_count);
-
-  (*env)->ReleaseByteArrayElements(env, src_arr, (jbyte *)src_ptr, 0);
-  (*env)->ReleaseByteArrayElements(env, dst_arr, (jbyte *)dst_ptr, 0);
-
-  if (src_buf) {  // is indirect ByteBuffer
-    (*env)->SetIntField(env, src_buf, nio_bytebuffer_position_id,
-                        src_pos + bytes_read);
-  }
 
   return bytes_written;
 }
@@ -289,21 +384,52 @@ Java_com_intel_qat_InternalJNI_decompressDirectByteBuffer(
 }
 
 /*
- * Decompresses a byte array or an array backed byte buffer.
- *
  * Class:     com_intel_qat_InternalJNI
- * Method:    decompressArrayOrBuffer
- * Signature: (JLjava/nio/ByteBuffer;[BII[BIII)I
+ * Method:    compressDirectByteBufferSrc
+ * Signature: (JLjava/nio/ByteBuffer;II[BIII)I
  */
-JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_decompressArrayOrBuffer(
-    JNIEnv *env, jobject obj, jlong sess, jobject src_buf, jbyteArray src_arr,
-    jint src_pos, jint src_len, jbyteArray dst_arr, jint dst_pos, jint dst_len,
+JNIEXPORT jint JNICALL
+Java_com_intel_qat_InternalJNI_compressDirectByteBufferSrc(
+    JNIEnv *env, jobject obj, jlong sess, jobject src_buf, jint src_pos,
+    jint src_len, jbyteArray dst_arr, jint dst_pos, jint dst_len,
     jint retry_count) {
   (void)obj;
 
   QzSession_T *qz_session = (QzSession_T *)sess;
   unsigned char *src_ptr =
-      (unsigned char *)(*env)->GetByteArrayElements(env, src_arr, NULL);
+      (unsigned char *)(*env)->GetDirectBufferAddress(env, src_buf);
+  unsigned char *dst_ptr =
+      (unsigned char *)(*env)->GetByteArrayElements(env, dst_arr, NULL);
+
+  int bytes_read = 0;
+  int bytes_written = 0;
+
+  compress(env, qz_session, src_ptr + src_pos, src_len, dst_ptr + dst_pos,
+           dst_len, &bytes_read, &bytes_written, retry_count);
+
+  (*env)->ReleaseByteArrayElements(env, dst_arr, (jbyte *)dst_ptr, 0);
+
+  (*env)->SetIntField(env, src_buf, nio_bytebuffer_position_id,
+                      src_pos + bytes_read);
+
+  return bytes_written;
+}
+
+/*
+ * Class:     com_intel_qat_InternalJNI
+ * Method:    decompressDirectByteBufferSrc
+ * Signature: (JLjava/nio/ByteBuffer;II[BIII)I
+ */
+JNIEXPORT jint JNICALL
+Java_com_intel_qat_InternalJNI_decompressDirectByteBufferSrc(
+    JNIEnv *env, jobject obj, jlong sess, jobject src_buf, jint src_pos,
+    jint src_len, jbyteArray dst_arr, jint dst_pos, jint dst_len,
+    jint retry_count) {
+  (void)obj;
+
+  QzSession_T *qz_session = (QzSession_T *)sess;
+  unsigned char *src_ptr =
+      (unsigned char *)(*env)->GetDirectBufferAddress(env, src_buf);
   unsigned char *dst_ptr =
       (unsigned char *)(*env)->GetByteArrayElements(env, dst_arr, NULL);
 
@@ -313,13 +439,77 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_decompressArrayOrBuffer(
   decompress(env, qz_session, src_ptr + src_pos, src_len, dst_ptr + dst_pos,
              dst_len, &bytes_read, &bytes_written, retry_count);
 
-  (*env)->ReleaseByteArrayElements(env, src_arr, (jbyte *)src_ptr, 0);
   (*env)->ReleaseByteArrayElements(env, dst_arr, (jbyte *)dst_ptr, 0);
 
-  // if indirect ByteBuffer, set its position
-  if (src_buf)
-    (*env)->SetIntField(env, src_buf, nio_bytebuffer_position_id,
-                        src_pos + bytes_read);
+  (*env)->SetIntField(env, src_buf, nio_bytebuffer_position_id,
+                      src_pos + bytes_read);
+
+  return bytes_written;
+}
+
+/*
+ * Class:     com_intel_qat_InternalJNI
+ * Method:    compressDirectByteBufferDst
+ * Signature: (J[BIILjava/nio/ByteBuffer;III)I
+ */
+JNIEXPORT jint JNICALL
+Java_com_intel_qat_InternalJNI_compressDirectByteBufferDst(
+    JNIEnv *env, jobject obj, jlong sess, jobject src_buf, jbyteArray src_arr,
+    jint src_pos, jint src_len, jobject dst_buf, jint dst_pos, jint dst_len,
+    jint retry_count) {
+  (void)obj;
+
+  QzSession_T *qz_session = (QzSession_T *)sess;
+  unsigned char *src_ptr =
+      (unsigned char *)(*env)->GetByteArrayElements(env, src_arr, NULL);
+  unsigned char *dst_ptr =
+      (unsigned char *)(*env)->GetDirectBufferAddress(env, dst_buf);
+
+  int bytes_read = 0;
+  int bytes_written = 0;
+
+  compress(env, qz_session, src_ptr + src_pos, src_len, dst_ptr + dst_pos,
+           dst_len, &bytes_read, &bytes_written, retry_count);
+
+  (*env)->ReleaseByteArrayElements(env, src_arr, (jbyte *)src_ptr, 0);
+
+  (*env)->SetIntField(env, src_buf, nio_bytebuffer_position_id,
+                      src_pos + bytes_read);
+  (*env)->SetIntField(env, dst_buf, nio_bytebuffer_position_id,
+                      dst_pos + bytes_written);
+
+  return bytes_written;
+}
+/*
+ * Class:     com_intel_qat_InternalJNI
+ * Method:    decompressDirectByteBufferDst
+ * Signature: (JLjava/nio/ByteBuffer;[BIILjava/nio/ByteBuffer;III)I
+ */
+JNIEXPORT jint JNICALL
+Java_com_intel_qat_InternalJNI_decompressDirectByteBufferDst(
+    JNIEnv *env, jobject obj, jlong sess, jobject src_buf, jbyteArray src_arr,
+    jint src_pos, jint src_len, jobject dst_buf, jint dst_pos, jint dst_len,
+    jint retry_count) {
+  (void)obj;
+
+  QzSession_T *qz_session = (QzSession_T *)sess;
+  unsigned char *src_ptr =
+      (unsigned char *)(*env)->GetByteArrayElements(env, src_arr, NULL);
+  unsigned char *dst_ptr =
+      (unsigned char *)(*env)->GetDirectBufferAddress(env, dst_buf);
+
+  int bytes_read = 0;
+  int bytes_written = 0;
+
+  decompress(env, qz_session, src_ptr + src_pos, src_len, dst_ptr + dst_pos,
+             dst_len, &bytes_read, &bytes_written, retry_count);
+
+  (*env)->ReleaseByteArrayElements(env, src_arr, (jbyte *)src_ptr, 0);
+
+  (*env)->SetIntField(env, src_buf, nio_bytebuffer_position_id,
+                      src_pos + bytes_read);
+  (*env)->SetIntField(env, dst_buf, nio_bytebuffer_position_id,
+                      dst_pos + bytes_written);
 
   return bytes_written;
 }
