@@ -14,21 +14,30 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 
-import static com.intel.qat.QatZipper.Algorithm;
-import static com.intel.qat.QatZipper.Mode;
-
 /**
  * This class implements an OutputStream filter that compresses data using
- * Intel(R) QuickAssist Technology (QAT). 
+ * Intel &reg; QuickAssist Technology (QAT).
  **/
 public class QatOutputStream extends FilterOutputStream {
   private ByteBuffer inputBuffer;
   private QatZipper qzip;
   private ByteBuffer outputBuffer;
   private boolean closed;
-  
+
   /**
-   * Creates a new output stream with default compression level and mode.
+   * Creates a new output stream with {@link Algorithm#DEFLATE}, {@link
+   * QatZipper#DEFAULT_COMPRESS_LEVEL}, and {@link Mode#AUTO}.
+   * @param out the output stream
+   * @param bufferSize the output buffer size
+   **/
+  public QatOutputStream(OutputStream out, int bufferSize) {
+    this(out, bufferSize, Algorithm.DEFLATE, QatZipper.DEFAULT_COMPRESS_LEVEL,
+        Mode.AUTO);
+  }
+
+  /**
+   * Creates a new output stream with given parameters, {@link
+   * QatZipper#DEFAULT_COMPRESS_LEVEL}, and {@link Mode#AUTO}.
    * @param out the output stream
    * @param bufferSize the output buffer size
    * @param algorithm the compression algorithm (deflate or LZ4).
@@ -40,7 +49,8 @@ public class QatOutputStream extends FilterOutputStream {
   }
 
   /**
-   * Creates a new output stream with default mode.
+   * Creates a new output stream with the given parameters and
+   * {@link Mode#AUTO}.
    * @param out the output stream
    * @param bufferSize the output buffer size
    * @param algorithm the compression algorithm (deflate or LZ4).
@@ -52,7 +62,8 @@ public class QatOutputStream extends FilterOutputStream {
   }
 
   /**
-   * Creates a new output stream with default compression level.
+   * Creates a new output stream with the given parameters and {@link
+   * QatZipper#DEFAULT_COMPRESS_LEVEL}.
    * @param out the output stream
    * @param bufferSize the output buffer size
    * @param algorithm the compression algorithm (deflate or LZ4).
@@ -65,7 +76,7 @@ public class QatOutputStream extends FilterOutputStream {
   }
 
   /**
-   * Creates a new output stream.
+   * Creates a new output stream with the given paramters.
    * @param out the output stream
    * @param bufferSize the output buffer size
    * @param algorithm the compression algorithm (deflate or LZ4).
@@ -147,8 +158,8 @@ public class QatOutputStream extends FilterOutputStream {
   }
 
   /**
-   * Writes any remaining data to the compressed output stream and releases resources. This method
-   * will close the underlying output stream.
+   * Writes any remaining data to the compressed output stream and releases
+   *resources. This method will close the underlying output stream.
    * @throws IOException if an I/O error occurs
    **/
   @Override

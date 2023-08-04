@@ -16,7 +16,7 @@ import java.nio.ByteBuffer;
 
 /**
  * This class implements an InputStream filter that decompresses data using
- * Intel(R) QuickAssist Technology (QAT). 
+ * Intel &reg; QuickAssist Technology (QAT).
  **/
 public class QatInputStream extends FilterInputStream {
   private ByteBuffer inputBuffer;
@@ -27,7 +27,20 @@ public class QatInputStream extends FilterInputStream {
   private boolean eof;
 
   /**
-   * Creates a new input stream with default compression level and mode.
+   * Creates a new input stream with {@link Algorithm#DEFLATE}, {@link
+   * QatZipper#DEFAULT_COMPRESS_LEVEL}, and {@link Mode#AUTO}.
+   * @param in the input stream
+   * @param bufferSize the input buffer size
+   *     hardware with a software failover.)
+   **/
+  public QatInputStream(InputStream in, int bufferSize) {
+    this(in, bufferSize, Algorithm.DEFLATE, QatZipper.DEFAULT_COMPRESS_LEVEL,
+        Mode.AUTO);
+  }
+
+  /**
+   * Creates a new input stream with the given algorithm, {@link
+   * QatZipper#DEFAULT_COMPRESS_LEVEL}, and {@link Mode#AUTO}.
    * @param in the input stream
    * @param bufferSize the input buffer size
    * @param algorithm the compression algorithm (deflate or LZ4).
@@ -39,7 +52,7 @@ public class QatInputStream extends FilterInputStream {
   }
 
   /**
-   * Creates a new input stream with default mode.
+   * Creates a new input stream with the given paramters and {@link Mode#AUTO}
    * @param in the input stream
    * @param bufferSize the input buffer size
    * @param algorithm the compression algorithm (deflate or LZ4).
@@ -51,7 +64,8 @@ public class QatInputStream extends FilterInputStream {
   }
 
   /**
-   * Creates a new input stream with default compression level.
+   * Creates a new input stream with the given parameters and {@link QatZipper
+   * #DEFAULT_COMPRESS_LEVEL}
    * @param in the input stream
    * @param bufferSize the input buffer size
    * @param algorithm the compression algorithm (deflate or LZ4).
@@ -64,7 +78,7 @@ public class QatInputStream extends FilterInputStream {
   }
 
   /**
-   * Creates a new input stream.
+   * Creates a new input stream with the given parameters.
    * @param in the input stream
    * @param bufferSize the input buffer size
    * @param algorithm the compression algorithm (deflate or LZ4).
@@ -183,8 +197,8 @@ public class QatInputStream extends FilterInputStream {
   public void mark(int readLimit) {}
 
   /**
-   * Repositions this stream to the position at the time the mark method was last called. This method
-   * does nothing but throw an IOException.
+   * Repositions this stream to the position at the time the mark method was
+   *last called. This method does nothing but throw an IOException.
    * @throws IOException when invoked.
    **/
   @Override
@@ -193,8 +207,8 @@ public class QatInputStream extends FilterInputStream {
   }
 
   /**
-   * Tests if this input stream supports the mark and reset methods. This method unconditionally 
-   * returns false
+   * Tests if this input stream supports the mark and reset methods. This method
+   *unconditionally returns false
    * @return false
    **/
   @Override
