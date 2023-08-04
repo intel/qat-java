@@ -77,8 +77,8 @@ class Native {
       // To avoid race condition with other concurrently running Java processes
       // using qat-java create the .lck file first.
 
-      tempNativeLibLock = File.createTempFile("libqat-java",
-          extension + ".lck"); // TODO:// check file permission with ls -lh
+      tempNativeLibLock =
+          File.createTempFile("libqat-java", extension + ".lck");
       tempNativeLib = new File(
           tempNativeLibLock.getAbsolutePath().replaceFirst(".lck$", ""));
       try (FileOutputStream out = new FileOutputStream(tempNativeLib)) {

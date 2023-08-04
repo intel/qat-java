@@ -6,13 +6,13 @@
 package com.intel.qat;
 
 /**
- * A class that represents QAT related exceptions.
+ * Signals that a QAT error has occurred.
  */
 public class QatException extends RuntimeException {
   /**
-   * Constructs a new QatException with the specified message.
+   * Constructs a QatException with the specified detail message.
    *
-   * @param message the error message.
+   * @param message the string containing a detail message
    */
   public QatException(String message) {
     super(message);
