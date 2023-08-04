@@ -19,8 +19,7 @@ import static com.intel.qat.QatZipper.Mode;
 
 /**
  * This class implements an OutputStream filter that compresses data using
- * Intel (R) QuickAssist Technology (QAT). The Qat-Java library is dependent on 
- * and uses the <ahref="https://github.com/intel/QATzip">QATZip library</a>.
+ * Intel(R) QuickAssist Technology (QAT). 
  **/
 public class QatOutputStream extends FilterOutputStream {
   private ByteBuffer inputBuffer;
@@ -83,6 +82,11 @@ public class QatOutputStream extends FilterOutputStream {
     closed = false;
   }
 
+  /**
+   * Writes a byte to the compressed output stream.
+   * @param b the data to be written
+   * @throws IOException if this stream is closed
+   **/
   @Override
   public void write(int b) throws IOException {
     if (closed)
@@ -93,11 +97,23 @@ public class QatOutputStream extends FilterOutputStream {
     inputBuffer.put((byte) b);
   }
 
+  /**
+   * Writes data from the given byte array to the compressed output stream.
+   * @param b the data to be written
+   * @throws IOException if this stream is closed
+   **/
   @Override
   public void write(byte[] b) throws IOException {
     write(b, 0, b.length);
   }
 
+  /**
+   * Writes data from the given byte array to the compressed output stream.
+   * @param b the data to be written
+   * @param off the starting offset of the data
+   * @param len the length of the data
+   * @throws IOException if this stream is closed
+   **/
   @Override
   public void write(byte[] b, int off, int len) throws IOException {
     if (closed)
@@ -112,6 +128,11 @@ public class QatOutputStream extends FilterOutputStream {
     }
   }
 
+  /**
+   * Flushes all buffered data to the compressed output stream. This method
+   * will compress and write all buffered data to the output stream.
+   * @throws IOException if this stream is closed
+   **/
   @Override
   public void flush() throws IOException {
     if (closed)
@@ -125,6 +146,11 @@ public class QatOutputStream extends FilterOutputStream {
     outputBuffer.clear();
   }
 
+  /**
+   * Writes any remaining data to the compressed output stream and releases resources. This method
+   * will close the underlying output stream.
+   * @throws IOException if an I/O error occurs
+   **/
   @Override
   public void close() throws IOException {
     if (closed)
