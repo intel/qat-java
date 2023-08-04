@@ -72,7 +72,7 @@ public class FuzzerTest {
 
   static void testByteArrayWithParams(byte[] src) {
     QatZipper zipper = new QatZipper();
-    
+
     Random r = new Random();
     int srcOffset = r.nextInt(src.length);
 
@@ -201,7 +201,7 @@ public class FuzzerTest {
     zipper.end();
 
     assert srcBuf.compareTo(decBuf)
-            == 0 : "The source and decompressed buffers do not match.";
+        == 0 : "The source and decompressed buffers do not match.";
   }
 
   static void testDecompressionSrcBBDstDBBLZ4(byte[] src) {
@@ -224,7 +224,7 @@ public class FuzzerTest {
     zipper.end();
 
     assert srcBuf.compareTo(decBuf)
-            == 0 : "The source and decompressed buffers do not match.";
+        == 0 : "The source and decompressed buffers do not match.";
   }
 
   static void testDecompressionSrcDBBDstBB(byte[] src) {
@@ -247,7 +247,7 @@ public class FuzzerTest {
     zipper.end();
 
     assert srcBuf.compareTo(decBuf)
-            == 0 : "The source and decompressed buffers do not match.";
+        == 0 : "The source and decompressed buffers do not match.";
   }
 
   static void testDecompressionSrcDBBDstBBLZ4(byte[] src) {
@@ -270,7 +270,7 @@ public class FuzzerTest {
     zipper.end();
 
     assert srcBuf.compareTo(decBuf)
-            == 0 : "The source and decompressed buffers do not match.";
+        == 0 : "The source and decompressed buffers do not match.";
   }
 
   static void testDecompressionSrcBBRODstBB(byte[] src) {
@@ -294,7 +294,7 @@ public class FuzzerTest {
     zipper.end();
 
     assert srcBuf.compareTo(decBuf)
-            == 0 : "The source and decompressed buffers do not match.";
+        == 0 : "The source and decompressed buffers do not match.";
   }
 
   static void testDecompressionSrcBBRODstBBLZ4(byte[] src) {
@@ -318,7 +318,7 @@ public class FuzzerTest {
     zipper.end();
 
     assert srcBuf.compareTo(decBuf)
-            == 0 : "The source and decompressed buffers do not match.";
+        == 0 : "The source and decompressed buffers do not match.";
   }
 
   static void testDirectByteBufferLZ4(byte[] src) {
@@ -343,7 +343,6 @@ public class FuzzerTest {
     assert srcBuf.compareTo(decBuf)
         == 0 : "The source and decompressed buffers do not match.";
   }
-
 
   static void testMixedTypesOne(byte[] src) {
     ByteBuffer srcBuf = ByteBuffer.allocate(src.length);

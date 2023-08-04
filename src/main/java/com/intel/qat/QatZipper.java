@@ -6,13 +6,14 @@
 
 package com.intel.qat;
 
+import java.lang.ref.Cleaner;
 import java.nio.ByteBuffer;
 import java.nio.ReadOnlyBufferException;
-import java.lang.ref.Cleaner;
 
 /**
  * <p>
- * This class provides methods that can be used to compress and decompress data based on
+ * This class provides methods that can be used to compress and decompress data
+ based on
  * {@link Algorithm#DEFLATE} or {@link Algorithm#LZ4}.
  *
  * <p>
