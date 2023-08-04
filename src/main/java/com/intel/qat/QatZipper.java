@@ -13,8 +13,7 @@ import java.nio.ReadOnlyBufferException;
 /**
  * <p>
  * This class provides methods that can be used to compress and decompress data
- based on
- * {@link Algorithm#DEFLATE} or {@link Algorithm#LZ4}.
+ * using {@link Algorithm#DEFLATE} or {@link Algorithm#LZ4}.
  *
  * <p>
  * The following code snippet demonstrates how to use the class to compress and
@@ -47,9 +46,9 @@ import java.nio.ReadOnlyBufferException;
     }
  * }</pre></blockquote>
  *
- * A user should call the <code>end()</code> method to release resources used
- * by this class. If an explicit call to the <code>end()</code> is not made,
- * resources will be released only when the object becomes phantom reachable.
+ * To release QAT resources used by this <code>QatZipper</code>, the
+ * <code>end()</code> method should be called explicitly. If not, resources
+ * will stay alive until this <code>QatZipper</code> becomes phantom reachable.
  *
  */
 public class QatZipper {
@@ -88,13 +87,13 @@ public class QatZipper {
    */
   public static enum Mode {
     /**
-     * A hardware only execution mode. QatZipper would fail if hardware
+     * A hardware-only execution mode. QatZipper would fail if hardware
      * resources cannot be acquired after finite retries.
      */
     HARDWARE,
 
     /**
-     * A hardware with a software fail over execution mode. QatZipper would
+     * A hardware execution mode with a software fail over. QatZipper would
      * fail over to software execution mode if hardware resources cannot be
      * acquired after finite retries.
      */
@@ -106,12 +105,12 @@ public class QatZipper {
    */
   public static enum Algorithm {
     /**
-     * Deflate compression algorithm.
+     * The deflate compression algorithm.
      */
     DEFLATE,
 
     /**
-     * LZ4 compression compression algorithm.
+     * The LZ4 compression algorithm.
      */
     LZ4
   }
