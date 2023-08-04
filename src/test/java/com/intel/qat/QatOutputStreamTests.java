@@ -105,9 +105,21 @@ public class QatOutputStreamTests {
         Arguments.of(Algorithm.LZ4, 9));
   }
 
+  @Test
+  public void testOutputStreamConstructor() throws IOException {
+    ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+    try {
+      try (QatOutputStream compressedStream =
+               new QatOutputStream(outputStream, 16 * 1024)) {
+      }
+    } catch (IOException | IllegalArgumentException | QatException e) {
+      fail(e.getMessage());
+    }
+  }
+
   @ParameterizedTest
   @EnumSource(Algorithm.class)
-  public void testOutputStreamConstructor(Algorithm algo) throws IOException {
+  public void testOutputStreamConstructor1(Algorithm algo) throws IOException {
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     try {
       try (QatOutputStream compressedStream =
