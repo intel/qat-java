@@ -48,27 +48,17 @@ public class QatInputStreamTests {
   @BeforeAll
   public static void setup() throws IOException {
     src = Files.readAllBytes(Paths.get("src/main/resources/sample.txt"));
-    ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-    try (QatOutputStream compressedStream =
-             new QatOutputStream(outputStream, 16 * 1024, Algorithm.DEFLATE)) {
-      compressedStream.write(src);
-    }
     QatZipper qzip = new QatZipper(Algorithm.DEFLATE);
     deflateBytes = new byte[qzip.maxCompressedLength(src.length)];
     int deflateLen =
         qzip.compress(src, 0, src.length, deflateBytes, 0, deflateBytes.length);
     deflateBytes = Arrays.copyOfRange(deflateBytes, 0, deflateLen);
-    qzip.end(); // deflateBytes = outputStream.toByteArray();
-    outputStream = new ByteArrayOutputStream();
+    qzip.end(); 
+    ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     try (QatOutputStream compressedStream =
              new QatOutputStream(outputStream, 16 * 1024, Algorithm.LZ4)) {
       compressedStream.write(src);
     }
-    // qzip = new QatZipper(Algorithm.LZ4);
-    // lz4Bytes = new byte[qzip.maxCompressedLength(src.length)];
-    // int lz4Len = qzip.compress(src, 0, src.length, lz4Bytes, 0,
-    // lz4Bytes.length); lz4Bytes = Arrays.copyOfRange(lz4Bytes, 0, lz4Len);
-    // qzip.end();
     lz4Bytes = outputStream.toByteArray();
   }
 
@@ -243,6 +233,7 @@ public class QatInputStreamTests {
       int len = 0;
       for (i = 0; i < result.length; i += len) {
         len = decompressedStream.available();
+        assertTrue(len > 0);
         int read = decompressedStream.read(result, i, len);
         assertEquals(len, read);
       }

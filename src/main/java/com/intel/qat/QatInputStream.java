@@ -51,10 +51,11 @@ public class QatInputStream extends FilterInputStream {
   public int read() throws IOException {
     if (closed)
       throw new IOException("Stream is closed");
+    if (eof && !outputBuffer.hasRemaining()) return -1;
     if (!outputBuffer.hasRemaining()) {
-      fill();
+        fill();
     }
-    return outputBuffer.hasRemaining() ? outputBuffer.get() : -1;
+    return outputBuffer.get();
   }
 
   @Override
@@ -67,23 +68,30 @@ public class QatInputStream extends FilterInputStream {
     if (closed)
       throw new IOException("Stream is closed");
     if (off < 0 || off + len > b.length) throw new IndexOutOfBoundsException();
-    if (!outputBuffer.hasRemaining()) {
-      fill();
+    if (eof && !outputBuffer.hasRemaining()) return -1;
+
+    int result = 0;
+    int bytesToRead = 0;
+    while (len > (bytesToRead = outputBuffer.remaining())) {
+        outputBuffer.get(b, off, bytesToRead); 
+        len -= bytesToRead;
+        result += bytesToRead;
+        off += bytesToRead;
+        if (eof) return result;
+        fill();
     }
-    int bytesToRead = Math.min(len, outputBuffer.remaining());
-    outputBuffer.get(b, off, bytesToRead);
-    if (bytesToRead != len) {
-      fill();
-      bytesToRead += read(b, off + bytesToRead, len - bytesToRead);
-    }
-    return bytesToRead;
+    outputBuffer.get(b, off, len);
+    result += len;
+    return result;
   }
 
   @Override
   public int available() throws IOException {
     if (closed)
       throw new IOException("Stream is closed");
-    return outputBuffer.remaining() + Math.min(1, in.available());
+    if (outputBuffer.hasRemaining()) return outputBuffer.remaining();
+    if (eof) return 0;
+    else return 1;
   }
 
   @Override
@@ -119,14 +127,14 @@ public class QatInputStream extends FilterInputStream {
     int bytesRead = in.read(
         inputBuffer.array(), inputBuffer.position(), inputBuffer.remaining());
     if (bytesRead < 0) {
-      eof = true;
       inputBuffer.limit(inputBuffer.position());
     }
     else
       inputBuffer.limit(inputBuffer.position() + bytesRead);
     inputBuffer.rewind();
-    totalDecompressed += qzip.decompress(inputBuffer, outputBuffer);
+    int decompressed = qzip.decompress(inputBuffer, outputBuffer);
     outputBuffer.flip();
-    inputBuffer.compact();
+    if (inputBuffer.hasRemaining()) inputBuffer.compact();
+    if (bytesRead < 0 && inputBuffer.remaining() == 0) eof = true;
   }
 }
