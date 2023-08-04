@@ -3,7 +3,7 @@
 
 This library provides accelerated compression and decompression using 
 Intel® QuickAssist Technology (QAT) [QATzip](https://github.com/intel/QATzip) Library taking advantage of Intel® Quick Assist 
-Technology(Intel® QAT). For more information about Intel® QAT, refer to the [QAT Programmer's Guide](https://cdrdv2.intel.com/v1/dl/getContent/743912) 
+Technology(Intel® QAT). For more information about Intel® QAT, refer to the [QAT Programmer's Guide](https://www.intel.com/content/www/us/en/download/765501/intel-quickassist-technology-driver-for-linux-hw-version-2-0.html) 
 on the [Intel&reg; QAT Developer Zone](https://developer.intel.com/quickassist) page. Additionally, the online [QAT Hardware User Guide](https://intel.github.io/quickassist/index.html) 
 is a valuable resource that provides guidance on setting up and optimizing QAT.
 
@@ -70,47 +70,12 @@ sudo systemctl status qat
 ### Install Dependencies (Method #2)
 This is the second of two approaches that adds all necessary components to the system. It compiles directly from source code and copies the files to the correct install locations. Do not combine the steps in this section with those described in method #1.
 
-- Install QAT driver. All packages are available under [Artifactory](https://ubit-artifactory-ba.intel.com/artifactory/one-windows-local/Submissions/QAT). In one of the packages, follow the steps in the README file to setup on a machine with QAT hardware. Note that only Intel&reg; 4XXX (QAT Gen 4) and newer chipset specific drivers are compatible with this plugin. Also, the kernel version must not be newer than 5.18 or compilation will fail.
+- Install QAT driver. All packages are available under [Artifactory](https://www.intel.com/content/www/us/en/download/765501/intel-quickassist-technology-driver-for-linux-hw-version-2-0.html). In one of the packages, follow the steps in the README file to setup on a machine with QAT hardware. Note that only Intel&reg; 4XXX (QAT Gen 4) and newer chipset specific drivers are compatible with this plugin. Also, the kernel version must not be newer than 5.18 or compilation will fail.
 
-- Install QATzip. Follow the instructions [here](https://github.com/intel-innersource/applications.qat.shims.qatzip.qatzip). The number of huge pages may also need to be modified to meet the top-level application's requirements. See the details in [performance-test-with-qatzip](https://github.com/intel-innersource/applications.qat.shims.qatzip.qatzip#performance-test-with-qatzip) for more information.
+- Install QATzip. Follow the instructions [here](https://github.com/intel/QATzip). The number of huge pages may also need to be modified to meet the top-level application's requirements. See the details in [performance-test-with-qatzip](https://github.com/intel-innersource/applications.qat.shims.qatzip.qatzip#performance-test-with-qatzip) for more information.
 
 ### Configure Devices (Method #2)
-This is the second of two approaches that enables QAT compression/decompression on the system. Refer to the previous section for details on installing all dependencies. Do not combine the steps in this section with those described in method #1.
-
-- Backup all configuration files to a separate folder in case the original settings need to be restored. For QAT Gen4, these files follow the */etc/4xxx_dev\*.conf* naming pattern.
-
-- Ensure the plugin is able to access QAT via QATzip by modifying the configuration files in the */etc* folder to meet the needs of all applications. The example shown below provides a model for how configuration files can be changed. It disables all services except for compression/decompression, and it dedicates all hardware resources to applications that use QATzip. This is highlighted in the `[SHIM]` section where `NumberDcInstances` is the number of available logical compression/decompression instances per process, `NumProcesses` is the maximum number of processes that can access the QAT device represented by this configuration file, and `LimitDevAccess` indicates whether or not a process is restricted to the device. When ellipsis are used, that means the remaining portions are unchanged from the original configuration file or text is omitted to avoid repetition. So, if this scenario's modifications are applied to all configuration files on QAT Gen 4, at most 32 application processes can access the QAT devices at any particular time and each process can access at most 2 logical compression/decompression instances per QAT device without being restricted to a particular device.
-
-```
-...
-[GENERAL]
-ServicesEnabled = dc
-...
-[SSL]
-NumberCyInstances = 0
-NumberDcInstances = 0
-NumProcesses = 0
-...
-[SHIM]
-NumberCyInstances = 0
-NumberDcInstances = 2
-NumProcesses = 32
-LimitDevAccess = 0
-
-#Data Compression - User instance #0
-Dc0Name = "Dc0"
-Dc0IsPolled = 1
-...
-```
-
-- Adjust the number of huge pages if necessary. Refer to the previous section on dependency installation for details.
-
-- Restart the QAT service and check that all devices are setup properly.
-
-```
-sudo systemctl restart qat
-sudo systemctl status qat
-```
+Please follow instructions on [QATZip](https://github.com/intel/QATzip#installation-instructions) installation instruction.
 ## Build & Run ##
 
 ### PREREQUISITES TO BUILD ###
@@ -136,7 +101,7 @@ Available Maven commands include:
 - `site` - generates Surefire report into ```target/site```
 - `javadoc:javadoc` - builds javadocs into ```target/site/apidocs```
 - `package` - builds jar file into ```target``` directory
-- 
+
 ### LIBRARY TESTING ###
 This library supports both functional and Fuzz testing.
 

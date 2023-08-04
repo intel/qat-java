@@ -72,11 +72,10 @@ public class FuzzerTest {
 
   static void testByteArrayWithParams(byte[] src) {
     QatZipper zipper = new QatZipper();
-
+    int srcOffset = data.consumeInt();
     byte[] dst = new byte[zipper.maxCompressedLength(src.length)];
     byte[] dec = new byte[src.length];
 
-    int srcOffset = new Random().nextInt(src.length);
     int compressedSize = zipper.compress(
         src, srcOffset, src.length - srcOffset, dst, 0, dst.length);
     int decompressedSize =
@@ -91,11 +90,10 @@ public class FuzzerTest {
 
   static void testByteArrayWithParamsLZ4(byte[] src) {
     QatZipper zipper = new QatZipper(QatZipper.Algorithm.LZ4);
-
+    int srcOffset = data.consumeInt();
     byte[] dst = new byte[zipper.maxCompressedLength(src.length)];
     byte[] dec = new byte[src.length];
 
-    int srcOffset = new Random().nextInt(src.length);
     int compressedSize = zipper.compress(
         src, srcOffset, src.length - srcOffset, dst, 0, dst.length);
     int decompressedSize =

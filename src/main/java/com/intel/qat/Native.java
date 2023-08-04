@@ -78,7 +78,7 @@ class Native {
       // using qat-java create the .lck file first.
 
       tempNativeLibLock = File.createTempFile("libqat-java",
-          extension + ".lck"); // TODO:// check file permission with ls -lh
+          extension + ".lck");
       tempNativeLib = new File(
           tempNativeLibLock.getAbsolutePath().replaceFirst(".lck$", ""));
       try (FileOutputStream out = new FileOutputStream(tempNativeLib)) {
