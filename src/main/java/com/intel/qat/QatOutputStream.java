@@ -14,27 +14,62 @@ import java.nio.ByteBuffer;
 import static com.intel.qat.QatZipper.Algorithm;
 import static com.intel.qat.QatZipper.Mode;
 
+/**
+ * This class implements an OutputStream filter that compresses data using
+ * Intel (R) QuickAssist Technology (QAT). The Qat-Java library is dependent on 
+ * and uses the <ahref="https://github.com/intel/QATzip">QATZip library</a>.
+ **/
 public class QatOutputStream extends FilterOutputStream {
   private ByteBuffer inputBuffer;
   private QatZipper qzip;
   private ByteBuffer outputBuffer;
   private boolean closed;
-
+  
+  /**
+   * Creates a new output stream with default compression level and mode.
+   * @param out the output stream
+   * @param bufferSize the output buffer size
+   * @param algorithm the compression algorithm (deflate or LZ4).
+   **/
   public QatOutputStream(
       OutputStream out, int bufferSize, Algorithm algorithm) {
     this(out, bufferSize, algorithm, QatZipper.DEFAULT_COMPRESS_LEVEL, Mode.AUTO);
   }
 
+  /**
+   * Creates a new output stream with default mode.
+   * @param out the output stream
+   * @param bufferSize the output buffer size
+   * @param algorithm the compression algorithm (deflate or LZ4).
+   * @param level the compression level.
+   **/
   public QatOutputStream(
       OutputStream out, int bufferSize, Algorithm algorithm, int level) {
     this(out, bufferSize, algorithm, level, Mode.AUTO);
   }
 
+  /**
+   * Creates a new output stream with default compression level.
+   * @param out the output stream
+   * @param bufferSize the output buffer size
+   * @param algorithm the compression algorithm (deflate or LZ4).
+   * @param mode the mode of operation (HARDWARE - only hardware, AUTO -
+   *     hardware with a software failover.)
+   **/
   public QatOutputStream(
       OutputStream out, int bufferSize, Algorithm algorithm, Mode mode) {
     this(out, bufferSize, algorithm, QatZipper.DEFAULT_COMPRESS_LEVEL, mode);
   }
 
+  /**
+   * Creates a new output stream.
+   * @param out the output stream
+   * @param bufferSize the output buffer size
+   * @param algorithm the compression algorithm (deflate or LZ4).
+   * @param level the compression level.
+   * @param mode the mode of operation (HARDWARE - only hardware, AUTO -
+   *     hardware with a software failover.)
+   **/
   public QatOutputStream(
       OutputStream out, int bufferSize, Algorithm algorithm, int level, Mode mode) {
         super(out);
