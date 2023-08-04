@@ -106,12 +106,12 @@ public class QatZipper {
    */
   public static enum Algorithm {
     /**
-     * ZLIB compression
+     * Deflate compression algorithm.
      */
     DEFLATE,
 
     /**
-     * LZ4 compression
+     * LZ4 compression compression algorithm.
      */
     LZ4
   }
@@ -201,6 +201,7 @@ public class QatZipper {
     this.retryCount = retryCount;
     InternalJNI.setup(this, mode.ordinal(), algorithm.ordinal(), level);
 
+    // Register a QAT session cleaner for this object
     cleanable = cleaner.register(this, new QatCleaner(session));
     isValid = true;
   }
