@@ -6,13 +6,13 @@
 
 package com.intel.qat;
 
+import static com.intel.qat.QatZipper.Algorithm;
+import static com.intel.qat.QatZipper.Mode;
+
 import java.io.FilterOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
-
-import static com.intel.qat.QatZipper.Algorithm;
-import static com.intel.qat.QatZipper.Mode;
 
 public class QatOutputStream extends FilterOutputStream {
   private ByteBuffer inputBuffer;
@@ -22,7 +22,8 @@ public class QatOutputStream extends FilterOutputStream {
 
   public QatOutputStream(
       OutputStream out, int bufferSize, Algorithm algorithm) {
-    this(out, bufferSize, algorithm, QatZipper.DEFAULT_COMPRESS_LEVEL, Mode.AUTO);
+    this(out, bufferSize, algorithm, QatZipper.DEFAULT_COMPRESS_LEVEL,
+        Mode.AUTO);
   }
 
   public QatOutputStream(
@@ -35,14 +36,14 @@ public class QatOutputStream extends FilterOutputStream {
     this(out, bufferSize, algorithm, QatZipper.DEFAULT_COMPRESS_LEVEL, mode);
   }
 
-  public QatOutputStream(
-      OutputStream out, int bufferSize, Algorithm algorithm, int level, Mode mode) {
-        super(out);
-        qzip = new QatZipper(algorithm, level, mode);
-        inputBuffer = ByteBuffer.allocate(bufferSize);
-        outputBuffer = ByteBuffer.allocate(qzip.maxCompressedLength(bufferSize));
-        closed = false;
-    }
+  public QatOutputStream(OutputStream out, int bufferSize, Algorithm algorithm,
+      int level, Mode mode) {
+    super(out);
+    qzip = new QatZipper(algorithm, level, mode);
+    inputBuffer = ByteBuffer.allocate(bufferSize);
+    outputBuffer = ByteBuffer.allocate(qzip.maxCompressedLength(bufferSize));
+    closed = false;
+  }
 
   @Override
   public void write(int b) throws IOException {
