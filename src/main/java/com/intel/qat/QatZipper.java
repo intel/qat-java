@@ -8,13 +8,12 @@ package com.intel.qat;
 
 import java.nio.ByteBuffer;
 import java.nio.ReadOnlyBufferException;
+import java.lang.ref.Cleaner;
 
 /**
  * <p>
- * This class provides methods that can be used to compress and decompress byte
- * arrays and byte buffers. Once compression and decompression methods are
- * used, a user should explicitly release resources by calling the
- * <code>end()</code> method.
+ * This class provides methods that can be used to compress and decompress data based on
+ * {@link Algorithm#DEFLATE} or {@link Algorithm#LZ4}.
  *
  * <p>
  * The following code snippet demonstrates how to use the class to compress and
@@ -47,6 +46,10 @@ import java.nio.ReadOnlyBufferException;
     }
  * }</pre></blockquote>
  *
+ * A user should call the <code>end()</code> method to release resources used
+ * by this class. If an explicit call to the <code>end()</code> is not made,
+ * resources will be released only when the object becomes phantom reachable.
+ *
  */
 public class QatZipper {
   /**
@@ -63,6 +66,16 @@ public class QatZipper {
   private boolean isValid;
 
   private int retryCount;
+
+  /**
+   * Cleaner instance associated with this object.
+   */
+  private static final Cleaner cleaner = Cleaner.create();
+
+  /**
+   * Cleaner.Cleanable instance representing QAT cleanup action.
+   */
+  private final Cleaner.Cleanable cleanable;
 
   /**
    * A reference to a QAT session in C.
@@ -186,20 +199,23 @@ public class QatZipper {
 
     this.retryCount = retryCount;
     InternalJNI.setup(this, mode.ordinal(), algorithm.ordinal(), level);
+
+    cleanable = cleaner.register(this, new QatCleaner(session));
     isValid = true;
   }
 
   /**
-   * Ends the current QAT session by freeing up resources. A new session must
-   * be used after a successful call of this method.
+   * Validates compression level and retry counts.
    *
-   * @throws QatException if QAT session cannot be gracefully ended.
+   * @param algorithm the compression {@link algorithm}
+   * @param level the compression level.
+   * @param retryCount how many times to seek for a hardware resources before
+   *     giving up.
+   * @return true if validation was successful, false otherwise.
    */
-  public void end() throws QatException {
-    if (!isValid)
-      throw new IllegalStateException();
-    InternalJNI.teardown(session);
-    isValid = false;
+  private boolean validateParams(
+      Algorithm algorithm, int level, int retryCount) {
+    return !(retryCount < 0 || level < 1 || level > 9);
   }
 
   /**
@@ -441,57 +457,35 @@ public class QatZipper {
   }
 
   /**
-   * Validates compression level and retry counts.
+   * Ends the current QAT session by freeing up resources. A new session must
+   * be used after a successful call of this method.
    *
-   * @param algorithm the compression {@link algorithm}
-   * @param level the compression level.
-   * @param retryCount how many times to seek for a hardware resources before
-   *     giving up.
-   * @return true if validation was successful, false otherwise.
+   * @throws QatException if QAT session cannot be gracefully ended.
    */
-  private boolean validateParams(
-      Algorithm algorithm, int level, int retryCount) {
-    return !(retryCount < 0 || level < 1 || level > 9);
+  public void end() throws QatException {
+    if (!isValid)
+      throw new IllegalStateException();
+    InternalJNI.teardown(session);
+    isValid = false;
   }
 
   /**
-   * Cleans up the current QAT session by freeing up resources.
-   *
-   * @param qzSessionReference the reference to the C-level session object.
-   */
-  private static void cleanup(long qzSessionReference) {
-    InternalJNI.teardown(qzSessionReference);
-  }
-
-  /**
-   * Gets a cleaner object.
-   *
-   * @return a QAT cleaner object.
-   */
-  public Runnable getCleaner() {
-    return new QatCleaner(session);
-  }
-
-  /**
-   * A QAT session cleaner that cleans up QAT session.
+   * A class that represents a cleaner action for a QAT session.
    */
   static class QatCleaner implements Runnable {
     private long qzSession;
 
     /**
-     * Constructs a Cleaner object to clean up QAT session.
+     * Creates a new cleaner object that cleans up the specified session.
      */
-    public QatCleaner(long qzSession) {
+    public QatCleaner(long session) {
       this.qzSession = qzSession;
     }
 
     @Override
     public void run() {
       if (qzSession != 0) {
-        cleanup(qzSession);
-        qzSession = 0;
-      } else {
-        System.err.println("A bug in cleaning up session. Please report.");
+        InternalJNI.teardown(qzSession);
       }
     }
   }

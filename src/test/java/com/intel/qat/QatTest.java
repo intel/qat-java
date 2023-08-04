@@ -227,17 +227,6 @@ public class QatTest {
   }
 
   @Test
-  public void testCleaner() {
-    try {
-      QatZipper zipper = new QatZipper();
-      cleanable = cleaner.register(zipper, zipper.getCleaner());
-      cleanable.clean();
-    } catch (Exception e) {
-      fail();
-    }
-  }
-
-  @Test
   public void testCompressWithNullByteBuffer() {
     try {
       zipper = new QatZipper();
