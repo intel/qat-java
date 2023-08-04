@@ -6,60 +6,61 @@
 
 package com.intel.qat;
 
+import java.lang.ref.Cleaner;
 import java.nio.ByteBuffer;
 import java.nio.ReadOnlyBufferException;
 
 /**
- * This class provides support for hardware-accelerated compression and
- * decompression using Intel (R) QuickAssist Technology (QAT). The Qat-Java
- * library is dependent on and uses the <a
- * href="https://github.com/intel/QATzip">QATZip library</a>.
+ * <p>
+ * This class provides methods that can be used to compress and decompress data
+ based on
+ * {@link Algorithm#DEFLATE} or {@link Algorithm#LZ4}.
  *
- * This class provides methods that can be used to compress and decompress byte
- * arrays and byte buffers. Once compression and decompression methods are used,
- * a user should explicitly release resources used by this class by calling the
- * <code>end()</code> method.
- *
+ * <p>
  * The following code snippet demonstrates how to use the class to compress and
  * decompress a string.
  *
- * <code>
- *   try {
- *     String inputStr = "Hello World!";
- *     byte[] input = inputStr.getBytes();
+ * <blockquote><pre>{@code
+    try {
+      String inputStr = "Hello World!";
+      byte[] input = inputStr.getBytes();
+
+      QatZipper zipper = new QatZipper();
+
+      // Create a buffer with enough size for compression
+      byte[] output = new byte[zipper.maxCompressedLength(input.length)];
+
+      // Compress the bytes
+      int resultLen = zipper.compress(input, output);
+
+      // Decompress the bytes into a String
+      byte[] result = new byte[input.length];
+      resultLen = zipper.decompress(output, result);
+
+      // Release resources
+      zipper.end();
+
+      // Convert the bytes into a String
+      String outputStr = new String(result, 0, resultLen);
+    } catch (QatException e) {
+      //
+    }
+ * }</pre></blockquote>
  *
- *     QatZipper zipper = new QatZipper();
- *     // Create a buffer with enough size for compression
- *     byte[] output = new byte[zipper.maxCompressedLength(input.length)];
- *
- *     // Compress the bytes
- *     int resultLen = zipper.compress(input, output);
- *
- *     // Decompress the bytes into a String
- *     byte[] result = new byte[input.length];
- *     resultLen = zipper.decompress(output, result);
- *
- *     // Release resources
- *     zipper.end();
- *
- *     // Convert the bytes into a String
- *     String outputStr = new String(result, 0, resultLen);
- *   } catch (QatException e) {
- *     //
- *   }
- * </code>
+ * A user should call the <code>end()</code> method to release resources used
+ * by this class. If an explicit call to the <code>end()</code> is not made,
+ * resources will be released only when the object becomes phantom reachable.
  *
  */
 public class QatZipper {
   /**
-   * Default compression is set to 6, this is to align with default compression
-   * mode chosen as ZLIB
+   * The default compression level is 6.
    */
   public static final int DEFAULT_COMPRESS_LEVEL = 6;
 
   /**
-   * If retryCount is set as 0, it means no retries in compress/decompress,
-   * non-zero value means there will be retries
+   * The number of times QatZipper attempts to acquire hardware resources by
+   * default -- zero times.
    */
   public final static int DEFAULT_RETRY_COUNT = 0;
 
@@ -68,45 +69,57 @@ public class QatZipper {
   private int retryCount;
 
   /**
+   * Cleaner instance associated with this object.
+   */
+  private static final Cleaner cleaner = Cleaner.create();
+
+  /**
+   * Cleaner.Cleanable instance representing QAT cleanup action.
+   */
+  private final Cleaner.Cleanable cleanable;
+
+  /**
    * A reference to a QAT session in C.
    */
   long session;
 
   /**
-   * The mode of operation for QAT (hardware-only or hardware with a software
-   * failover).
+   * The mode of execution for QAT.
    */
   public static enum Mode {
     /**
-     * QAT session uses QAT hardware, fails if hardware resources cannot be
-     * acquired after retries.
+     * A hardware only execution mode. QatZipper would fail if hardware
+     * resources cannot be acquired after finite retries.
      */
     HARDWARE,
 
     /**
-     * QAT session uses QAT hardware, fails over to software if hardware
-     * resources cannot be acquired after retries.
+     * A hardware with a software fail over execution mode. QatZipper would
+     * fail over to software execution mode if hardware resources cannot be
+     * acquired after finite retries.
      */
     AUTO;
   }
 
   /**
-   * The compression algorithm -- either DEFLATE or LZ4.
+   * The compression algorithm to use. DEFLATE and LZ4 are supported.
    */
   public static enum Algorithm {
     /**
-     * ZLIB compression
+     * Deflate compression algorithm.
      */
     DEFLATE,
 
     /**
-     * LZ4 compression
+     * LZ4 compression compression algorithm.
      */
     LZ4
   }
 
   /**
-   * Constructs a new QAT session object using deflate.
+   * Creates a new QatZipper that uses {@link Algorithm#DEFLATE}, {@link
+   * DEFAULT_COMPRESS_LEVEL}, {@link Mode#AUTO}, and {@link
+   * DEFAULT_RETRY_COUNT}.
    */
   public QatZipper() {
     this(Algorithm.DEFLATE, DEFAULT_COMPRESS_LEVEL, Mode.AUTO,
@@ -114,39 +127,41 @@ public class QatZipper {
   }
 
   /**
-   * Constructs a new QAT session, using deflate in the given operation mode.
+   * Creates a new QatZipper with the given parameter and that uses {@link
+   * Algorithm#DEFLATE}, {@link DEFAULT_COMPRESS_LEVEL}, and {@link
+   * DEFAULT_RETRY_COUNT}.
    *
-   * @param mode the mode of operation (HARDWARE - only hardware, AUTO -
-   *     hardware with a software failover.)
+   * @param mode the {@link Mode} of QAT execution
    */
   public QatZipper(Mode mode) {
     this(Algorithm.DEFLATE, DEFAULT_COMPRESS_LEVEL, mode, DEFAULT_RETRY_COUNT);
   }
 
   /**
-   * Constructs a new QAT session using the given compression algorithm.
+   * Creates a new QatZipper with the given parameter and that uses {@link
+   * DEFAULT_COMPRESS_LEVEL}, {@link Mode#AUTO}, and {@link
+   * DEFAULT_RETRY_COUNT}.
    *
-   * @param algorithm the compression algorithm (deflate or LZ4).
+   * @param algorithm the compression {@link Algorithm}
    */
   public QatZipper(Algorithm algorithm) {
     this(algorithm, DEFAULT_COMPRESS_LEVEL, Mode.AUTO, DEFAULT_RETRY_COUNT);
   }
 
   /**
-   * Constructs a new QAT session using the given compression algorithm and
-   * operation mode.
+   * Creates a new QatZipper with the given parameters and that uses {@link
+   * DEFAULT_COMPRESS_LEVEL} and {@link DEFAULT_RETRY_COUNT}.
    *
-   * @param algorithm the compression algorithm (deflate or LZ4).
-   * @param mode the mode of operation (HARDWARE - only hardware, AUTO -
-   *     hardware with a software failover.)
+   * @param algorithm the compression {@link Algorithm}
+   * @param mode the {@link Mode} of QAT execution
    */
   public QatZipper(Algorithm algorithm, Mode mode) {
     this(algorithm, DEFAULT_COMPRESS_LEVEL, mode, DEFAULT_RETRY_COUNT);
   }
 
   /**
-   * Constructs a new QAT session using the given compression algorithm and
-   * level.
+   * Creates a new QatZipper with the given parameters and that uses {@link
+   * Mode#AUTO} and {@link DEFAULT_RETRY_COUNT}.
    *
    * @param algorithm the compression algorithm (deflate or LZ4).
    * @param level the compression level.
@@ -156,8 +171,8 @@ public class QatZipper {
   }
 
   /**
-   * Constructs a QAT session  using the given compression algorithm, level, and
-   * mode of operation.
+   * Creates a new QatZipper with the given parameters and that uses {@link
+   * DEFAULT_RETRY_COUNT}.
    *
    * @param algorithm the compression algorithm (deflate or LZ4).
    * @param level the compression level.
@@ -169,14 +184,12 @@ public class QatZipper {
   }
 
   /**
-   * Constructs a QAT session using the given parameters.
+   * Creates a new QatZipper with the given parameters.
    *
-   * @param algorithm the compression algorithm (deflate or LZ4).
+   * @param algorithm the compression {@link Algorithm}
    * @param level the compression level.
-   * @param mode the mode of operation (HARDWARE - only hardware, AUTO -
-   *     hardware with a software failover.)
-   * @param retryCount how many times to seek for a hardware resources before
-   *     giving up.
+   * @param mode the {@link Mode} of QAT execution
+   * @param retryCount the number of attempts to acquire hardware resources
    * @throws QatException if QAT session cannot be created.
    */
   public QatZipper(Algorithm algorithm, int level, Mode mode, int retryCount)
@@ -187,27 +200,31 @@ public class QatZipper {
 
     this.retryCount = retryCount;
     InternalJNI.setup(this, mode.ordinal(), algorithm.ordinal(), level);
+
+    // Register a QAT session cleaner for this object
+    cleanable = cleaner.register(this, new QatCleaner(session));
     isValid = true;
   }
 
   /**
-   * Ends the current QAT session by freeing up resources. A new QAT session
-   * must be used after a successful call of this method.
+   * Validates compression level and retry counts.
    *
-   * @throws QatException if QAT session cannot be gracefully ended.
+   * @param algorithm the compression {@link algorithm}
+   * @param level the compression level.
+   * @param retryCount how many times to seek for a hardware resources before
+   *     giving up.
+   * @return true if validation was successful, false otherwise.
    */
-  public void end() throws QatException {
-    if (!isValid)
-      throw new IllegalStateException();
-    InternalJNI.teardown(session);
-    isValid = false;
+  private boolean validateParams(
+      Algorithm algorithm, int level, int retryCount) {
+    return !(retryCount < 0 || level < 1 || level > 9);
   }
 
   /**
    * Returns the maximum compression length for the given source length.
    *
    * @param  len the length of the source array or buffer.
-   * @return the maximum compression length for the given length.
+   * @return the maximum compression length for the specified length.
    */
   public int maxCompressedLength(long len) {
     if (!isValid)
@@ -218,11 +235,11 @@ public class QatZipper {
 
   /**
    * Compresses the source array and stores the result in the destination array.
-   * Returns the actual number of bytes of data compressed.
+   * Returns the actual number of bytes of the compressed data.
    *
-   * @param src the source array holding the source data.
-   * @param dst the destination array for the compressed data.
-   * @return the size of the compressed data in bytes.
+   * @param src the source array holding the source data
+   * @param dst the destination array for the compressed data
+   * @return the size of the compressed data in bytes
    */
   public int compress(byte[] src, byte[] dst) {
     return compress(src, 0, src.length, dst, 0, dst.length);
@@ -233,15 +250,15 @@ public class QatZipper {
    * result in the destination array starting at the given destination offset.
    * Returns the actual number of bytes of data compressed.
    *
-   * @param src the source array holding the source data.
-   * @param srcOffset the start offset of the source data.
-   * @param srcLen the length of source data to compress.
-   * @param dst the destination array for the compressed data.
+   * @param src the source array holding the source data
+   * @param srcOffset the start offset of the source data
+   * @param srcLen the length of source data to compress
+   * @param dst the destination array for the compressed data
    * @param dstOffset the destination offset where to start storing the
-   *     compressed data.
+   *     compressed data
    * @param dstLen the maximum length that can be written to the destination
-   *     array.
-   * @return the size of the compressed data in bytes.
+   *     array
+   * @return the size of the compressed data in bytes
    */
   public int compress(byte[] src, int srcOffset, int srcLen, byte[] dst,
       int dstOffset, int dstLen) {
@@ -264,15 +281,15 @@ public class QatZipper {
 
   /**
    * Compresses the source buffer and stores the result in the destination
-   * buffer. Returns actual number of bytes of data compressed.
+   * buffer. Returns actual number of bytes of compressed data.
    *
    * On Success, the positions of both the source and destinations buffers are
    * advanced by the number of bytes read from the source and the number of
    * bytes of compressed data written to the destination.
    *
-   * @param src the source buffer holding the source data.
-   * @param dst the destination array that will store the compressed data.
-   * @return returns the size of the compressed data in bytes.
+   * @param src the source buffer holding the source data
+   * @param dst the destination array that will store the compressed data
+   * @return returns the size of the compressed data in bytes
    */
   public int compress(ByteBuffer src, ByteBuffer dst) {
     if (!isValid)
@@ -329,11 +346,11 @@ public class QatZipper {
 
   /**
    * Decompresses the source array and stores the result in the destination
-   * array. Returns the actual number of bytes of data decompressed.
+   * array. Returns the actual number of bytes of decompressed data.
    *
-   * @param src the source array holding the compressed data.
-   * @param dst the destination array for the decompressed data.
-   * @return the size of the decompressed data in bytes.
+   * @param src the source array holding the compressed data
+   * @param dst the destination array for the decompressed data
+   * @return the size of the decompressed data in bytes
    */
   public int decompress(byte[] src, byte[] dst) {
     return decompress(src, 0, src.length, dst, 0, dst.length);
@@ -344,15 +361,15 @@ public class QatZipper {
    * result in the destination array starting at the given destination offset.
    * Returns the actual number of bytes of data decompressed.
    *
-   * @param src the source array holding the compressed data.
-   * @param srcOffset the start offset of the source.
-   * @param srcLen the length of source data to decompress.
-   * @param dst the destination array for the decompressed data.
+   * @param src the source array holding the compressed data
+   * @param srcOffset the start offset of the source
+   * @param srcLen the length of source data to decompress
+   * @param dst the destination array for the decompressed data
    * @param dstOffset the destination offset where to start storing the
-   *     decompressed data.
+   *     decompressed data
    * @param dstLen the maximum length that can be written to the destination
-   *     array.
-   * @return the size of the decompressed data in bytes.
+   *     array
+   * @return the size of the decompressed data in bytes
    */
   public int decompress(byte[] src, int srcOffset, int srcLen, byte[] dst,
       int dstOffset, int dstLen) {
@@ -375,15 +392,15 @@ public class QatZipper {
 
   /**
    * Deompresses the source buffer and stores the result in the destination
-   * buffer. Returns actual number of bytes of data decompressed.
+   * buffer. Returns actual number of bytes of decompressed data.
    *
    * On Success, the positions of both the source and destinations buffers are
    * advanced by the number of bytes of compressed data read from the source and
    * the number of bytes of decompressed data written to the destination.
    *
-   * @param src the source buffer holding the compressed data.
-   * @param dst the destination array that will store the decompressed data.
-   * @return returns the size of the decompressed data in bytes.
+   * @param src the source buffer holding the compressed data
+   * @param dst the destination array that will store the decompressed data
+   * @return returns the size of the decompressed data in bytes
    */
   public int decompress(ByteBuffer src, ByteBuffer dst) {
     if (!isValid)
@@ -442,57 +459,35 @@ public class QatZipper {
   }
 
   /**
-   * Validates compression level and retry counts.
+   * Ends the current QAT session by freeing up resources. A new session must
+   * be used after a successful call of this method.
    *
-   * @param algorithm the compression algorithm (deflate or LZ4).
-   * @param level the compression level.
-   * @param retryCount how many times to seek for a hardware resources before
-   *     giving up.
-   * @return true if validation was successful, false otherwise.
+   * @throws QatException if QAT session cannot be gracefully ended.
    */
-  private boolean validateParams(
-      Algorithm algorithm, int level, int retryCount) {
-    return !(retryCount < 0 || level < 1 || level > 9);
+  public void end() throws QatException {
+    if (!isValid)
+      throw new IllegalStateException();
+    InternalJNI.teardown(session);
+    isValid = false;
   }
 
   /**
-   * Cleans up the current QAT session by freeing up resources.
-   *
-   * @param qzSessionReference the reference to the C-level session object.
-   */
-  private static void cleanup(long qzSessionReference) {
-    InternalJNI.teardown(qzSessionReference);
-  }
-
-  /**
-   * Gets a cleaner object.
-   *
-   * @return a QAT cleaner object.
-   */
-  public Runnable getCleaner() {
-    return new QatCleaner(session);
-  }
-
-  /**
-   * A QAT session cleaner that cleans up QAT session.
+   * A class that represents a cleaner action for a QAT session.
    */
   static class QatCleaner implements Runnable {
     private long qzSession;
 
     /**
-     * Constructs a Cleaner object to clean up QAT session.
+     * Creates a new cleaner object that cleans up the specified session.
      */
-    public QatCleaner(long qzSession) {
+    public QatCleaner(long session) {
       this.qzSession = qzSession;
     }
 
     @Override
     public void run() {
       if (qzSession != 0) {
-        cleanup(qzSession);
-        qzSession = 0;
-      } else {
-        System.err.println("A bug in cleaning up session. Please report.");
+        InternalJNI.teardown(qzSession);
       }
     }
   }
