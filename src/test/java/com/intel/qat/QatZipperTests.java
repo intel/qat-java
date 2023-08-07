@@ -12,6 +12,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assumptions.assumeFalse;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.io.IOException;
@@ -188,6 +189,7 @@ public class QatZipperTests {
   @ParameterizedTest
   @EnumSource(Mode.class)
   public void testSingleArgConstructorMode(Mode mode) {
+    assumeFalse(mode.equals(Mode.HARDWARE) && !QatTestSuite.FORCE_HARDWARE);
     try {
       zipper = new QatZipper(mode);
     } catch (IllegalArgumentException | QatException e) {
