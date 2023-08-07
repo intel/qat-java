@@ -15,8 +15,7 @@ import java.util.Random;
 public class FuzzerTest {
   public static void fuzzerTestOneInput(FuzzedDataProvider data) {
     try {
-      if (data.remainingBytes() == 0)
-        return;
+      if (data.remainingBytes() == 0) return;
 
       // Save remaining bytes as a source data
       byte[] src = data.consumeRemainingAsBytes();
@@ -47,13 +46,11 @@ public class FuzzerTest {
     byte[] dst = new byte[zipper.maxCompressedLength(src.length)];
     byte[] dec = new byte[src.length];
 
-    int compressedSize =
-        zipper.compress(src, 0, src.length, dst, 0, dst.length);
+    int compressedSize = zipper.compress(src, 0, src.length, dst, 0, dst.length);
     zipper.decompress(dst, 0, compressedSize, dec, 0, dec.length);
     zipper.end();
 
-    assert Arrays.equals(src, dec)
-        : "The source and decompressed arrays do not match.";
+    assert Arrays.equals(src, dec) : "The source and decompressed arrays do not match.";
   }
 
   static void testByteArrayLZ4(byte[] src) {
@@ -61,13 +58,11 @@ public class FuzzerTest {
     byte[] dst = new byte[zipper.maxCompressedLength(src.length)];
     byte[] dec = new byte[src.length];
 
-    int compressedSize =
-        zipper.compress(src, 0, src.length, dst, 0, dst.length);
+    int compressedSize = zipper.compress(src, 0, src.length, dst, 0, dst.length);
     zipper.decompress(dst, 0, compressedSize, dec, 0, dec.length);
     zipper.end();
 
-    assert Arrays.equals(src, dec)
-        : "The source and decompressed arrays do not match.";
+    assert Arrays.equals(src, dec) : "The source and decompressed arrays do not match.";
   }
 
   static void testByteArrayWithParams(byte[] src) {
@@ -79,15 +74,15 @@ public class FuzzerTest {
     byte[] dst = new byte[zipper.maxCompressedLength(src.length)];
     byte[] dec = new byte[src.length];
 
-    int compressedSize = zipper.compress(
-        src, srcOffset, src.length - srcOffset, dst, 0, dst.length);
-    int decompressedSize =
-        zipper.decompress(dst, 0, compressedSize, dec, 0, dec.length);
+    int compressedSize =
+        zipper.compress(src, srcOffset, src.length - srcOffset, dst, 0, dst.length);
+    int decompressedSize = zipper.decompress(dst, 0, compressedSize, dec, 0, dec.length);
 
     zipper.end();
 
-    assert Arrays.equals(Arrays.copyOfRange(src, srcOffset, src.length),
-        Arrays.copyOfRange(dec, 0, decompressedSize))
+    assert Arrays.equals(
+            Arrays.copyOfRange(src, srcOffset, src.length),
+            Arrays.copyOfRange(dec, 0, decompressedSize))
         : "The source and decompressed arrays do not match.";
   }
 
@@ -100,15 +95,15 @@ public class FuzzerTest {
     byte[] dst = new byte[zipper.maxCompressedLength(src.length)];
     byte[] dec = new byte[src.length];
 
-    int compressedSize = zipper.compress(
-        src, srcOffset, src.length - srcOffset, dst, 0, dst.length);
-    int decompressedSize =
-        zipper.decompress(dst, 0, compressedSize, dec, 0, dec.length);
+    int compressedSize =
+        zipper.compress(src, srcOffset, src.length - srcOffset, dst, 0, dst.length);
+    int decompressedSize = zipper.decompress(dst, 0, compressedSize, dec, 0, dec.length);
 
     zipper.end();
 
-    assert Arrays.equals(Arrays.copyOfRange(src, srcOffset, src.length),
-        Arrays.copyOfRange(dec, 0, decompressedSize))
+    assert Arrays.equals(
+            Arrays.copyOfRange(src, srcOffset, src.length),
+            Arrays.copyOfRange(dec, 0, decompressedSize))
         : "The source and decompressed arrays do not match.";
   }
 
@@ -131,8 +126,7 @@ public class FuzzerTest {
 
     zipper.end();
 
-    assert srcBuf.compareTo(decBuf)
-        == 0 : "The source and decompressed buffers do not match.";
+    assert srcBuf.compareTo(decBuf) == 0 : "The source and decompressed buffers do not match.";
   }
 
   static void testByteBufferLZ4(byte[] src) {
@@ -154,8 +148,7 @@ public class FuzzerTest {
 
     zipper.end();
 
-    assert srcBuf.compareTo(decBuf)
-        == 0 : "The source and decompressed buffers do not match.";
+    assert srcBuf.compareTo(decBuf) == 0 : "The source and decompressed buffers do not match.";
   }
 
   static void testDirectByteBuffer(byte[] src) {
@@ -177,8 +170,7 @@ public class FuzzerTest {
 
     zipper.end();
 
-    assert srcBuf.compareTo(decBuf)
-        == 0 : "The source and decompressed buffers do not match.";
+    assert srcBuf.compareTo(decBuf) == 0 : "The source and decompressed buffers do not match.";
   }
 
   static void testDecompressionSrcBBDstDBB(byte[] src) {
@@ -200,8 +192,7 @@ public class FuzzerTest {
 
     zipper.end();
 
-    assert srcBuf.compareTo(decBuf)
-        == 0 : "The source and decompressed buffers do not match.";
+    assert srcBuf.compareTo(decBuf) == 0 : "The source and decompressed buffers do not match.";
   }
 
   static void testDecompressionSrcBBDstDBBLZ4(byte[] src) {
@@ -223,8 +214,7 @@ public class FuzzerTest {
 
     zipper.end();
 
-    assert srcBuf.compareTo(decBuf)
-        == 0 : "The source and decompressed buffers do not match.";
+    assert srcBuf.compareTo(decBuf) == 0 : "The source and decompressed buffers do not match.";
   }
 
   static void testDecompressionSrcDBBDstBB(byte[] src) {
@@ -246,8 +236,7 @@ public class FuzzerTest {
 
     zipper.end();
 
-    assert srcBuf.compareTo(decBuf)
-        == 0 : "The source and decompressed buffers do not match.";
+    assert srcBuf.compareTo(decBuf) == 0 : "The source and decompressed buffers do not match.";
   }
 
   static void testDecompressionSrcDBBDstBBLZ4(byte[] src) {
@@ -269,8 +258,7 @@ public class FuzzerTest {
 
     zipper.end();
 
-    assert srcBuf.compareTo(decBuf)
-        == 0 : "The source and decompressed buffers do not match.";
+    assert srcBuf.compareTo(decBuf) == 0 : "The source and decompressed buffers do not match.";
   }
 
   static void testDecompressionSrcBBRODstBB(byte[] src) {
@@ -293,8 +281,7 @@ public class FuzzerTest {
 
     zipper.end();
 
-    assert srcBuf.compareTo(decBuf)
-        == 0 : "The source and decompressed buffers do not match.";
+    assert srcBuf.compareTo(decBuf) == 0 : "The source and decompressed buffers do not match.";
   }
 
   static void testDecompressionSrcBBRODstBBLZ4(byte[] src) {
@@ -317,8 +304,7 @@ public class FuzzerTest {
 
     zipper.end();
 
-    assert srcBuf.compareTo(decBuf)
-        == 0 : "The source and decompressed buffers do not match.";
+    assert srcBuf.compareTo(decBuf) == 0 : "The source and decompressed buffers do not match.";
   }
 
   static void testDirectByteBufferLZ4(byte[] src) {
@@ -340,8 +326,7 @@ public class FuzzerTest {
 
     zipper.end();
 
-    assert srcBuf.compareTo(decBuf)
-        == 0 : "The source and decompressed buffers do not match.";
+    assert srcBuf.compareTo(decBuf) == 0 : "The source and decompressed buffers do not match.";
   }
 
   static void testMixedTypesOne(byte[] src) {
@@ -363,8 +348,7 @@ public class FuzzerTest {
 
     zipper.end();
 
-    assert srcBuf.compareTo(decBuf)
-        == 0 : "The source and decompressed buffers do not match.";
+    assert srcBuf.compareTo(decBuf) == 0 : "The source and decompressed buffers do not match.";
   }
 
   static void testMixedTypesOneLZ4(byte[] src) {
@@ -386,8 +370,7 @@ public class FuzzerTest {
 
     zipper.end();
 
-    assert srcBuf.compareTo(decBuf)
-        == 0 : "The source and decompressed buffers do not match.";
+    assert srcBuf.compareTo(decBuf) == 0 : "The source and decompressed buffers do not match.";
   }
 
   static void testMixedTypesTwo(byte[] src) {
@@ -409,8 +392,7 @@ public class FuzzerTest {
 
     zipper.end();
 
-    assert srcBuf.compareTo(decBuf)
-        == 0 : "The source and decompressed buffers do not match.";
+    assert srcBuf.compareTo(decBuf) == 0 : "The source and decompressed buffers do not match.";
   }
 
   static void testMixedTypesTwoLZ4(byte[] src) {
@@ -432,8 +414,7 @@ public class FuzzerTest {
 
     zipper.end();
 
-    assert srcBuf.compareTo(decBuf)
-        == 0 : "The source and decompressed buffers do not match.";
+    assert srcBuf.compareTo(decBuf) == 0 : "The source and decompressed buffers do not match.";
   }
 
   static void testMixedTypesThree(byte[] src) {
@@ -457,8 +438,7 @@ public class FuzzerTest {
 
     zipper.end();
 
-    assert srcBuf.compareTo(decBuf)
-        == 0 : "The source and decompressed buffers do not match.";
+    assert srcBuf.compareTo(decBuf) == 0 : "The source and decompressed buffers do not match.";
   }
 
   static void testMixedTypesThreeLZ4(byte[] src) {
@@ -482,47 +462,42 @@ public class FuzzerTest {
 
     zipper.end();
 
-    assert srcBuf.compareTo(decBuf)
-        == 0 : "The source and decompressed buffers do not match.";
+    assert srcBuf.compareTo(decBuf) == 0 : "The source and decompressed buffers do not match.";
   }
 
   static void testWithCompressionLengthAndRetry(byte[] src) {
     int comLevel = new Random().nextInt(9) + 1;
     int retryCount = new Random().nextInt(20);
 
-    QatZipper zipper = new QatZipper(
-        QatZipper.Algorithm.DEFLATE, comLevel, QatZipper.Mode.AUTO, retryCount);
+    QatZipper zipper =
+        new QatZipper(QatZipper.Algorithm.DEFLATE, comLevel, QatZipper.Mode.AUTO, retryCount);
 
     byte[] dst = new byte[zipper.maxCompressedLength(src.length)];
     byte[] dec = new byte[src.length];
 
-    int compressedSize =
-        zipper.compress(src, 0, src.length, dst, 0, dst.length);
+    int compressedSize = zipper.compress(src, 0, src.length, dst, 0, dst.length);
     zipper.decompress(dst, 0, compressedSize, dec, 0, dec.length);
 
     zipper.end();
 
-    assert Arrays.equals(src, dec)
-        : "The source and decompressed arrays do not match.";
+    assert Arrays.equals(src, dec) : "The source and decompressed arrays do not match.";
   }
 
   static void testWithCompressionLengthAndRetryLZ4(byte[] src) {
     int comLevel = new Random().nextInt(9) + 1;
     int retryCount = new Random().nextInt(20);
 
-    QatZipper zipper = new QatZipper(
-        QatZipper.Algorithm.LZ4, comLevel, QatZipper.Mode.AUTO, retryCount);
+    QatZipper zipper =
+        new QatZipper(QatZipper.Algorithm.LZ4, comLevel, QatZipper.Mode.AUTO, retryCount);
 
     byte[] dst = new byte[zipper.maxCompressedLength(src.length)];
     byte[] dec = new byte[src.length];
 
-    int compressedSize =
-        zipper.compress(src, 0, src.length, dst, 0, dst.length);
+    int compressedSize = zipper.compress(src, 0, src.length, dst, 0, dst.length);
     zipper.decompress(dst, 0, compressedSize, dec, 0, dec.length);
 
     zipper.end();
 
-    assert Arrays.equals(src, dec)
-        : "The source and decompressed arrays do not match.";
+    assert Arrays.equals(src, dec) : "The source and decompressed arrays do not match.";
   }
 }
