@@ -12,7 +12,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
-import static org.junit.jupiter.api.Assumptions.assumeFalse;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.io.IOException;
@@ -32,7 +31,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
-public class QatTest {
+public class QatZipperTests {
   private QatZipper zipper;
   private static final Cleaner cleaner = Cleaner.create();
   private Cleaner.Cleanable cleanable;
@@ -97,11 +96,7 @@ public class QatTest {
             Arguments.of(Mode.AUTO, Algorithm.LZ4, 524288));
   }
 
-  public static boolean shouldSkip(Mode mode) {
-    return mode.equals(Mode.HARDWARE) && !QatTestSuite.FORCE_HARDWARE;
-  }
-
-  private byte[] getSourceArray(int len) {
+  private byte[] getRandomBytes(int len) {
     byte[] bytes = new byte[len];
     rnd.nextBytes(bytes);
     return bytes;
@@ -112,100 +107,10 @@ public class QatTest {
     if (zipper != null) zipper.end();
   }
 
-  @ParameterizedTest
-  @MethodSource("provideAlgorithmLevelParams")
-  public void testHelloWorld(Algorithm algorithm, int level) {
-    try {
-      String inputStr = "Hello World!";
-      byte[] input = inputStr.getBytes();
-
-      QatZipper zipper = new QatZipper(algorithm, level);
-      // Create a buffer with enough size for compression
-      byte[] output = new byte[zipper.maxCompressedLength(input.length)];
-
-      // Compress the bytes
-      int resultLen = zipper.compress(input, output);
-
-      // Decompress the bytes into a String
-      byte[] result = new byte[input.length];
-      resultLen = zipper.decompress(output, result);
-
-      // Release resources
-      zipper.end();
-
-      // Convert the bytes into a String
-      String outputStr = new String(result, 0, resultLen);
-      assertEquals(inputStr, outputStr);
-    } catch (QatException e) {
-      fail(e.getMessage());
-    }
-  }
-
   @Test
   public void testDefaultConstructor() {
     try {
       zipper = new QatZipper();
-    } catch (IllegalArgumentException | QatException e) {
-      fail(e.getMessage());
-    }
-  }
-
-  @ParameterizedTest
-  @EnumSource(Mode.class)
-  public void testSingleArgConstructorMode(Mode mode) {
-    assumeFalse(shouldSkip(mode));
-    try {
-      zipper = new QatZipper(mode);
-    } catch (IllegalArgumentException | QatException e) {
-      fail(e.getMessage());
-    }
-  }
-
-  @ParameterizedTest
-  @EnumSource(Algorithm.class)
-  public void testSingleArgConstructorAlgo(Algorithm algo) {
-    try {
-      zipper = new QatZipper(algo);
-    } catch (IllegalArgumentException | QatException e) {
-      fail(e.getMessage());
-    }
-  }
-
-  @ParameterizedTest
-  @MethodSource("provideModeAlgorithmParams")
-  public void testTwoArgConstructorAlgoAndMode(Mode mode, Algorithm algo) {
-    try {
-      zipper = new QatZipper(algo, mode);
-    } catch (IllegalArgumentException | QatException e) {
-      fail(e.getMessage());
-    }
-  }
-
-  @ParameterizedTest
-  @EnumSource(Algorithm.class)
-  public void testTwoArgConstructorAlgoAndCompLevel(Algorithm algo) {
-    try {
-      zipper = new QatZipper(algo, 9);
-    } catch (IllegalArgumentException | QatException e) {
-      fail(e.getMessage());
-    }
-  }
-
-  @ParameterizedTest
-  @MethodSource("provideModeAlgorithmParams")
-  public void testThreeArgConstructorAlgoComplevelMode(Mode mode, Algorithm algo) {
-    try {
-      zipper = new QatZipper(algo, 9, mode);
-    } catch (IllegalArgumentException | QatException e) {
-      fail(e.getMessage());
-    }
-  }
-
-  @ParameterizedTest
-  @MethodSource("provideModeAlgorithmParams")
-  public void testFourArgConstructorAlgoComplevelModeRetryCount(Mode mode, Algorithm algo) {
-    try {
-      zipper = new QatZipper(algo, 9, mode, 10);
     } catch (IllegalArgumentException | QatException e) {
       fail(e.getMessage());
     }
@@ -281,6 +186,95 @@ public class QatTest {
   }
 
   @ParameterizedTest
+  @EnumSource(Mode.class)
+  public void testSingleArgConstructorMode(Mode mode) {
+    try {
+      zipper = new QatZipper(mode);
+    } catch (IllegalArgumentException | QatException e) {
+      fail(e.getMessage());
+    }
+  }
+
+  @ParameterizedTest
+  @EnumSource(Algorithm.class)
+  public void testSingleArgConstructorAlgo(Algorithm algo) {
+    try {
+      zipper = new QatZipper(algo);
+    } catch (IllegalArgumentException | QatException e) {
+      fail(e.getMessage());
+    }
+  }
+
+  @ParameterizedTest
+  @MethodSource("provideModeAlgorithmParams")
+  public void testTwoArgConstructorAlgoAndMode(Mode mode, Algorithm algo) {
+    try {
+      zipper = new QatZipper(algo, mode);
+    } catch (IllegalArgumentException | QatException e) {
+      fail(e.getMessage());
+    }
+  }
+
+  @ParameterizedTest
+  @EnumSource(Algorithm.class)
+  public void testTwoArgConstructorAlgoAndLevel(Algorithm algo) {
+    try {
+      zipper = new QatZipper(algo, 9);
+    } catch (IllegalArgumentException | QatException e) {
+      fail(e.getMessage());
+    }
+  }
+
+  @ParameterizedTest
+  @MethodSource("provideModeAlgorithmParams")
+  public void testThreeArgConstructorAlgoLevelMode(Mode mode, Algorithm algo) {
+    try {
+      zipper = new QatZipper(algo, 9, mode);
+    } catch (IllegalArgumentException | QatException e) {
+      fail(e.getMessage());
+    }
+  }
+
+  @ParameterizedTest
+  @MethodSource("provideModeAlgorithmParams")
+  public void testFourArgConstructorAlgoLevelModeRetryCount(Mode mode, Algorithm algo) {
+    try {
+      zipper = new QatZipper(algo, 9, mode, 10);
+    } catch (IllegalArgumentException | QatException e) {
+      fail(e.getMessage());
+    }
+  }
+
+  @ParameterizedTest
+  @MethodSource("provideAlgorithmLevelParams")
+  public void testHelloWorld(Algorithm algorithm, int level) {
+    try {
+      String inputStr = "Hello World!";
+      byte[] input = inputStr.getBytes();
+
+      QatZipper zipper = new QatZipper(algorithm, level);
+      // Create a buffer with enough size for compression
+      byte[] output = new byte[zipper.maxCompressedLength(input.length)];
+
+      // Compress the bytes
+      int resultLen = zipper.compress(input, output);
+
+      // Decompress the bytes into a String
+      byte[] result = new byte[input.length];
+      resultLen = zipper.decompress(output, result);
+
+      // Release resources
+      zipper.end();
+
+      // Convert the bytes into a String
+      String outputStr = new String(result, 0, resultLen);
+      assertEquals(inputStr, outputStr);
+    } catch (QatException e) {
+      fail(e.getMessage());
+    }
+  }
+
+  @ParameterizedTest
   @EnumSource(Algorithm.class)
   public void testInvalidCompressionLevel(Algorithm algo) {
     try {
@@ -291,33 +285,11 @@ public class QatTest {
     }
   }
 
-  @Test
-  public void testInvalidRetryCount() {
-    try {
-      zipper = new QatZipper(Algorithm.DEFLATE, 10, Mode.AUTO, -1);
-      fail();
-    } catch (IllegalArgumentException e) {
-      assertTrue(true);
-    }
-  }
-
-  @Test
-  public void maxCompressedLengthPostTearDown() {
-    try {
-      QatZipper zipper = new QatZipper();
-      zipper.end();
-      zipper.maxCompressedLength(100);
-      fail();
-    } catch (IllegalStateException e) {
-      assertTrue(true);
-    }
-  }
-
   @ParameterizedTest
   @MethodSource("provideModeAlgorithmParams")
   public void testChunkedCompressionWithByteArray(Mode mode, Algorithm algo) {
     try {
-      zipper = new QatZipper(algo, 6, mode);
+      zipper = new QatZipper(algo, mode);
 
       byte[] src = Files.readAllBytes(Path.of(filePath));
       byte[] dst = new byte[zipper.maxCompressedLength(src.length)];
@@ -338,7 +310,7 @@ public class QatTest {
   @MethodSource("provideModeAlgorithmParams")
   public void testChunkedCompressionWithByteArrayDiffOffset(Mode mode, Algorithm algo) {
     try {
-      zipper = new QatZipper(algo, 6, mode);
+      zipper = new QatZipper(algo, mode);
 
       byte[] src = Files.readAllBytes(Path.of(filePath));
       byte[] dst = new byte[zipper.maxCompressedLength(src.length)];
@@ -364,7 +336,7 @@ public class QatTest {
   @MethodSource("provideModeAlgorithmParams")
   public void testChunkedCompressionWithByteBuffer(Mode mode, Algorithm algo) {
     try {
-      zipper = new QatZipper(algo, 6, mode);
+      zipper = new QatZipper(algo, mode);
 
       byte[] src = Files.readAllBytes(Path.of(filePath));
       byte[] dec = new byte[src.length];
@@ -395,7 +367,7 @@ public class QatTest {
   @MethodSource("provideModeAlgorithmParams")
   public void testChunkedCompressionWithWrappedByteBuffer(Mode mode, Algorithm algo) {
     try {
-      zipper = new QatZipper(algo, 6, mode);
+      zipper = new QatZipper(algo, mode);
 
       byte[] src = Files.readAllBytes(Path.of(filePath));
       byte[] dec = new byte[src.length];
@@ -429,7 +401,7 @@ public class QatTest {
     try {
       zipper = new QatZipper(algo, mode);
 
-      byte[] src = getSourceArray(len);
+      byte[] src = getRandomBytes(len);
       byte[] dec = new byte[src.length];
       byte[] dst = new byte[zipper.maxCompressedLength(src.length)];
 
@@ -459,11 +431,11 @@ public class QatTest {
 
   @ParameterizedTest
   @MethodSource("provideModeAlgorithmLengthParams")
-  public void testBackedArrayBuffersWithAllocate(Mode mode, Algorithm algo, int len) {
+  public void testArrayBackedBuffersWithAllocate(Mode mode, Algorithm algo, int len) {
     try {
       zipper = new QatZipper(algo, 9, mode, 0);
 
-      byte[] src = getSourceArray(len);
+      byte[] src = getRandomBytes(len);
       byte[] dec = new byte[src.length];
       byte[] dst = new byte[zipper.maxCompressedLength(src.length)];
 
@@ -503,7 +475,7 @@ public class QatTest {
     try {
       zipper = new QatZipper(algo, 9, mode, 0);
 
-      byte[] src = getSourceArray(len);
+      byte[] src = getRandomBytes(len);
       byte[] dec = new byte[src.length];
       byte[] dst = new byte[zipper.maxCompressedLength(src.length)];
 
@@ -543,7 +515,7 @@ public class QatTest {
     try {
       zipper = new QatZipper(algo, 9, mode, 0);
 
-      byte[] src = getSourceArray(len);
+      byte[] src = getRandomBytes(len);
       byte[] dec = new byte[src.length];
       byte[] dst = new byte[zipper.maxCompressedLength(src.length)];
 
@@ -583,7 +555,7 @@ public class QatTest {
     try {
       zipper = new QatZipper(algo, 9, mode, 0);
 
-      byte[] src = getSourceArray(len);
+      byte[] src = getRandomBytes(len);
       byte[] dec = new byte[src.length];
       byte[] dst = new byte[zipper.maxCompressedLength(src.length)];
 
@@ -623,7 +595,7 @@ public class QatTest {
     try {
       zipper = new QatZipper(algo, 9, mode, 0);
 
-      byte[] src = getSourceArray(len);
+      byte[] src = getRandomBytes(len);
       byte[] dec = new byte[src.length];
       byte[] dst = new byte[zipper.maxCompressedLength(src.length)];
 
@@ -663,7 +635,7 @@ public class QatTest {
     try {
       zipper = new QatZipper(algo, 9, mode, 0);
 
-      byte[] src = getSourceArray(len);
+      byte[] src = getRandomBytes(len);
       byte[] dec = new byte[src.length];
       byte[] dst = new byte[zipper.maxCompressedLength(src.length)];
 
@@ -683,48 +655,11 @@ public class QatTest {
 
   @ParameterizedTest
   @MethodSource("provideModeAlgorithmLengthParams")
-  public void testCompressionDecompressionHW(Mode mode, Algorithm algo, int len) {
-    try {
-      zipper = new QatZipper(algo, 6, mode, 0);
-
-      byte[] src = getSourceArray(len);
-      byte[] dec = new byte[src.length];
-      byte[] dst = new byte[zipper.maxCompressedLength(src.length)];
-
-      int compressedSize = zipper.compress(src, 0, src.length, dst, 0, dst.length);
-      assertNotNull(dst);
-
-      zipper.decompress(dst, 0, compressedSize, dec, 0, dec.length);
-
-      assertNotNull(dec);
-      assertTrue(Arrays.equals(src, dec));
-    } catch (QatException e) {
-      fail(e.getMessage());
-    }
-  }
-
-  @ParameterizedTest
-  @MethodSource("provideModeAlgorithmLengthParams")
   public void testCompressionWithInsufficientDestBuff(Mode mode, Algorithm algo, int len) {
     try {
-      zipper = new QatZipper(algo, 6, mode, 0);
+      zipper = new QatZipper(algo, mode);
 
-      byte[] src = getSourceArray(len);
-      byte[] dst = new byte[src.length / 10];
-
-      zipper.compress(src, 0, src.length, dst, 0, dst.length);
-    } catch (QatException | IndexOutOfBoundsException e) {
-      assertTrue(true);
-    }
-  }
-
-  @ParameterizedTest
-  @MethodSource("provideModeAlgorithmLengthParams")
-  public void testCompressionWithInsufficientDestBuffHW(Mode mode, Algorithm algo, int len) {
-    try {
-      zipper = new QatZipper(algo, 6, mode, 0);
-
-      byte[] src = getSourceArray(len);
+      byte[] src = getRandomBytes(len);
       byte[] dst = new byte[src.length / 10];
 
       zipper.compress(src, 0, src.length, dst, 0, dst.length);
@@ -737,9 +672,9 @@ public class QatTest {
   @MethodSource("provideModeAlgorithmLengthParams")
   public void testDecompressionWithInsufficientDestBuff(Mode mode, Algorithm algo, int len) {
     try {
-      zipper = new QatZipper(algo, 6, mode, 0);
+      zipper = new QatZipper(algo, mode);
 
-      byte[] src = getSourceArray(len);
+      byte[] src = getRandomBytes(len);
       byte[] dec = new byte[src.length / 2];
       byte[] dst = new byte[src.length];
 
@@ -758,7 +693,7 @@ public class QatTest {
     try {
       zipper = new QatZipper(algo, mode);
 
-      byte[] src = getSourceArray(len);
+      byte[] src = getRandomBytes(len);
       byte[] dec = new byte[src.length];
 
       ByteBuffer srcBuf = ByteBuffer.allocateDirect(src.length);
@@ -791,7 +726,7 @@ public class QatTest {
     try {
       zipper = new QatZipper(algo, 9, mode, 0);
 
-      byte[] src = getSourceArray(len);
+      byte[] src = getRandomBytes(len);
       byte[] dec = new byte[src.length];
 
       ByteBuffer srcBuf = ByteBuffer.allocateDirect(src.length);
@@ -823,7 +758,7 @@ public class QatTest {
     try {
       zipper = new QatZipper(algo, mode);
 
-      byte[] src = getSourceArray(len);
+      byte[] src = getRandomBytes(len);
       ByteBuffer srcBuf = ByteBuffer.allocateDirect(src.length);
       ByteBuffer dstBuf = ByteBuffer.allocateDirect(zipper.maxCompressedLength(src.length));
 
@@ -843,7 +778,7 @@ public class QatTest {
     try {
       zipper = new QatZipper(algo, mode);
 
-      byte[] src = getSourceArray(len);
+      byte[] src = getRandomBytes(len);
       ByteBuffer srcBuf = ByteBuffer.allocateDirect(src.length);
       ByteBuffer dstBuf = ByteBuffer.allocateDirect(zipper.maxCompressedLength(src.length));
       ByteBuffer decBuf = ByteBuffer.allocateDirect(src.length);
@@ -867,7 +802,7 @@ public class QatTest {
     try {
       zipper = new QatZipper(algo, mode);
 
-      byte[] src = getSourceArray(len);
+      byte[] src = getRandomBytes(len);
       byte[] dec = new byte[src.length];
 
       ByteBuffer srcBufRW = ByteBuffer.allocateDirect(src.length);
@@ -898,28 +833,11 @@ public class QatTest {
     try {
       QatZipper zipper = new QatZipper(algo, mode);
 
-      byte[] src = getSourceArray(len);
+      byte[] src = getRandomBytes(len);
       byte[] dst = new byte[2 * src.length];
 
       zipper.end();
       zipper.compress(src, 0, src.length, dst, 0, dst.length);
-    } catch (IllegalStateException is) {
-      assertTrue(true);
-    }
-  }
-
-  @ParameterizedTest
-  @MethodSource("provideModeAlgorithmLengthParams")
-  public void testIllegalStateExceptionHW(Mode mode, Algorithm algo, int len) {
-    try {
-      QatZipper zipper = new QatZipper(algo, QatZipper.DEFAULT_COMPRESS_LEVEL, mode);
-
-      byte[] src = getSourceArray(len);
-      byte[] dst = new byte[2 * src.length];
-
-      zipper.end();
-      zipper.compress(src, 0, src.length, dst, 0, dst.length);
-      fail();
     } catch (IllegalStateException is) {
       assertTrue(true);
     }
@@ -931,7 +849,7 @@ public class QatTest {
     try {
       QatZipper zipper = new QatZipper(algo, mode);
 
-      byte[] src = getSourceArray(len);
+      byte[] src = getRandomBytes(len);
       byte[] dst = new byte[2 * src.length];
 
       zipper.end();
@@ -949,7 +867,7 @@ public class QatTest {
     try {
       QatZipper zipper = new QatZipper(algo, mode);
 
-      byte[] src = getSourceArray(len);
+      byte[] src = getRandomBytes(len);
 
       ByteBuffer srcBuf = ByteBuffer.allocateDirect(src.length);
       ByteBuffer dstBuf = ByteBuffer.allocateDirect(zipper.maxCompressedLength(src.length));
@@ -972,7 +890,7 @@ public class QatTest {
     try {
       QatZipper zipper = new QatZipper(algo, mode);
 
-      byte[] src = getSourceArray(len);
+      byte[] src = getRandomBytes(len);
       byte[] dst = new byte[2 * src.length];
       zipper.compress(src, 0, src.length, dst, 0, dst.length);
 
@@ -991,7 +909,7 @@ public class QatTest {
     try {
       QatZipper zipper = new QatZipper(algo, mode);
 
-      byte[] src = getSourceArray(len);
+      byte[] src = getRandomBytes(len);
 
       ByteBuffer srcBuf = ByteBuffer.allocateDirect(src.length);
       ByteBuffer dstBuf = ByteBuffer.allocateDirect(zipper.maxCompressedLength(src.length));
@@ -1016,9 +934,9 @@ public class QatTest {
   @MethodSource("provideModeAlgorithmLengthParams")
   public void testCompressorText(Mode mode, Algorithm algo, int len) {
     try {
-      zipper = new QatZipper(algo, 6, mode);
+      zipper = new QatZipper(algo, mode);
 
-      byte[] data = getSourceArray(len);
+      byte[] data = getRandomBytes(len);
       ByteBuffer src = ByteBuffer.allocate(data.length);
       src.put(data);
       src.flip();
@@ -1057,8 +975,8 @@ public class QatTest {
   @MethodSource("provideModeAlgorithmLengthParams")
   public void testVaryingOffset(QatZipper.Mode mode, QatZipper.Algorithm algo, int len) {
     try {
-      zipper = new QatZipper(algo, 6, mode);
-      byte[] data = getSourceArray(len);
+      zipper = new QatZipper(algo, mode);
+      byte[] data = getRandomBytes(len);
 
       final int inOffset = 2;
       ByteBuffer src = ByteBuffer.allocate(inOffset + len + inOffset);
@@ -1103,8 +1021,8 @@ public class QatTest {
   public void testVaryingOffsetWithReadOnlyBuffer(
       QatZipper.Mode mode, QatZipper.Algorithm algo, int len) {
     try {
-      zipper = new QatZipper(algo, 6, mode);
-      byte[] data = getSourceArray(len);
+      zipper = new QatZipper(algo, mode);
+      byte[] data = getRandomBytes(len);
 
       final int inOffset = 2;
       ByteBuffer src = ByteBuffer.allocate(inOffset + len + inOffset);
@@ -1153,26 +1071,7 @@ public class QatTest {
     try {
       zipper = new QatZipper(algo, 9, mode, 0);
 
-      byte[] src = getSourceArray(len);
-      byte[] dst = new byte[zipper.maxCompressedLength(src.length)];
-      byte[] dec = new byte[src.length];
-
-      zipper.compress(src, -1, src.length, dst, 0, dst.length);
-      zipper.decompress(dst, 0, dst.length, dec, 0, dec.length);
-
-      fail();
-    } catch (QatException | ArrayIndexOutOfBoundsException e) {
-      assertTrue(true);
-    }
-  }
-
-  @ParameterizedTest
-  @MethodSource("provideModeAlgorithmLengthParams")
-  public void testInvalidCompressionOffsetsHW(Mode mode, Algorithm algo, int len) {
-    try {
-      zipper = new QatZipper(algo, 9, mode, 0);
-
-      byte[] src = getSourceArray(len);
+      byte[] src = getRandomBytes(len);
       byte[] dst = new byte[zipper.maxCompressedLength(src.length)];
       byte[] dec = new byte[src.length];
 
@@ -1191,7 +1090,7 @@ public class QatTest {
     try {
       zipper = new QatZipper(algo, 9, mode, 0);
 
-      byte[] src = getSourceArray(len);
+      byte[] src = getRandomBytes(len);
       byte[] dst = new byte[zipper.maxCompressedLength(src.length)];
       byte[] dec = new byte[src.length];
 
@@ -1206,11 +1105,11 @@ public class QatTest {
 
   @ParameterizedTest
   @MethodSource("provideModeAlgorithmLengthParams")
-  public void testInvalidecompressionOffsets(Mode mode, Algorithm algo, int len) {
+  public void testInvaliDecompressionOffsets(Mode mode, Algorithm algo, int len) {
     try {
       zipper = new QatZipper(algo, 9, mode, 0);
 
-      byte[] src = getSourceArray(len);
+      byte[] src = getRandomBytes(len);
       byte[] dst = new byte[zipper.maxCompressedLength(src.length)];
       byte[] dec = new byte[src.length];
 
@@ -1225,11 +1124,11 @@ public class QatTest {
 
   @ParameterizedTest
   @MethodSource("provideModeAlgorithmLengthParams")
-  public void testInvalidecompressionLargeOffsets(Mode mode, Algorithm algo, int len) {
+  public void testInvaliDecompressionLargeOffsets(Mode mode, Algorithm algo, int len) {
     try {
       zipper = new QatZipper(algo, 9, mode, 0);
 
-      byte[] src = getSourceArray(len);
+      byte[] src = getRandomBytes(len);
       byte[] dst = new byte[zipper.maxCompressedLength(src.length)];
       byte[] dec = new byte[src.length];
 
