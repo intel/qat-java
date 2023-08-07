@@ -31,7 +31,7 @@ public class QatInputStream extends FilterInputStream {
    * QatZipper#DEFAULT_COMPRESS_LEVEL}, and {@link Mode#AUTO}.
    *
    * @param in the input stream
-   * @param bufferSize the input buffer size hardware with a software failover.)
+   * @param bufferSize the input buffer size
    */
   public QatInputStream(InputStream in, int bufferSize) {
     this(in, bufferSize, Algorithm.DEFLATE, QatZipper.DEFAULT_COMPRESS_LEVEL, Mode.AUTO);
@@ -43,8 +43,7 @@ public class QatInputStream extends FilterInputStream {
    *
    * @param in the input stream
    * @param bufferSize the input buffer size
-   * @param algorithm the compression algorithm (deflate or LZ4). hardware with a software
-   *     failover.)
+   * @param algorithm the compression algorithm (deflate or LZ4).
    */
   public QatInputStream(InputStream in, int bufferSize, Algorithm algorithm) {
     this(in, bufferSize, algorithm, QatZipper.DEFAULT_COMPRESS_LEVEL, Mode.AUTO);

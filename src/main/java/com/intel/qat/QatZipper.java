@@ -57,7 +57,7 @@ public class QatZipper {
   public static final int DEFAULT_COMPRESS_LEVEL = 6;
 
   /**
-   * The number of times QatZipper attempts to acquire hardware resources by default -- zero times.
+   * The default number of times QatZipper attempts to acquire hardware resources is <code>0</code>.
    */
   public static final int DEFAULT_RETRY_COUNT = 0;
 
@@ -107,8 +107,9 @@ public class QatZipper {
   }
 
   /**
-   * Creates a new QatZipper with the given parameter and that uses {@link Algorithm#DEFLATE},
-   * {@link DEFAULT_COMPRESS_LEVEL}, and {@link DEFAULT_RETRY_COUNT}.
+   * Creates a new QatZipper with the specified execution {@link Mode}. Uses {@link
+   * Algorithm#DEFLATE} compression algorithm, {@link DEFAULT_COMPRESS_LEVEL} compression level, and
+   * {@link DEFAULT_RETRY_COUNT} retries.
    *
    * @param mode the {@link Mode} of QAT execution
    */
@@ -117,8 +118,9 @@ public class QatZipper {
   }
 
   /**
-   * Creates a new QatZipper with the given parameter and that uses {@link DEFAULT_COMPRESS_LEVEL},
-   * {@link Mode#AUTO}, and {@link DEFAULT_RETRY_COUNT}.
+   * Creates a new QatZipper with the specified compression {@link Algorithm}. Uses {@link
+   * DEFAULT_COMPRESS_LEVEL} compression level, {@link Mode#AUTO} execution mode, and {@link
+   * DEFAULT_RETRY_COUNT} retries.
    *
    * @param algorithm the compression {@link Algorithm}
    */
@@ -127,8 +129,8 @@ public class QatZipper {
   }
 
   /**
-   * Creates a new QatZipper with the given parameters and that uses {@link DEFAULT_COMPRESS_LEVEL}
-   * and {@link DEFAULT_RETRY_COUNT}.
+   * Creates a new QatZipper with the specified {@link Algorithm} and {@link Mode} of execution.
+   * Uses {@link DEFAULT_COMPRESS_LEVEL} compression level and {@link DEFAULT_RETRY_COUNT} retries.
    *
    * @param algorithm the compression {@link Algorithm}
    * @param mode the {@link Mode} of QAT execution
@@ -138,8 +140,8 @@ public class QatZipper {
   }
 
   /**
-   * Creates a new QatZipper with the given parameters and that uses {@link Mode#AUTO} and {@link
-   * DEFAULT_RETRY_COUNT}.
+   * Creates a new QatZipper with the specified {@link Algorithm} and compression level. Uses {@link
+   * Mode#AUTO} execution mode and {@link DEFAULT_RETRY_COUNT} retries.
    *
    * @param algorithm the compression algorithm (deflate or LZ4).
    * @param level the compression level.
@@ -149,7 +151,8 @@ public class QatZipper {
   }
 
   /**
-   * Creates a new QatZipper with the given parameters and that uses {@link DEFAULT_RETRY_COUNT}.
+   * Creates a new QatZipper with the specified {@link Algorithm}, compression level, and {@link
+   * Mode}. Uses {@link DEFAULT_RETRY_COUNT} retries.
    *
    * @param algorithm the compression algorithm (deflate or LZ4).
    * @param level the compression level.
@@ -161,7 +164,7 @@ public class QatZipper {
   }
 
   /**
-   * Creates a new QatZipper with the given parameters.
+   * Creates a new QatZipper with the specified parameters.
    *
    * @param algorithm the compression {@link Algorithm}
    * @param level the compression level.
@@ -194,7 +197,7 @@ public class QatZipper {
   }
 
   /**
-   * Returns the maximum compression length for the given source length.
+   * Returns the maximum compression length for the specified source length.
    *
    * @param len the length of the source array or buffer.
    * @return the maximum compression length for the specified length.
@@ -218,9 +221,9 @@ public class QatZipper {
   }
 
   /**
-   * Compresses the source array, starting at the given offset, and stores the result in the
-   * destination array starting at the given destination offset. Returns the actual number of bytes
-   * of data compressed.
+   * Compresses the source array, starting at the specified offset, and stores the result in the
+   * destination array starting at the specified destination offset. Returns the actual number of
+   * bytes of data compressed.
    *
    * @param src the source array holding the source data
    * @param srcOffset the start offset of the source data
@@ -355,9 +358,9 @@ public class QatZipper {
   }
 
   /**
-   * Decompresses the source array, starting at the given offset, and stores the result in the
-   * destination array starting at the given destination offset. Returns the actual number of bytes
-   * of data decompressed.
+   * Decompresses the source array, starting at the specified offset, and stores the result in the
+   * destination array starting at the specified destination offset. Returns the actual number of
+   * bytes of data decompressed.
    *
    * @param src the source array holding the compressed data
    * @param srcOffset the start offset of the source
