@@ -32,6 +32,12 @@ public class FuzzerTest {
       testByteArrayWithParamsLZ4(src);
       testByteBufferLZ4(src);
       testDirectByteBufferLZ4(src);
+      testDecompressionSrcBBDstDBB(src);
+      testDecompressionSrcBBDstDBBLZ4(src);
+      testDecompressionSrcDBBDstBB(src);
+      testDecompressionSrcDBBDstBBLZ4(src);
+      testDecompressionSrcBBRODstBB(src);
+      testDecompressionSrcBBRODstBBLZ4(src);
       testMixedTypesOneLZ4(src);
       testMixedTypesTwoLZ4(src);
       testMixedTypesThreeLZ4(src);
