@@ -158,6 +158,19 @@ public class QatOutputStreamTests {
     }
   }
 
+  @Test
+  public void testOutputStreamBadBufferSize() throws IOException {
+    ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+    try {
+      try (QatOutputStream compressedStream =
+               new QatOutputStream(outputStream, 0)) {
+        fail("Failed to catch IllegalArgumentException");
+      }
+    } catch (IllegalArgumentException e) {
+      assertTrue(true);
+    }
+  }
+
   @ParameterizedTest
   @MethodSource("provideModeAlgorithmLengthParams")
   public void testOutputStreamWriteAll1(Mode mode, Algorithm algo, int size)
@@ -343,5 +356,41 @@ public class QatOutputStreamTests {
         outputStreamBuf, 0, outputStreamBuf.length, result, 0, result.length);
 
     assertTrue(Arrays.equals(src, result));
+  }
+
+  @ParameterizedTest
+  @MethodSource("provideModeAlgorithmParams")
+  public void testOutputStreamWriteBadOffset(Mode mode, Algorithm algo)
+      throws IOException {
+    qzip = new QatZipper(algo);
+    byte[] src = Files.readAllBytes(Paths.get("src/main/resources/sample.txt"));
+    ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+    try (QatOutputStream compressedStream =
+             new QatOutputStream(outputStream, 16 * 1024, algo, mode)) {
+      try {
+        compressedStream.write(src, -33, 100);
+        fail("Failed to catch IndexOutOfBoundsException");
+      } catch (IndexOutOfBoundsException oob) {
+        assertTrue(true);
+      }
+    }
+  }
+
+  @ParameterizedTest
+  @MethodSource("provideModeAlgorithmParams")
+  public void testOutputStreamWriteBadLength(Mode mode, Algorithm algo)
+      throws IOException {
+    qzip = new QatZipper(algo);
+    byte[] src = Files.readAllBytes(Paths.get("src/main/resources/sample.txt"));
+    ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+    try (QatOutputStream compressedStream =
+             new QatOutputStream(outputStream, 16 * 1024, algo, mode)) {
+      try {
+        compressedStream.write(src, src.length - 1, 100);
+        fail("Failed to catch IndexOutOfBoundsException");
+      } catch (IndexOutOfBoundsException oob) {
+        assertTrue(true);
+      }
+    }
   }
 }

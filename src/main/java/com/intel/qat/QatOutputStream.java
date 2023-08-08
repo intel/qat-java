@@ -29,6 +29,7 @@ public class QatOutputStream extends FilterOutputStream {
    * QatZipper#DEFAULT_COMPRESS_LEVEL}, and {@link Mode#AUTO}.
    * @param out the output stream
    * @param bufferSize the output buffer size
+   * @throws IllegalArgumentException if bufferSize is <= 0
    **/
   public QatOutputStream(OutputStream out, int bufferSize) {
     this(out, bufferSize, Algorithm.DEFLATE, QatZipper.DEFAULT_COMPRESS_LEVEL,
@@ -41,6 +42,7 @@ public class QatOutputStream extends FilterOutputStream {
    * @param out the output stream
    * @param bufferSize the output buffer size
    * @param algorithm the compression algorithm (deflate or LZ4).
+   * @throws IllegalArgumentException if bufferSize is <= 0
    **/
   public QatOutputStream(
       OutputStream out, int bufferSize, Algorithm algorithm) {
@@ -55,6 +57,7 @@ public class QatOutputStream extends FilterOutputStream {
    * @param bufferSize the output buffer size
    * @param algorithm the compression algorithm (deflate or LZ4).
    * @param level the compression level.
+   * @throws IllegalArgumentException if bufferSize is <= 0
    **/
   public QatOutputStream(
       OutputStream out, int bufferSize, Algorithm algorithm, int level) {
@@ -69,6 +72,7 @@ public class QatOutputStream extends FilterOutputStream {
    * @param algorithm the compression algorithm (deflate or LZ4).
    * @param mode the mode of operation (HARDWARE - only hardware, AUTO -
    *     hardware with a software failover.)
+   * @throws IllegalArgumentException if bufferSize is <= 0
    **/
   public QatOutputStream(
       OutputStream out, int bufferSize, Algorithm algorithm, Mode mode) {
@@ -83,10 +87,13 @@ public class QatOutputStream extends FilterOutputStream {
    * @param level the compression level.
    * @param mode the mode of operation (HARDWARE - only hardware, AUTO -
    *     hardware with a software failover.)
+   * @throws IllegalArgumentException if bufferSize is <= 0
    **/
   public QatOutputStream(OutputStream out, int bufferSize, Algorithm algorithm,
       int level, Mode mode) {
     super(out);
+    if (bufferSize <= 0)
+      throw new IllegalArgumentException();
     qzip = new QatZipper(algorithm, level, mode);
     inputBuffer = ByteBuffer.allocate(bufferSize);
     outputBuffer = ByteBuffer.allocate(qzip.maxCompressedLength(bufferSize));
@@ -129,14 +136,17 @@ public class QatOutputStream extends FilterOutputStream {
   public void write(byte[] b, int off, int len) throws IOException {
     if (closed)
       throw new IOException("Stream is closed");
-    if (!inputBuffer.hasRemaining()) {
+    if (off < 0 || off + len > b.length)
+      throw new IndexOutOfBoundsException();
+
+    int bytesToWrite = 0;
+    while (len > (bytesToWrite = inputBuffer.remaining())) {
+      inputBuffer.put(b, off, bytesToWrite);
+      len -= bytesToWrite;
+      off += bytesToWrite;
       flush();
     }
-    int bytesToWrite = Math.min(len, inputBuffer.remaining());
-    inputBuffer.put(b, off, bytesToWrite);
-    if (bytesToWrite != len) {
-      write(b, off + bytesToWrite, len - bytesToWrite);
-    }
+    inputBuffer.put(b, off, len);
   }
 
   /**

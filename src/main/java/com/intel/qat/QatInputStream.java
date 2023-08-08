@@ -89,6 +89,8 @@ public class QatInputStream extends FilterInputStream {
   public QatInputStream(InputStream in, int bufferSize, Algorithm algorithm,
       int level, Mode mode) {
     super(in);
+    if (bufferSize <= 0)
+      throw new IllegalArgumentException();
     inputBuffer = ByteBuffer.allocate(bufferSize);
     outputBuffer = ByteBuffer.allocate(bufferSize);
     outputBuffer.position(outputBuffer.capacity());
