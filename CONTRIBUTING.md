@@ -4,6 +4,15 @@
 
 Java* Native Interface binding for Intel® Quick Assist Technology is licensed under the terms in [BSD](https://github.com/intel/qat-java/blob/main/LICENSE). By contributing to the project, you agree to the license and copyright terms therein and release your contribution under these terms.
 
+### Code formatting and check
+
+Please make sure qat-java unit tests are validated against running
+
+```
+mvn check
+mvn apply
+```
+
 ### Sign your work
 
 Please use the sign-off line at the end of the patch. Your signature certifies that you wrote the patch or otherwise have the right to pass it on as an open-source patch. The rules are pretty simple: if you can certify

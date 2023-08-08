@@ -2,13 +2,24 @@
 # Java* Native Interface binding for Intel® Quick Assist Technology
 
 This library provides accelerated compression and decompression using 
-Intel® QuickAssist Technology (QAT) [QATzip](https://github.com/intel/QATzip) Library taking advantage of Intel® Quick Assist 
-Technology(Intel® QAT). For more information about Intel® QAT, refer to the [QAT Programmer's Guide](https://www.intel.com/content/www/us/en/download/765501/intel-quickassist-technology-driver-for-linux-hw-version-2-0.html) 
-on the [Intel&reg; QAT Developer Zone](https://developer.intel.com/quickassist) page. Additionally, the online [QAT Hardware User Guide](https://intel.github.io/quickassist/index.html) 
-is a valuable resource that provides guidance on setting up and optimizing QAT.
+Intel® QuickAssist Technology (QAT) [QATzip](https://github.com/intel/QATzip) library. For more information about Intel® QAT, refer to the [QAT Programmer's Guide](https://www.intel.com/content/www/us/en/download/765501/intel-quickassist-technology-driver-for-linux-hw-version-2-0.html). Additionally, the online [QAT Hardware User Guide](https://intel.github.io/quickassist/index.html) 
+is a valuable resource that provides guidance on setting up and optimizing Intel® QAT.
 
-### Install Dependencies (Method #1)
-This is the first of two approaches that adds all necessary components to the system. It leverages the Linux distribution's built-in package manager. Please ensure the machine is using kernel version 6.0 or newer so that compatible library and firmware versions are applied. Do not combine the steps in this section with those described in method #2.
+### Install Dependencies (Hardware path, preferred)
+This is the first of two approaches that requires Intel® QAT hardware presence on the system. It requires installing QAT driver and configuration described in next section:
+
+- ***Install QAT driver***. All packages are available under [Artifactory](https://www.intel.com/content/www/us/en/download/765501/intel-quickassist-technology-driver-for-linux-hw-version-2-0.html). In one of the packages, follow the steps in the README file to setup on a machine with QAT hardware. Note that only Intel&reg; 4XXX (QAT Gen 4) and newer chipset specific drivers are compatible with this plugin. Also, the kernel version must not be newer than 5.18 or compilation will fail.
+
+- ***Install QATzip***. Follow the instructions [here](https://github.com/intel/QATzip). The number of huge pages may also need to be modified to meet the top-level application's requirements. See the details in [performance-test-with-qatzip](https://github.com/intel-innersource/applications.qat.shims.qatzip.qatzip#performance-test-with-qatzip) for more information.
+
+### Configure Devices (Hardware path)
+
+please follow instruction [outlined](https://github.com/intel/QATzip#installation-instructions) to configure
+system.
+
+### Install Dependencies (Software path)
+
+This is the second of two approaches that adds all necessary components to the system. It leverages the Linux distribution's built-in package manager. Please ensure the machine is using kernel version 6.0 or newer so that compatible library and firmware versions are applied. Do not combine the steps in this section with those described in method #2.
 
 - Install QATzip and QATlib on RHEL 8, RHEL 9, CentOS Stream 8, or CentOS Stream 9.
 
@@ -22,8 +33,8 @@ sudo dnf install qatzip qatzip-devel qatzip-libs qatlib qatlib-devel qatlib-serv
 sudo zypper install libqatzip3 qatzip qatzip-devel qatzip qatlib qatlib-devel
 ```
 
-### Configure Devices (Method #1)
-This is the first of two approaches that enables QAT compression/decompression on the system. Refer to the previous section for details on installing all dependencies. Do not combine the steps in this section with those described in method #2.
+### Configure Devices (Software Path)
+This is the second of two approaches that enables QAT compression/decompression on the system without Intel QAT hardware. Refer to the previous section for details on installing all dependencies. Do not combine the steps in this section with those described in hardware path method.
 
 - Enable virtualization technology for directed I/O (VT-d) option in the BIOS menu.
 
@@ -66,16 +77,6 @@ sudo reboot
 sudo systemctl restart qat
 sudo systemctl status qat
 ```
-
-### Install Dependencies (Method #2)
-This is the second of two approaches that adds all necessary components to the system. It compiles directly from source code and copies the files to the correct install locations. Do not combine the steps in this section with those described in method #1.
-
-- Install QAT driver. All packages are available under [Artifactory](https://www.intel.com/content/www/us/en/download/765501/intel-quickassist-technology-driver-for-linux-hw-version-2-0.html). In one of the packages, follow the steps in the README file to setup on a machine with QAT hardware. Note that only Intel&reg; 4XXX (QAT Gen 4) and newer chipset specific drivers are compatible with this plugin. Also, the kernel version must not be newer than 5.18 or compilation will fail.
-
-- Install QATzip. Follow the instructions [here](https://github.com/intel/QATzip). The number of huge pages may also need to be modified to meet the top-level application's requirements. See the details in [performance-test-with-qatzip](https://github.com/intel-innersource/applications.qat.shims.qatzip.qatzip#performance-test-with-qatzip) for more information.
-
-### Configure Devices (Method #2)
-Please follow instructions on [QATZip](https://github.com/intel/QATzip#installation-instructions) installation instruction.
 ## Build & Run ##
 
 ### PREREQUISITES TO BUILD ###
@@ -83,10 +84,10 @@ The following are the prerequisites for building this Java library:
 
 1. Intel® QAT library - explained in the previous section
 2. Java 11 or above
-3. Build tools - **gcc**, **CMake** and **Maven**
+3. Build tools - **gcc**, **CMake** , **Maven** and **clang (required for fuzz testing)**
 
 ### PREREQUISITES TO RUN ###
-This library assumes the availability of Intel® QAT hardware(https://intel.github.io/quickassist/index.html).
+This library assumes the availability of Intel® QAT hardware (https://intel.github.io/quickassist/index.html).
 
 ### STEPS TO BUILD ###
 ```
@@ -103,12 +104,17 @@ Available Maven commands include:
 - `package` - builds jar file into ```target``` directory
 
 ### LIBRARY TESTING ###
-This library supports both functional and Fuzz testing.
+This library supports both junit testing and Fuzz testing.
 
-##### FUNCTIONAL TEST #####
-To run all the functional tests, execute the following command:
+##### JUNIT TEST #####
+To run all the unit tests, execute the following command (skips hardware specific tests):
 ```
 mvn clean test
+```
+
+To run all the unit tests, execute the following command (includes hardware specific tests):
+```
+mvn clean test -Dhardware.available=true
 ```
 ##### FUZZ TEST #####
 Jazzer tool is used to enable fuzz testing on this project.
@@ -141,7 +147,7 @@ Alternatively, include qat-java's `target/classes` directory in your Java classp
 ## CONTRIBUTING ##
 Thanks for your interest! Please see the CONTRIBUTING.md document for information on how to contribute.
 ## Contacts ##
-For more information on this library, contact Nishchal, Praveen (praveen.nishchal@intel.com) or Mammo, Mulugeta (mulugeta.mammo@intel.com), or  Denloye, Olasoji(olasoji.denloye@intel.com).
+For more information on this library, contact Nishchal, Praveen (praveen.nishchal@intel.com) or Mammo, Mulugeta (mulugeta.mammo@intel.com), or  Denloye, Olasoji (olasoji.denloye@intel.com).
 
 &nbsp;
 
