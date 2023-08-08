@@ -6,11 +6,10 @@ Java* Native Interface binding for Intel® Quick Assist Technology is licensed u
 
 ### Code formatting and check
 
-Please make sure qat-java unit tests are validated against running
+Please make sure qat-java code are well formatted by running
 
 ```
-mvn check
-mvn apply
+mvn spotless:check
 ```
 
 ### Sign your work
