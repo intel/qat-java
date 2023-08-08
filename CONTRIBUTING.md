@@ -6,10 +6,15 @@ Java* Native Interface binding for Intel® Quick Assist Technology is licensed u
 
 ### Code formatting and check
 
-Please make sure qat-java code are well formatted by running
+Please check the formatting of the code by running:
 
 ```
 mvn spotless:check
+```
+
+The code can be formatted with:
+```
+mvn spotless:apply
 ```
 
 ### Sign your work
