@@ -7,12 +7,9 @@
 /**
  * Defines APIs for data compression using Intel&reg; QuickAssit Technology.
  *
- * The implementation uses the <a
- * href="https://github.com/intel/QATzip">QATZip</a> library through JNI
- * bindings.
- *
+ * <p>The implementation uses the <a href="https://github.com/intel/QATzip">QATZip</a> library
+ * through JNI bindings.
  */
 module com.intel.qat {
   exports com.intel.qat;
 }
-

@@ -5,9 +5,7 @@
  ******************************************************************************/
 package com.intel.qat;
 
-/**
- * Signals that a QAT error has occurred.
- */
+/** Signals that a QAT error has occurred. */
 public class QatException extends RuntimeException {
   /**
    * Constructs a QatException with the specified detail message.
