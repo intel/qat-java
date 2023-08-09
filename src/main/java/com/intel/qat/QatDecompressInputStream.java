@@ -18,7 +18,7 @@ import java.nio.ByteBuffer;
  * This class implements an InputStream filter that decompresses data using Intel &reg; QuickAssist
  * Technology (QAT).
  */
-public class QatInputStream extends FilterInputStream {
+public class QatDecompressInputStream extends FilterInputStream {
   private ByteBuffer inputBuffer;
   private ByteBuffer outputBuffer;
   private QatZipper qzip;
@@ -31,7 +31,7 @@ public class QatInputStream extends FilterInputStream {
    * @param in the input stream
    * @param bufferSize the input buffer size
    */
-  public QatInputStream(InputStream in, int bufferSize) {
+  public QatDecompressInputStream(InputStream in, int bufferSize) {
     this(in, bufferSize, Algorithm.DEFLATE, Mode.AUTO);
   }
 
@@ -42,7 +42,7 @@ public class QatInputStream extends FilterInputStream {
    * @param bufferSize the input buffer size
    * @param algorithm the compression algorithm (deflate or LZ4).
    */
-  public QatInputStream(InputStream in, int bufferSize, Algorithm algorithm) {
+  public QatDecompressInputStream(InputStream in, int bufferSize, Algorithm algorithm) {
     this(in, bufferSize, algorithm, Mode.AUTO);
   }
 
@@ -54,7 +54,7 @@ public class QatInputStream extends FilterInputStream {
    * @param mode the mode of operation (HARDWARE - only hardware, AUTO - hardware with a software
    *     failover.)
    */
-  public QatInputStream(InputStream in, int bufferSize, Mode mode) {
+  public QatDecompressInputStream(InputStream in, int bufferSize, Mode mode) {
     this(in, bufferSize, Algorithm.DEFLATE, mode);
   }
 
@@ -67,7 +67,7 @@ public class QatInputStream extends FilterInputStream {
    * @param mode the mode of operation (HARDWARE - only hardware, AUTO - hardware with a software
    *     failover.)
    */
-  public QatInputStream(InputStream in, int bufferSize, Algorithm algorithm, Mode mode) {
+  public QatDecompressInputStream(InputStream in, int bufferSize, Algorithm algorithm, Mode mode) {
     super(in);
     if (bufferSize <= 0) throw new IllegalArgumentException();
     inputBuffer = ByteBuffer.allocate(bufferSize);
