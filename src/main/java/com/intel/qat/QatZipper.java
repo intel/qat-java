@@ -21,26 +21,26 @@ import java.nio.ReadOnlyBufferException;
  *
  * <pre>{@code
  * try {
- * String inputStr = "Hello World!";
- * byte[] input = inputStr.getBytes();
+ *   String inputStr = "Hello World!";
+ *   byte[] input = inputStr.getBytes();
  *
- * QatZipper zipper = new QatZipper();
+ *   QatZipper zipper = new QatZipper();
  *
- * // Create a buffer with enough size for compression
- * byte[] output = new byte[zipper.maxCompressedLength(input.length)];
+ *   // Create a buffer with enough size for compression
+ *   byte[] output = new byte[zipper.maxCompressedLength(input.length)];
  *
- * // Compress the bytes
- * int resultLen = zipper.compress(input, output);
+ *   // Compress the bytes
+ *   int resultLen = zipper.compress(input, output);
  *
- * // Decompress the bytes into a String
- * byte[] result = new byte[input.length];
- * resultLen = zipper.decompress(output, result);
+ *   // Decompress the bytes into a String
+ *   byte[] result = new byte[input.length];
+ *   resultLen = zipper.decompress(output, result);
  *
- * // Release resources
- * zipper.end();
+ *   // Release resources
+ *   zipper.end();
  *
- * // Convert the bytes into a String
- * String outputStr = new String(result, 0, resultLen);
+ *   // Convert the bytes into a String
+ *   String outputStr = new String(result, 0, resultLen);
  * } catch (QatException e) {
  * //
  * }
