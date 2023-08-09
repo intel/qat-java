@@ -25,6 +25,19 @@ public class QatInputStream extends FilterInputStream {
   private boolean closed;
   private boolean eof;
 
+  /** The default size in bytes of the input buffer. */
+  public static final int DEFAULT_BUFFER_SIZE = 512;
+
+  /**
+   * Creates a new input stream with {@link DEFAULT_BUFFER_SIZE}, {@link Algorithm#DEFLATE}, and
+   * {@link Mode#AUTO}.
+   *
+   * @param in the input stream
+   */
+  public QatInputStream(InputStream in) {
+    this(in, DEFAULT_BUFFER_SIZE, Algorithm.DEFLATE, Mode.AUTO);
+  }
+
   /**
    * Creates a new input stream with {@link Algorithm#DEFLATE}, and {@link Mode#AUTO}.
    *
@@ -120,7 +133,6 @@ public class QatInputStream extends FilterInputStream {
     if (closed) throw new IOException("Stream is closed");
     if (off < 0 || off + len > b.length) throw new IndexOutOfBoundsException();
     if (eof && !outputBuffer.hasRemaining()) return -1;
-
     int result = 0;
     int bytesToRead = 0;
     while (len > (bytesToRead = outputBuffer.remaining())) {
@@ -204,7 +216,6 @@ public class QatInputStream extends FilterInputStream {
 
   private void fill() throws IOException {
     if (eof) return;
-    outputBuffer.flip();
     int bytesRead = in.read(inputBuffer.array(), inputBuffer.position(), inputBuffer.remaining());
     if (bytesRead < 0) {
       inputBuffer.limit(inputBuffer.position());
@@ -214,6 +225,7 @@ public class QatInputStream extends FilterInputStream {
       eof = true;
       return;
     }
+    outputBuffer.flip();
     int decompressed = qzip.decompress(inputBuffer, outputBuffer);
     if (decompressed > 0) outputBuffer.flip();
     if (inputBuffer.hasRemaining()) inputBuffer.compact();

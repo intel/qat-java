@@ -127,6 +127,17 @@ public class QatInputStreamTests {
     }
   }
 
+  @Test
+  public void testOneArgConstructor() {
+    ByteArrayInputStream inputStream = new ByteArrayInputStream(deflateBytes);
+    byte[] result = new byte[src.length];
+    try {
+      try (QatInputStream decompressedStream = new QatInputStream(inputStream)) {}
+    } catch (IOException | IllegalArgumentException | QatException e) {
+      fail(e.getMessage());
+    }
+  }
+
   @ParameterizedTest
   @EnumSource(Algorithm.class)
   public void testConstructor1(Algorithm algo) {
@@ -215,6 +226,46 @@ public class QatInputStreamTests {
       assertEquals(result.length, i);
     }
     assertTrue(Arrays.equals(src, result));
+  }
+
+  @ParameterizedTest
+  @MethodSource("provideModeAlgorithmLengthParams")
+  public void testInputStreamReadShort(Mode mode, Algorithm algo, int bufferSize)
+      throws IOException {
+    byte[] newSrc = Arrays.copyOf(src, bufferSize / 2);
+    ByteArrayOutputStream outStream = new ByteArrayOutputStream();
+    try (QatOutputStream outputStream = new QatOutputStream(outStream, bufferSize, algo, mode)) {
+      outputStream.write(newSrc);
+    }
+    byte[] compressedBytes = outStream.toByteArray();
+    ByteArrayInputStream inputStream = new ByteArrayInputStream(compressedBytes);
+    byte[] result = new byte[bufferSize];
+    int read = 0;
+    try (QatInputStream decompressedStream =
+        new QatInputStream(inputStream, bufferSize, algo, mode)) {
+      read = decompressedStream.read(result);
+    }
+    assertTrue(Arrays.equals(newSrc, Arrays.copyOf(result, read)));
+  }
+
+  @ParameterizedTest
+  @MethodSource("provideModeAlgorithmLengthParams")
+  public void testInputStreamReadShort2(Mode mode, Algorithm algo, int bufferSize)
+      throws IOException {
+    byte[] newSrc = Arrays.copyOf(src, bufferSize);
+    ByteArrayOutputStream outStream = new ByteArrayOutputStream();
+    try (QatOutputStream outputStream = new QatOutputStream(outStream, bufferSize, algo, mode)) {
+      outputStream.write(newSrc);
+    }
+    byte[] compressedBytes = outStream.toByteArray();
+    ByteArrayInputStream inputStream = new ByteArrayInputStream(compressedBytes);
+    byte[] result = new byte[bufferSize];
+    int read = 0;
+    try (QatInputStream decompressedStream =
+        new QatInputStream(inputStream, bufferSize, algo, mode)) {
+      read = decompressedStream.read(result);
+    }
+    assertTrue(Arrays.equals(newSrc, result));
   }
 
   @ParameterizedTest

@@ -24,6 +24,19 @@ public class QatOutputStream extends FilterOutputStream {
   private ByteBuffer outputBuffer;
   private boolean closed;
 
+  /** The default size in bytes of the output buffer. */
+  public static final int DEFAULT_BUFFER_SIZE = 512;
+
+  /**
+   * Creates a new output stream with {@link DEFAULT_BUFFER_SIZE}, {@link Algorithm#DEFLATE}, {@link
+   * QatZipper#DEFAULT_COMPRESS_LEVEL}, and {@link Mode#AUTO}.
+   *
+   * @param out the output stream
+   */
+  public QatOutputStream(OutputStream out) {
+    this(out, DEFAULT_BUFFER_SIZE, Algorithm.DEFLATE, QatZipper.DEFAULT_COMPRESS_LEVEL, Mode.AUTO);
+  }
+
   /**
    * Creates a new output stream with {@link Algorithm#DEFLATE}, {@link
    * QatZipper#DEFAULT_COMPRESS_LEVEL}, and {@link Mode#AUTO}.

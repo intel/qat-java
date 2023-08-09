@@ -117,6 +117,16 @@ public class QatOutputStreamTests {
     }
   }
 
+  @Test
+  public void testOutputStreamOneArgConstructor() throws IOException {
+    ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+    try {
+      try (QatOutputStream compressedStream = new QatOutputStream(outputStream)) {}
+    } catch (IOException | IllegalArgumentException | QatException e) {
+      fail(e.getMessage());
+    }
+  }
+
   @ParameterizedTest
   @EnumSource(Algorithm.class)
   public void testOutputStreamConstructor1(Algorithm algo) throws IOException {
@@ -156,8 +166,7 @@ public class QatOutputStreamTests {
   public void testOutputStreamBadBufferSize() throws IOException {
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     try {
-      try (QatOutputStream compressedStream =
-               new QatOutputStream(outputStream, 0)) {
+      try (QatOutputStream compressedStream = new QatOutputStream(outputStream, 0)) {
         fail("Failed to catch IllegalArgumentException");
       }
     } catch (IllegalArgumentException e) {
@@ -338,13 +347,12 @@ public class QatOutputStreamTests {
 
   @ParameterizedTest
   @MethodSource("provideModeAlgorithmParams")
-  public void testOutputStreamWriteBadOffset(Mode mode, Algorithm algo)
-      throws IOException {
+  public void testOutputStreamWriteBadOffset(Mode mode, Algorithm algo) throws IOException {
     qzip = new QatZipper(algo);
     byte[] src = Files.readAllBytes(Paths.get("src/main/resources/sample.txt"));
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     try (QatOutputStream compressedStream =
-             new QatOutputStream(outputStream, 16 * 1024, algo, mode)) {
+        new QatOutputStream(outputStream, 16 * 1024, algo, mode)) {
       try {
         compressedStream.write(src, -33, 100);
         fail("Failed to catch IndexOutOfBoundsException");
@@ -356,13 +364,12 @@ public class QatOutputStreamTests {
 
   @ParameterizedTest
   @MethodSource("provideModeAlgorithmParams")
-  public void testOutputStreamWriteBadLength(Mode mode, Algorithm algo)
-      throws IOException {
+  public void testOutputStreamWriteBadLength(Mode mode, Algorithm algo) throws IOException {
     qzip = new QatZipper(algo);
     byte[] src = Files.readAllBytes(Paths.get("src/main/resources/sample.txt"));
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     try (QatOutputStream compressedStream =
-             new QatOutputStream(outputStream, 16 * 1024, algo, mode)) {
+        new QatOutputStream(outputStream, 16 * 1024, algo, mode)) {
       try {
         compressedStream.write(src, src.length - 1, 100);
         fail("Failed to catch IndexOutOfBoundsException");
