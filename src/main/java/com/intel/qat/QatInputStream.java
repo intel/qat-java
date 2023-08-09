@@ -22,25 +22,23 @@ public class QatInputStream extends FilterInputStream {
   private ByteBuffer inputBuffer;
   private ByteBuffer outputBuffer;
   private QatZipper qzip;
-  private long totalDecompressed;
   private boolean closed;
   private boolean eof;
 
   /**
-   * Creates a new input stream with {@link Algorithm#DEFLATE}, {@link
-   * QatZipper#DEFAULT_COMPRESS_LEVEL}, and {@link Mode#AUTO}.
+   * Creates a new input stream with {@link Algorithm#DEFLATE}, and 
+   * {@link Mode#AUTO}.
    * @param in the input stream
    * @param bufferSize the input buffer size
    *     hardware with a software failover.)
    **/
   public QatInputStream(InputStream in, int bufferSize) {
-    this(in, bufferSize, Algorithm.DEFLATE, QatZipper.DEFAULT_COMPRESS_LEVEL,
-        Mode.AUTO);
+    this(in, bufferSize, Algorithm.DEFLATE, Mode.AUTO);
   }
 
   /**
-   * Creates a new input stream with the given algorithm, {@link
-   * QatZipper#DEFAULT_COMPRESS_LEVEL}, and {@link Mode#AUTO}.
+   * Creates a new input stream with the given algorithm, and
+   * {@link Mode#AUTO}.
    * @param in the input stream
    * @param bufferSize the input buffer size
    * @param algorithm the compression algorithm (deflate or LZ4).
@@ -48,53 +46,51 @@ public class QatInputStream extends FilterInputStream {
    **/
   public QatInputStream(InputStream in, int bufferSize, Algorithm algorithm) {
     this(
-        in, bufferSize, algorithm, QatZipper.DEFAULT_COMPRESS_LEVEL, Mode.AUTO);
+        in, bufferSize, algorithm, Mode.AUTO);
   }
-
   /**
    * Creates a new input stream with the given paramters and {@link Mode#AUTO}
    * @param in the input stream
    * @param bufferSize the input buffer size
    * @param algorithm the compression algorithm (deflate or LZ4).
-   * @param level the compression level.
    **/
+/*
   public QatInputStream(
       InputStream in, int bufferSize, Algorithm algorithm, int level) {
     this(in, bufferSize, algorithm, level, Mode.AUTO);
-  }
+  }*/
 
   /**
-   * Creates a new input stream with the given parameters and {@link QatZipper
-   * #DEFAULT_COMPRESS_LEVEL}
+   * Creates a new input stream with the given parameters a
    * @param in the input stream
    * @param bufferSize the input buffer size
    * @param algorithm the compression algorithm (deflate or LZ4).
    * @param mode the mode of operation (HARDWARE - only hardware, AUTO -
    *     hardware with a software failover.)
    **/
+/*
   public QatInputStream(
       InputStream in, int bufferSize, Algorithm algorithm, Mode mode) {
     this(in, bufferSize, algorithm, QatZipper.DEFAULT_COMPRESS_LEVEL, mode);
-  }
+  }*/
 
   /**
    * Creates a new input stream with the given parameters.
    * @param in the input stream
    * @param bufferSize the input buffer size
    * @param algorithm the compression algorithm (deflate or LZ4).
-   * @param level the compression level.
    * @param mode the mode of operation (HARDWARE - only hardware, AUTO -
    *     hardware with a software failover.)
    **/
   public QatInputStream(InputStream in, int bufferSize, Algorithm algorithm,
-      int level, Mode mode) {
+      Mode mode) {
     super(in);
     if (bufferSize <= 0)
       throw new IllegalArgumentException();
     inputBuffer = ByteBuffer.allocate(bufferSize);
     outputBuffer = ByteBuffer.allocate(bufferSize);
     outputBuffer.position(outputBuffer.capacity());
-    qzip = new QatZipper(algorithm, level, mode);
+    qzip = new QatZipper(algorithm, mode);
     closed = false;
     eof = false;
   }

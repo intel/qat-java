@@ -121,19 +121,6 @@ public class QatInputStreamTests {
             Arguments.of(Mode.AUTO, Algorithm.LZ4, 16384));
   }
 
-  public static Stream<Arguments> provideAlgorithmLevelParams() {
-    return Stream.of(Arguments.of(Algorithm.DEFLATE, 1),
-        Arguments.of(Algorithm.DEFLATE, 2), Arguments.of(Algorithm.DEFLATE, 3),
-        Arguments.of(Algorithm.DEFLATE, 4), Arguments.of(Algorithm.DEFLATE, 5),
-        Arguments.of(Algorithm.DEFLATE, 6), Arguments.of(Algorithm.DEFLATE, 7),
-        Arguments.of(Algorithm.DEFLATE, 8), Arguments.of(Algorithm.DEFLATE, 9),
-        Arguments.of(Algorithm.LZ4, 1), Arguments.of(Algorithm.LZ4, 2),
-        Arguments.of(Algorithm.LZ4, 3), Arguments.of(Algorithm.LZ4, 4),
-        Arguments.of(Algorithm.LZ4, 5), Arguments.of(Algorithm.LZ4, 6),
-        Arguments.of(Algorithm.LZ4, 7), Arguments.of(Algorithm.LZ4, 8),
-        Arguments.of(Algorithm.LZ4, 9));
-  }
-
   @Test
   public void testConstructor() {
     ByteArrayInputStream inputStream = new ByteArrayInputStream(deflateBytes);
@@ -163,23 +150,8 @@ public class QatInputStreamTests {
   }
 
   @ParameterizedTest
-  @MethodSource("provideAlgorithmLevelParams")
-  public void testConstructor2(Algorithm algo, int level) {
-    ByteArrayInputStream inputStream = new ByteArrayInputStream(
-        algo.equals(Algorithm.LZ4) ? lz4Bytes : deflateBytes);
-    byte[] result = new byte[src.length];
-    try {
-      try (QatInputStream decompressedStream =
-               new QatInputStream(inputStream, 16 * 1024, algo, level)) {
-      }
-    } catch (IOException | IllegalArgumentException | QatException e) {
-      fail(e.getMessage());
-    }
-  }
-
-  @ParameterizedTest
   @MethodSource("provideModeAlgorithmParams")
-  public void testConstructor3(Mode mode, Algorithm algo) {
+  public void testConstructor2(Mode mode, Algorithm algo) {
     ByteArrayInputStream inputStream = new ByteArrayInputStream(
         algo.equals(Algorithm.LZ4) ? lz4Bytes : deflateBytes);
     byte[] result = new byte[src.length];
