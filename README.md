@@ -89,13 +89,12 @@ The following are the prerequisites for building this Java library:
 ### PREREQUISITES TO RUN ###
 This library assumes the availability of Intel® QAT hardware (https://intel.github.io/quickassist/index.html).
 
-### STEPS TO BUILD ###
+To build qat-java, run the below command:
 ```
-    $ git clone --branch [RELEASE_VERSION_TAG_HERE] https://github.com/intel/qat-java qat-java
-    $ cd qat-java
     $ mvn clean package
 ```
-Available Maven commands include:
+
+Other Maven targets include:
 
 - `compile` - builds sources
 - `test` - builds and runs tests
@@ -106,28 +105,16 @@ Available Maven commands include:
 ### LIBRARY TESTING ###
 This library supports both junit testing and Fuzz testing.
 
-##### JUNIT TEST #####
-To run all the unit tests, execute the following command (skips hardware specific tests):
+To run all the unit tests, execute the following command. To include hardware specific test, add ``-Dhardware.available=true``. 
 ```
 mvn clean test
 ```
 
-To run all the unit tests, execute the following command (includes hardware specific tests):
-```
-mvn clean test -Dhardware.available=true
-```
-##### FUZZ TEST #####
-Jazzer tool is used to enable fuzz testing on this project.
-
-see [here](https://github.com/CodeIntelligenceTesting/jazzer/blob/main/CONTRIBUTING.md) for Jazzer dependencies.
-
-
-To run the Fuzz tests, execute the following command:
+You can also install the [Jazzer](https://github.com/CodeIntelligenceTesting/jazzer/blob/main/CONTRIBUTING.md) tool and run Fuzz tests. 
 ```
 mvn clean test -Dfuzzing=true
 ```
-The above command executes each Jazzer Fuzz tests for 3 seconds.
-To run for a longer duration, modify ```-max_total_time``` fuzzParameter in pom.xml
+
 ### USING THIS LIBRARY IN EXISTING JAVA APPLICATIONS ###
 To use this library in your Java application, build the qat-java jar and include
 its location in your Java classpath.  For example:
@@ -145,7 +132,7 @@ Alternatively, include qat-java's `target/classes` directory in your Java classp
     $ java -cp .:<path>/qat-java/target/classes -Djava.library.path=<path>/qat-java/target/cbuild <class>
     ```
 ## CONTRIBUTING ##
-Thanks for your interest! Please see the CONTRIBUTING.md document for information on how to contribute.
+Thanks for your interest! Please see the [CONTRIBUTING.md](CONTRIBUTING.md) document for information on how to contribute.
 ## Contacts ##
 For more information on this library, contact Nishchal, Praveen (praveen.nishchal@intel.com) or Mammo, Mulugeta (mulugeta.mammo@intel.com), or  Denloye, Olasoji (olasoji.denloye@intel.com).
 
