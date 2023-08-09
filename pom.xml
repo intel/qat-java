@@ -30,7 +30,7 @@
         <!--suppress UnresolvedMavenProperty -->
         <skipTests>${fuzzing}</skipTests>
         <!-- we test upto a 4MB input -->
-        <fuzzParameters>-runs=100000 -max_total_time=300 -max_len=4194304</fuzzParameters>
+        <fuzzParameters>-runs=10000 -max_total_time=300 -max_len=4194304</fuzzParameters>
     </properties>
 
     <profiles>

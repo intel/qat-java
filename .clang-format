@@ -1,7 +1,2 @@
 BasedOnStyle: Google
-IndentWidth: 2
-TabWidth: 2
-BreakStringLiterals: false
-ColumnLimit: 80
-MaxEmptyLinesToKeep: 1
-PointerAlignment: Right
+Language: Cpp
