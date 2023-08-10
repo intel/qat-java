@@ -22,7 +22,7 @@ To build qat-java, run the below command:
 mvn clean package
 ```
 
-You can, for example, run the ByteArrayExample using the below command:
+You can, for example, run the `ByteArrayExample` using the below command:
 ```
 java --module-path target/qat-java-1.0.0.jar -m com.intel.qat/com.intel.qat.examples.ByteArrayExample
 ```
@@ -43,7 +43,7 @@ Other Maven targets include:
 ### Testing
 This library supports both junit testing and Fuzz testing.
 
-To run all the unit tests, execute the following command. To include hardware specific test, add ``-Dhardware.available=true``. 
+To run all the unit tests, execute the following command. To include hardware specific test, add `-Dhardware.available=true`. 
 ```
 mvn clean test
 ```
