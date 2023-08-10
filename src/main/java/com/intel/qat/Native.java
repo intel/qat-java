@@ -11,19 +11,18 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
-import java.security.AccessController;
-import java.security.PrivilegedAction;
 
 /** Class for loading system library - libqat-java.so */
 class Native {
   private static boolean loaded = false;
   private static String extension = "";
 
+  @SuppressWarnings({"deprecation", "removal"})
   static boolean isLoaded() {
     if (loaded) return true;
     try {
-      AccessController.doPrivileged(
-          new PrivilegedAction<Void>() {
+      java.security.AccessController.doPrivileged(
+          new java.security.PrivilegedAction<Void>() {
             public Void run() {
               System.loadLibrary("qat-java"); // Could not load native library from
               // "java.library.path", try loading from jar
@@ -56,6 +55,7 @@ class Native {
     return System.getProperty("os.arch");
   }
 
+  @SuppressWarnings({"deprecation", "removal"})
   static synchronized void loadLibrary() {
     if (isLoaded()) return;
     String libName = getLibName();
@@ -82,11 +82,14 @@ class Native {
       }
       boolean isSymbolicLink = Files.isSymbolicLink(tempNativeLib.toPath());
       if (isSymbolicLink) {
-        throw new IOException("Failed to load native qat-java library");
+        throw new IOException(
+            "Failed to load native qat-java library."
+                + tempNativeLib.toPath()
+                + " is a symbolic link.");
       }
       File finalTempNativeLib = tempNativeLib;
-      AccessController.doPrivileged(
-          new PrivilegedAction<Void>() {
+      java.security.AccessController.doPrivileged(
+          new java.security.PrivilegedAction<Void>() {
             public Void run() {
               System.load(finalTempNativeLib.getAbsolutePath());
               return null;
@@ -94,7 +97,8 @@ class Native {
           });
       loaded = true;
     } catch (IOException e) {
-      throw new ExceptionInInitializerError("Failed to load native qat-java library");
+      throw new ExceptionInInitializerError(
+          "Failed to load native qat-java library.\n" + e.getMessage());
     } finally {
       if (tempNativeLib != null) tempNativeLib.deleteOnExit();
       if (tempNativeLibLock != null) tempNativeLibLock.deleteOnExit();
