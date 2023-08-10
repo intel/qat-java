@@ -35,7 +35,7 @@ public class ByteArrayExample {
       String outputStr = new String(decompressedData, 0, decompressedSize);
       System.out.println("Decompressed data: " + outputStr);
     } catch (QatException e) {
-
+      e.printStackTrace();
     }
   }
 }
