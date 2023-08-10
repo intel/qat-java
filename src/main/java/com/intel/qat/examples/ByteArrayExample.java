@@ -16,20 +16,20 @@ public class ByteArrayExample {
       String inputStr = "The quick brown fox jumps over the lazy dog.";
       byte[] input = inputStr.getBytes();
 
-      QatZipper zipper = new QatZipper();
+      QatZipper qzip = new QatZipper();
 
       // Create a buffer with enough size for compression
-      byte[] compressedData = new byte[zipper.maxCompressedLength(input.length)];
+      byte[] compressedData = new byte[qzip.maxCompressedLength(input.length)];
 
       // Compress the bytes
-      int compressedSize = zipper.compress(input, compressedData);
+      int compressedSize = qzip.compress(input, compressedData);
 
       // Decompress the bytes into a String
       byte[] decompressedData = new byte[input.length];
-      int decompressedSize = zipper.decompress(compressedData, decompressedData);
+      int decompressedSize = qzip.decompress(compressedData, decompressedData);
 
       // Release resources
-      zipper.end();
+      qzip.end();
 
       // Convert the bytes into a String
       String outputStr = new String(decompressedData, 0, decompressedSize);

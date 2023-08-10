@@ -50,7 +50,7 @@ import org.openjdk.jmh.annotations.Warmup;
 
 @State(Scope.Benchmark)
 public class QatJavaBench {
-  QatZipper zipper;
+  QatZipper qzip;
   byte[] src;
   byte[] dst;
   byte[] compressed;
@@ -62,20 +62,20 @@ public class QatJavaBench {
 
   @Setup
   public void prepare() {
-    zipper = new QatZipper(Algorithm.DEFLATE, 6, QatZipper.Mode.HARDWARE);
+    qzip = new QatZipper(Algorithm.DEFLATE, 6, QatZipper.Mode.HARDWARE);
     try {
       src = Files.readAllBytes(Paths.get(fileName));
-      dst = new byte[zipper.maxCompressedLength(src.length)];
+      dst = new byte[qzip.maxCompressedLength(src.length)];
 
       // Compress bytes
-      compressedLength = zipper.compress(src, dst);
+      compressedLength = qzip.compress(src, dst);
 
       // Prepare compressed array of size EXACTLY compressedLength
       compressed = new byte[compressedLength];
       System.arraycopy(dst, 0, compressed, 0, compressedLength);
 
       decompressed = new byte[src.length];
-      decompressedLength = zipper.decompress(compressed, decompressed);
+      decompressedLength = qzip.decompress(compressed, decompressed);
 
       System.out.println("\n-------------------------");
       System.out.printf("Compressed size: %d, ratio: %.2f\n", compressedLength,
@@ -91,7 +91,7 @@ public class QatJavaBench {
   @Measurement(iterations = 3)
   @BenchmarkMode(Mode.Throughput)
   public void compress() {
-    zipper.compress(src, dst);
+    qzip.compress(src, dst);
   }
 
   @Benchmark
@@ -99,11 +99,11 @@ public class QatJavaBench {
   @Measurement(iterations = 3)
   @BenchmarkMode(Mode.Throughput)
   public void decompress() {
-    zipper.decompress(compressed, decompressed);
+    qzip.decompress(compressed, decompressed);
   }
 
   @TearDown
   public void end() {
-    zipper.end();
+    qzip.end();
   }
 }

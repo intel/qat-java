@@ -24,20 +24,20 @@ import java.nio.ReadOnlyBufferException;
  *   String inputStr = "Hello World!";
  *   byte[] input = inputStr.getBytes();
  *
- *   QatZipper zipper = new QatZipper();
+ *   QatZipper qzip = new QatZipper();
  *
  *   // Create a buffer with enough size for compression
- *   byte[] output = new byte[zipper.maxCompressedLength(input.length)];
+ *   byte[] output = new byte[qzip.maxCompressedLength(input.length)];
  *
  *   // Compress the bytes
- *   int resultLen = zipper.compress(input, output);
+ *   int resultLen = qzip.compress(input, output);
  *
  *   // Decompress the bytes into a String
  *   byte[] result = new byte[input.length];
- *   resultLen = zipper.decompress(output, result);
+ *   resultLen = qzip.decompress(output, result);
  *
  *   // Release resources
- *   zipper.end();
+ *   qzip.end();
  *
  *   // Convert the bytes into a String
  *   String outputStr = new String(result, 0, resultLen);
