@@ -3,14 +3,12 @@
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
-
     <groupId>com.intel.qat</groupId>
     <artifactId>qat-java</artifactId>
     <version>1.0.0</version>
     <packaging>jar</packaging>
     <name>qat-java</name>
-    <description>A Java library, based on QATzip, that provides hardware accelerated compression and decompression using Intel (R) QAT.
-    </description>
+    <description>Qat-Java is a compression library that uses Intel® QAT to accelerate compression and decompression.</description>
     <url>https://github.com/intel/qat-java</url>
     <licenses>
         <license>
@@ -21,12 +19,10 @@
     <scm>
         <connection>scm:git:git://github.com/intel/qat-java.git</connection>
         <developerConnection>scm:git:git@github.com:intel/qat-java.git</developerConnection>
-        <url>https://github.com/intel/qat-java/tree/main</url>
+        <url>https://github.com/intel/qat-java</url>
     </scm>
     <properties>
-        <!--suppress UnresolvedMavenProperty -->
         <skipTests>${fuzzing}</skipTests>
-        <!-- we test upto a 4MB input -->
         <fuzzParameters>-runs=10000 -max_total_time=300 -max_len=4194304</fuzzParameters>
     </properties>
     <build>

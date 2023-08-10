@@ -55,43 +55,42 @@ public class FuzzerTest {
   }
 
   static void testByteArray(byte[] src) {
-    QatZipper zipper = new QatZipper();
-    byte[] dst = new byte[zipper.maxCompressedLength(src.length)];
+    QatZipper qzip = new QatZipper();
+    byte[] dst = new byte[qzip.maxCompressedLength(src.length)];
     byte[] dec = new byte[src.length];
 
-    int compressedSize = zipper.compress(src, 0, src.length, dst, 0, dst.length);
-    zipper.decompress(dst, 0, compressedSize, dec, 0, dec.length);
-    zipper.end();
+    int compressedSize = qzip.compress(src, 0, src.length, dst, 0, dst.length);
+    qzip.decompress(dst, 0, compressedSize, dec, 0, dec.length);
+    qzip.end();
 
     assert Arrays.equals(src, dec) : "The source and decompressed arrays do not match.";
   }
 
   static void testByteArrayLZ4(byte[] src) {
-    QatZipper zipper = new QatZipper(QatZipper.Algorithm.LZ4);
-    byte[] dst = new byte[zipper.maxCompressedLength(src.length)];
+    QatZipper qzip = new QatZipper(QatZipper.Algorithm.LZ4);
+    byte[] dst = new byte[qzip.maxCompressedLength(src.length)];
     byte[] dec = new byte[src.length];
 
-    int compressedSize = zipper.compress(src, 0, src.length, dst, 0, dst.length);
-    zipper.decompress(dst, 0, compressedSize, dec, 0, dec.length);
-    zipper.end();
+    int compressedSize = qzip.compress(src, 0, src.length, dst, 0, dst.length);
+    qzip.decompress(dst, 0, compressedSize, dec, 0, dec.length);
+    qzip.end();
 
     assert Arrays.equals(src, dec) : "The source and decompressed arrays do not match.";
   }
 
   static void testByteArrayWithParams(byte[] src) {
-    QatZipper zipper = new QatZipper();
+    QatZipper qzip = new QatZipper();
 
     Random r = new Random();
     int srcOffset = r.nextInt(src.length);
 
-    byte[] dst = new byte[zipper.maxCompressedLength(src.length)];
+    byte[] dst = new byte[qzip.maxCompressedLength(src.length)];
     byte[] dec = new byte[src.length];
 
-    int compressedSize =
-        zipper.compress(src, srcOffset, src.length - srcOffset, dst, 0, dst.length);
-    int decompressedSize = zipper.decompress(dst, 0, compressedSize, dec, 0, dec.length);
+    int compressedSize = qzip.compress(src, srcOffset, src.length - srcOffset, dst, 0, dst.length);
+    int decompressedSize = qzip.decompress(dst, 0, compressedSize, dec, 0, dec.length);
 
-    zipper.end();
+    qzip.end();
 
     assert Arrays.equals(
             Arrays.copyOfRange(src, srcOffset, src.length),
@@ -100,19 +99,18 @@ public class FuzzerTest {
   }
 
   static void testByteArrayWithParamsLZ4(byte[] src) {
-    QatZipper zipper = new QatZipper(QatZipper.Algorithm.LZ4);
+    QatZipper qzip = new QatZipper(QatZipper.Algorithm.LZ4);
 
     Random r = new Random();
     int srcOffset = r.nextInt(src.length);
 
-    byte[] dst = new byte[zipper.maxCompressedLength(src.length)];
+    byte[] dst = new byte[qzip.maxCompressedLength(src.length)];
     byte[] dec = new byte[src.length];
 
-    int compressedSize =
-        zipper.compress(src, srcOffset, src.length - srcOffset, dst, 0, dst.length);
-    int decompressedSize = zipper.decompress(dst, 0, compressedSize, dec, 0, dec.length);
+    int compressedSize = qzip.compress(src, srcOffset, src.length - srcOffset, dst, 0, dst.length);
+    int decompressedSize = qzip.decompress(dst, 0, compressedSize, dec, 0, dec.length);
 
-    zipper.end();
+    qzip.end();
 
     assert Arrays.equals(
             Arrays.copyOfRange(src, srcOffset, src.length),
@@ -125,19 +123,19 @@ public class FuzzerTest {
     srcBuf.put(src, 0, src.length);
     srcBuf.flip();
 
-    QatZipper zipper = new QatZipper();
-    int compressedSize = zipper.maxCompressedLength(src.length);
+    QatZipper qzip = new QatZipper();
+    int compressedSize = qzip.maxCompressedLength(src.length);
 
     assert compressedSize > 0;
 
     ByteBuffer comBuf = ByteBuffer.allocate(compressedSize);
-    zipper.compress(srcBuf, comBuf);
+    qzip.compress(srcBuf, comBuf);
     comBuf.flip();
 
     ByteBuffer decBuf = ByteBuffer.allocate(src.length);
-    zipper.decompress(comBuf, decBuf);
+    qzip.decompress(comBuf, decBuf);
 
-    zipper.end();
+    qzip.end();
 
     assert srcBuf.compareTo(decBuf) == 0 : "The source and decompressed buffers do not match.";
   }
@@ -147,19 +145,19 @@ public class FuzzerTest {
     srcBuf.put(src, 0, src.length);
     srcBuf.flip();
 
-    QatZipper zipper = new QatZipper(QatZipper.Algorithm.LZ4);
-    int compressedSize = zipper.maxCompressedLength(src.length);
+    QatZipper qzip = new QatZipper(QatZipper.Algorithm.LZ4);
+    int compressedSize = qzip.maxCompressedLength(src.length);
 
     assert compressedSize > 0;
 
     ByteBuffer comBuf = ByteBuffer.allocate(compressedSize);
-    zipper.compress(srcBuf, comBuf);
+    qzip.compress(srcBuf, comBuf);
     comBuf.flip();
 
     ByteBuffer decBuf = ByteBuffer.allocate(src.length);
-    zipper.decompress(comBuf, decBuf);
+    qzip.decompress(comBuf, decBuf);
 
-    zipper.end();
+    qzip.end();
 
     assert srcBuf.compareTo(decBuf) == 0 : "The source and decompressed buffers do not match.";
   }
@@ -169,19 +167,19 @@ public class FuzzerTest {
     srcBuf.put(src, 0, src.length);
     srcBuf.flip();
 
-    QatZipper zipper = new QatZipper();
-    int compressedSize = zipper.maxCompressedLength(src.length);
+    QatZipper qzip = new QatZipper();
+    int compressedSize = qzip.maxCompressedLength(src.length);
 
     assert compressedSize > 0;
 
     ByteBuffer comBuf = ByteBuffer.allocateDirect(compressedSize);
-    zipper.compress(srcBuf, comBuf);
+    qzip.compress(srcBuf, comBuf);
     comBuf.flip();
 
     ByteBuffer decBuf = ByteBuffer.allocateDirect(src.length);
-    zipper.decompress(comBuf, decBuf);
+    qzip.decompress(comBuf, decBuf);
 
-    zipper.end();
+    qzip.end();
 
     assert srcBuf.compareTo(decBuf) == 0 : "The source and decompressed buffers do not match.";
   }
@@ -191,19 +189,19 @@ public class FuzzerTest {
     srcBuf.put(src, 0, src.length);
     srcBuf.flip();
 
-    QatZipper zipper = new QatZipper();
-    int compressedSize = zipper.maxCompressedLength(src.length);
+    QatZipper qzip = new QatZipper();
+    int compressedSize = qzip.maxCompressedLength(src.length);
 
     assert compressedSize > 0;
 
     ByteBuffer comBuf = ByteBuffer.allocate(compressedSize);
-    zipper.compress(srcBuf, comBuf);
+    qzip.compress(srcBuf, comBuf);
     comBuf.flip();
 
     ByteBuffer decBuf = ByteBuffer.allocateDirect(src.length);
-    zipper.decompress(comBuf, decBuf);
+    qzip.decompress(comBuf, decBuf);
 
-    zipper.end();
+    qzip.end();
 
     assert srcBuf.compareTo(decBuf) == 0 : "The source and decompressed buffers do not match.";
   }
@@ -213,19 +211,19 @@ public class FuzzerTest {
     srcBuf.put(src, 0, src.length);
     srcBuf.flip();
 
-    QatZipper zipper = new QatZipper(QatZipper.Algorithm.LZ4);
-    int compressedSize = zipper.maxCompressedLength(src.length);
+    QatZipper qzip = new QatZipper(QatZipper.Algorithm.LZ4);
+    int compressedSize = qzip.maxCompressedLength(src.length);
 
     assert compressedSize > 0;
 
     ByteBuffer comBuf = ByteBuffer.allocate(compressedSize);
-    zipper.compress(srcBuf, comBuf);
+    qzip.compress(srcBuf, comBuf);
     comBuf.flip();
 
     ByteBuffer decBuf = ByteBuffer.allocateDirect(src.length);
-    zipper.decompress(comBuf, decBuf);
+    qzip.decompress(comBuf, decBuf);
 
-    zipper.end();
+    qzip.end();
 
     assert srcBuf.compareTo(decBuf) == 0 : "The source and decompressed buffers do not match.";
   }
@@ -235,19 +233,19 @@ public class FuzzerTest {
     srcBuf.put(src, 0, src.length);
     srcBuf.flip();
 
-    QatZipper zipper = new QatZipper();
-    int compressedSize = zipper.maxCompressedLength(src.length);
+    QatZipper qzip = new QatZipper();
+    int compressedSize = qzip.maxCompressedLength(src.length);
 
     assert compressedSize > 0;
 
     ByteBuffer comBuf = ByteBuffer.allocateDirect(compressedSize);
-    zipper.compress(srcBuf, comBuf);
+    qzip.compress(srcBuf, comBuf);
     comBuf.flip();
 
     ByteBuffer decBuf = ByteBuffer.allocate(src.length);
-    zipper.decompress(comBuf, decBuf);
+    qzip.decompress(comBuf, decBuf);
 
-    zipper.end();
+    qzip.end();
 
     assert srcBuf.compareTo(decBuf) == 0 : "The source and decompressed buffers do not match.";
   }
@@ -257,19 +255,19 @@ public class FuzzerTest {
     srcBuf.put(src, 0, src.length);
     srcBuf.flip();
 
-    QatZipper zipper = new QatZipper();
-    int compressedSize = zipper.maxCompressedLength(src.length);
+    QatZipper qzip = new QatZipper();
+    int compressedSize = qzip.maxCompressedLength(src.length);
 
     assert compressedSize > 0;
 
     ByteBuffer comBuf = ByteBuffer.allocateDirect(compressedSize);
-    zipper.compress(srcBuf, comBuf);
+    qzip.compress(srcBuf, comBuf);
     comBuf.flip();
 
     ByteBuffer decBuf = ByteBuffer.allocate(src.length);
-    zipper.decompress(comBuf, decBuf);
+    qzip.decompress(comBuf, decBuf);
 
-    zipper.end();
+    qzip.end();
 
     assert srcBuf.compareTo(decBuf) == 0 : "The source and decompressed buffers do not match.";
   }
@@ -279,20 +277,20 @@ public class FuzzerTest {
     srcBuf.put(src, 0, src.length);
     srcBuf.flip();
 
-    QatZipper zipper = new QatZipper();
-    int compressedSize = zipper.maxCompressedLength(src.length);
+    QatZipper qzip = new QatZipper();
+    int compressedSize = qzip.maxCompressedLength(src.length);
 
     assert compressedSize > 0;
 
     ByteBuffer comBuf = ByteBuffer.allocateDirect(compressedSize);
-    zipper.compress(srcBuf, comBuf);
+    qzip.compress(srcBuf, comBuf);
     comBuf.flip();
 
     ByteBuffer decBuf = ByteBuffer.allocate(src.length);
     ByteBuffer comBufRO = comBuf.asReadOnlyBuffer();
-    zipper.decompress(comBufRO, decBuf);
+    qzip.decompress(comBufRO, decBuf);
 
-    zipper.end();
+    qzip.end();
 
     assert srcBuf.compareTo(decBuf) == 0 : "The source and decompressed buffers do not match.";
   }
@@ -302,20 +300,20 @@ public class FuzzerTest {
     srcBuf.put(src, 0, src.length);
     srcBuf.flip();
 
-    QatZipper zipper = new QatZipper();
-    int compressedSize = zipper.maxCompressedLength(src.length);
+    QatZipper qzip = new QatZipper();
+    int compressedSize = qzip.maxCompressedLength(src.length);
 
     assert compressedSize > 0;
 
     ByteBuffer comBuf = ByteBuffer.allocateDirect(compressedSize);
-    zipper.compress(srcBuf, comBuf);
+    qzip.compress(srcBuf, comBuf);
     comBuf.flip();
 
     ByteBuffer decBuf = ByteBuffer.allocate(src.length);
     ByteBuffer comBufRO = comBuf.asReadOnlyBuffer();
-    zipper.decompress(comBufRO, decBuf);
+    qzip.decompress(comBufRO, decBuf);
 
-    zipper.end();
+    qzip.end();
 
     assert srcBuf.compareTo(decBuf) == 0 : "The source and decompressed buffers do not match.";
   }
@@ -325,19 +323,19 @@ public class FuzzerTest {
     srcBuf.put(src, 0, src.length);
     srcBuf.flip();
 
-    QatZipper zipper = new QatZipper(QatZipper.Algorithm.LZ4);
-    int compressedSize = zipper.maxCompressedLength(src.length);
+    QatZipper qzip = new QatZipper(QatZipper.Algorithm.LZ4);
+    int compressedSize = qzip.maxCompressedLength(src.length);
 
     assert compressedSize > 0;
 
     ByteBuffer comBuf = ByteBuffer.allocateDirect(compressedSize);
-    zipper.compress(srcBuf, comBuf);
+    qzip.compress(srcBuf, comBuf);
     comBuf.flip();
 
     ByteBuffer decBuf = ByteBuffer.allocateDirect(src.length);
-    zipper.decompress(comBuf, decBuf);
+    qzip.decompress(comBuf, decBuf);
 
-    zipper.end();
+    qzip.end();
 
     assert srcBuf.compareTo(decBuf) == 0 : "The source and decompressed buffers do not match.";
   }
@@ -347,19 +345,19 @@ public class FuzzerTest {
     srcBuf.put(src, 0, src.length);
     srcBuf.flip();
 
-    QatZipper zipper = new QatZipper();
-    int compressedSize = zipper.maxCompressedLength(src.length);
+    QatZipper qzip = new QatZipper();
+    int compressedSize = qzip.maxCompressedLength(src.length);
 
     assert compressedSize > 0;
 
     ByteBuffer comBuf = ByteBuffer.allocateDirect(compressedSize);
-    zipper.compress(srcBuf, comBuf);
+    qzip.compress(srcBuf, comBuf);
     comBuf.flip();
 
     ByteBuffer decBuf = ByteBuffer.allocateDirect(src.length);
-    zipper.decompress(comBuf, decBuf);
+    qzip.decompress(comBuf, decBuf);
 
-    zipper.end();
+    qzip.end();
 
     assert srcBuf.compareTo(decBuf) == 0 : "The source and decompressed buffers do not match.";
   }
@@ -369,19 +367,19 @@ public class FuzzerTest {
     srcBuf.put(src, 0, src.length);
     srcBuf.flip();
 
-    QatZipper zipper = new QatZipper(QatZipper.Algorithm.LZ4);
-    int compressedSize = zipper.maxCompressedLength(src.length);
+    QatZipper qzip = new QatZipper(QatZipper.Algorithm.LZ4);
+    int compressedSize = qzip.maxCompressedLength(src.length);
 
     assert compressedSize > 0;
 
     ByteBuffer comBuf = ByteBuffer.allocateDirect(compressedSize);
-    zipper.compress(srcBuf, comBuf);
+    qzip.compress(srcBuf, comBuf);
     comBuf.flip();
 
     ByteBuffer decBuf = ByteBuffer.allocateDirect(src.length);
-    zipper.decompress(comBuf, decBuf);
+    qzip.decompress(comBuf, decBuf);
 
-    zipper.end();
+    qzip.end();
 
     assert srcBuf.compareTo(decBuf) == 0 : "The source and decompressed buffers do not match.";
   }
@@ -391,19 +389,19 @@ public class FuzzerTest {
     srcBuf.put(src, 0, src.length);
     srcBuf.flip();
 
-    QatZipper zipper = new QatZipper();
-    int compressedSize = zipper.maxCompressedLength(src.length);
+    QatZipper qzip = new QatZipper();
+    int compressedSize = qzip.maxCompressedLength(src.length);
 
     assert compressedSize > 0;
 
     ByteBuffer comBuf = ByteBuffer.allocate(compressedSize);
-    zipper.compress(srcBuf, comBuf);
+    qzip.compress(srcBuf, comBuf);
     comBuf.flip();
 
     ByteBuffer decBuf = ByteBuffer.allocate(src.length);
-    zipper.decompress(comBuf, decBuf);
+    qzip.decompress(comBuf, decBuf);
 
-    zipper.end();
+    qzip.end();
 
     assert srcBuf.compareTo(decBuf) == 0 : "The source and decompressed buffers do not match.";
   }
@@ -413,19 +411,19 @@ public class FuzzerTest {
     srcBuf.put(src, 0, src.length);
     srcBuf.flip();
 
-    QatZipper zipper = new QatZipper(QatZipper.Algorithm.LZ4);
-    int compressedSize = zipper.maxCompressedLength(src.length);
+    QatZipper qzip = new QatZipper(QatZipper.Algorithm.LZ4);
+    int compressedSize = qzip.maxCompressedLength(src.length);
 
     assert compressedSize > 0;
 
     ByteBuffer comBuf = ByteBuffer.allocate(compressedSize);
-    zipper.compress(srcBuf, comBuf);
+    qzip.compress(srcBuf, comBuf);
     comBuf.flip();
 
     ByteBuffer decBuf = ByteBuffer.allocate(src.length);
-    zipper.decompress(comBuf, decBuf);
+    qzip.decompress(comBuf, decBuf);
 
-    zipper.end();
+    qzip.end();
 
     assert srcBuf.compareTo(decBuf) == 0 : "The source and decompressed buffers do not match.";
   }
@@ -435,21 +433,21 @@ public class FuzzerTest {
     srcBuf.put(src, 0, src.length);
     srcBuf.flip();
 
-    QatZipper zipper = new QatZipper();
-    int compressedSize = zipper.maxCompressedLength(src.length);
+    QatZipper qzip = new QatZipper();
+    int compressedSize = qzip.maxCompressedLength(src.length);
 
     assert compressedSize > 0;
     ByteBuffer readonlyBuf = srcBuf.asReadOnlyBuffer();
     srcBuf.flip();
 
     ByteBuffer comBuf = ByteBuffer.allocate(compressedSize);
-    zipper.compress(readonlyBuf, comBuf);
+    qzip.compress(readonlyBuf, comBuf);
     comBuf.flip();
 
     ByteBuffer decBuf = ByteBuffer.allocate(src.length);
-    zipper.decompress(comBuf, decBuf);
+    qzip.decompress(comBuf, decBuf);
 
-    zipper.end();
+    qzip.end();
 
     assert srcBuf.compareTo(decBuf) == 0 : "The source and decompressed buffers do not match.";
   }
@@ -459,21 +457,21 @@ public class FuzzerTest {
     srcBuf.put(src, 0, src.length);
     srcBuf.flip();
 
-    QatZipper zipper = new QatZipper(QatZipper.Algorithm.LZ4);
-    int compressedSize = zipper.maxCompressedLength(src.length);
+    QatZipper qzip = new QatZipper(QatZipper.Algorithm.LZ4);
+    int compressedSize = qzip.maxCompressedLength(src.length);
 
     assert compressedSize > 0;
     ByteBuffer readonlyBuf = srcBuf.asReadOnlyBuffer();
     srcBuf.flip();
 
     ByteBuffer comBuf = ByteBuffer.allocate(compressedSize);
-    zipper.compress(readonlyBuf, comBuf);
+    qzip.compress(readonlyBuf, comBuf);
     comBuf.flip();
 
     ByteBuffer decBuf = ByteBuffer.allocate(src.length);
-    zipper.decompress(comBuf, decBuf);
+    qzip.decompress(comBuf, decBuf);
 
-    zipper.end();
+    qzip.end();
 
     assert srcBuf.compareTo(decBuf) == 0 : "The source and decompressed buffers do not match.";
   }
@@ -482,16 +480,16 @@ public class FuzzerTest {
     int comLevel = new Random().nextInt(9) + 1;
     int retryCount = new Random().nextInt(20);
 
-    QatZipper zipper =
+    QatZipper qzip =
         new QatZipper(QatZipper.Algorithm.DEFLATE, comLevel, QatZipper.Mode.AUTO, retryCount);
 
-    byte[] dst = new byte[zipper.maxCompressedLength(src.length)];
+    byte[] dst = new byte[qzip.maxCompressedLength(src.length)];
     byte[] dec = new byte[src.length];
 
-    int compressedSize = zipper.compress(src, 0, src.length, dst, 0, dst.length);
-    zipper.decompress(dst, 0, compressedSize, dec, 0, dec.length);
+    int compressedSize = qzip.compress(src, 0, src.length, dst, 0, dst.length);
+    qzip.decompress(dst, 0, compressedSize, dec, 0, dec.length);
 
-    zipper.end();
+    qzip.end();
 
     assert Arrays.equals(src, dec) : "The source and decompressed arrays do not match.";
   }
@@ -500,16 +498,16 @@ public class FuzzerTest {
     int comLevel = new Random().nextInt(9) + 1;
     int retryCount = new Random().nextInt(20);
 
-    QatZipper zipper =
+    QatZipper qzip =
         new QatZipper(QatZipper.Algorithm.LZ4, comLevel, QatZipper.Mode.AUTO, retryCount);
 
-    byte[] dst = new byte[zipper.maxCompressedLength(src.length)];
+    byte[] dst = new byte[qzip.maxCompressedLength(src.length)];
     byte[] dec = new byte[src.length];
 
-    int compressedSize = zipper.compress(src, 0, src.length, dst, 0, dst.length);
-    zipper.decompress(dst, 0, compressedSize, dec, 0, dec.length);
+    int compressedSize = qzip.compress(src, 0, src.length, dst, 0, dst.length);
+    qzip.decompress(dst, 0, compressedSize, dec, 0, dec.length);
 
-    zipper.end();
+    qzip.end();
 
     assert Arrays.equals(src, dec) : "The source and decompressed arrays do not match.";
   }
