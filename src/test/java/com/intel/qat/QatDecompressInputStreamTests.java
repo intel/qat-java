@@ -258,7 +258,7 @@ public class QatDecompressInputStreamTests {
   @MethodSource("provideModeAlgorithmLengthParams")
   public void testInputStreamReadShort2(Mode mode, Algorithm algo, int bufferSize)
       throws IOException {
-    byte[] newSrc = Arrays.copyOf(src, bufferSize);
+    byte[] newSrc = Arrays.copyOf(src, 33);
     ByteArrayOutputStream outStream = new ByteArrayOutputStream();
     try (QatCompressOutputStream outputStream =
         new QatCompressOutputStream(outStream, bufferSize, algo, mode)) {
@@ -269,10 +269,10 @@ public class QatDecompressInputStreamTests {
     byte[] result = new byte[bufferSize];
     int read = 0;
     try (QatDecompressInputStream decompressedStream =
-        new QatDecompressInputStream(inputStream, bufferSize, algo, mode)) {
+        new QatDecompressInputStream(inputStream, 4, algo, mode)) {
       read = decompressedStream.read(result);
     }
-    assertTrue(Arrays.equals(newSrc, result));
+    assertTrue(Arrays.equals(newSrc, Arrays.copyOf(result, read)));
   }
 
   @ParameterizedTest

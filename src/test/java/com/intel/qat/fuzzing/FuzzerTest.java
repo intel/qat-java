@@ -517,8 +517,8 @@ public class FuzzerTest {
   static void testQatStreamDeflate(byte[] src) throws IOException {
     if (src.length < 32) return;
     Random rnd = new Random();
-    int compressBufferSize = Math.abs(rnd.nextInt(1024 * 1024));
-    int decompressBufferSize = Math.abs(rnd.nextInt(1024 * 1024));
+    int compressBufferSize = 1 + Math.abs(rnd.nextInt(1024 * 1024));
+    int decompressBufferSize = 1 + Math.abs(rnd.nextInt(1024 * 1024));
 
     QatZipper.Algorithm algo = QatZipper.Algorithm.DEFLATE;
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
@@ -551,8 +551,8 @@ public class FuzzerTest {
     if (src.length < 32) return;
     Random rnd = new Random();
     ByteBuffer args = ByteBuffer.wrap(Arrays.copyOf(src, 8));
-    int compressBufferSize = Math.abs(1 + rnd.nextInt(1024 * 1024));
-    int decompressBufferSize = Math.abs(1 + rnd.nextInt(1024 * 1024));
+    int compressBufferSize = 1 + Math.abs(rnd.nextInt(1024 * 1024));
+    int decompressBufferSize = 1 + Math.abs(rnd.nextInt(1024 * 1024));
 
     QatZipper.Algorithm algo = QatZipper.Algorithm.LZ4;
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();

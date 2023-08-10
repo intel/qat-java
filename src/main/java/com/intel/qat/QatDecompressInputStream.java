@@ -225,7 +225,7 @@ public class QatDecompressInputStream extends FilterInputStream {
     }
     outputBuffer.clear();
     int decompressed = qzip.decompress(inputBuffer, outputBuffer);
-    if (decompressed > 0) outputBuffer.flip();
+    outputBuffer.flip();
     if (inputBuffer.hasRemaining()) inputBuffer.compact();
     else if (bytesRead < 0 && inputBuffer.remaining() == 0) eof = true;
     else inputBuffer.clear();
