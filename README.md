@@ -43,9 +43,14 @@ Other Maven targets include:
 ### Testing
 This library supports both junit testing and Fuzz testing.
 
-To run all the unit tests, execute the following command. To include hardware specific test, add `-Dhardware.available=true`. 
+To run all the unit tests, execute the below command.
 ```
 mvn clean test
+```
+
+To include hardware specific tests, execute the below command:
+```
+mvn clean test -Dhardware.available=true
 ```
 
 You can also install the [Jazzer](https://github.com/CodeIntelligenceTesting/jazzer/blob/main/CONTRIBUTING.md) tool and run Fuzz tests. 
