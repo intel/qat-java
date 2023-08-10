@@ -6,8 +6,8 @@
 package com.intel.qat.fuzzing;
 
 import com.code_intelligence.jazzer.api.FuzzedDataProvider;
-import com.intel.qat.QatCompressOutputStream;
-import com.intel.qat.QatDecompressInputStream;
+import com.intel.qat.QatCompressorOutputStream;
+import com.intel.qat.QatDecompressorInputStream;
 import com.intel.qat.QatException;
 import com.intel.qat.QatZipper;
 import java.io.ByteArrayInputStream;
@@ -520,16 +520,17 @@ public class FuzzerTest {
 
     QatZipper.Algorithm algo = QatZipper.Algorithm.DEFLATE;
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-    try (QatCompressOutputStream compressedStream =
-        new QatCompressOutputStream(outputStream, compressBufferSize, algo, QatZipper.Mode.AUTO)) {
+    try (QatCompressorOutputStream compressedStream =
+        new QatCompressorOutputStream(
+            outputStream, compressBufferSize, algo, QatZipper.Mode.AUTO)) {
       compressedStream.write(src);
     }
     byte[] outputStreamBuf = outputStream.toByteArray();
     byte[] buffer = new byte[1024];
     ByteArrayOutputStream resultStream = new ByteArrayOutputStream();
     ByteArrayInputStream inputStream = new ByteArrayInputStream(outputStreamBuf);
-    try (QatDecompressInputStream decompressedStream =
-        new QatDecompressInputStream(
+    try (QatDecompressorInputStream decompressedStream =
+        new QatDecompressorInputStream(
             inputStream, decompressBufferSize, algo, QatZipper.Mode.AUTO)) {
       int bytesRead;
       while ((bytesRead = decompressedStream.read(buffer)) != -1) {
@@ -554,16 +555,17 @@ public class FuzzerTest {
 
     QatZipper.Algorithm algo = QatZipper.Algorithm.LZ4;
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-    try (QatCompressOutputStream compressedStream =
-        new QatCompressOutputStream(outputStream, compressBufferSize, algo, QatZipper.Mode.AUTO)) {
+    try (QatCompressorOutputStream compressedStream =
+        new QatCompressorOutputStream(
+            outputStream, compressBufferSize, algo, QatZipper.Mode.AUTO)) {
       compressedStream.write(src);
     }
     byte[] outputStreamBuf = outputStream.toByteArray();
     byte[] buffer = new byte[1024];
     ByteArrayOutputStream resultStream = new ByteArrayOutputStream();
     ByteArrayInputStream inputStream = new ByteArrayInputStream(outputStreamBuf);
-    try (QatDecompressInputStream decompressedStream =
-        new QatDecompressInputStream(
+    try (QatDecompressorInputStream decompressedStream =
+        new QatDecompressorInputStream(
             inputStream, decompressBufferSize, algo, QatZipper.Mode.AUTO)) {
       int bytesRead;
       while ((bytesRead = decompressedStream.read(buffer)) != -1) {

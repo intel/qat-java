@@ -19,7 +19,7 @@ import java.util.Objects;
  * This class implements an OutputStream filter that compresses data using Intel &reg; QuickAssist
  * Technology (QAT).
  */
-public class QatCompressOutputStream extends FilterOutputStream {
+public class QatCompressorOutputStream extends FilterOutputStream {
   private ByteBuffer inputBuffer;
   private QatZipper qzip;
   private ByteBuffer outputBuffer;
@@ -34,7 +34,7 @@ public class QatCompressOutputStream extends FilterOutputStream {
    *
    * @param out the output stream
    */
-  public QatCompressOutputStream(OutputStream out) {
+  public QatCompressorOutputStream(OutputStream out) {
     this(out, DEFAULT_BUFFER_SIZE, Algorithm.DEFLATE, QatZipper.DEFAULT_COMPRESS_LEVEL, Mode.AUTO);
   }
 
@@ -45,7 +45,7 @@ public class QatCompressOutputStream extends FilterOutputStream {
    * @param out the output stream
    * @param bufferSize the output buffer size
    */
-  public QatCompressOutputStream(OutputStream out, int bufferSize) {
+  public QatCompressorOutputStream(OutputStream out, int bufferSize) {
     this(out, bufferSize, Algorithm.DEFLATE, QatZipper.DEFAULT_COMPRESS_LEVEL, Mode.AUTO);
   }
 
@@ -57,7 +57,7 @@ public class QatCompressOutputStream extends FilterOutputStream {
    * @param bufferSize the output buffer size
    * @param algorithm the compression algorithm (deflate or LZ4).
    */
-  public QatCompressOutputStream(OutputStream out, int bufferSize, Algorithm algorithm) {
+  public QatCompressorOutputStream(OutputStream out, int bufferSize, Algorithm algorithm) {
     this(out, bufferSize, algorithm, QatZipper.DEFAULT_COMPRESS_LEVEL, Mode.AUTO);
   }
 
@@ -69,7 +69,8 @@ public class QatCompressOutputStream extends FilterOutputStream {
    * @param algorithm the compression algorithm (deflate or LZ4).
    * @param level the compression level.
    */
-  public QatCompressOutputStream(OutputStream out, int bufferSize, Algorithm algorithm, int level) {
+  public QatCompressorOutputStream(
+      OutputStream out, int bufferSize, Algorithm algorithm, int level) {
     this(out, bufferSize, algorithm, level, Mode.AUTO);
   }
 
@@ -83,7 +84,8 @@ public class QatCompressOutputStream extends FilterOutputStream {
    * @param mode the mode of operation (HARDWARE - only hardware, AUTO - hardware with a software
    *     failover.)
    */
-  public QatCompressOutputStream(OutputStream out, int bufferSize, Algorithm algorithm, Mode mode) {
+  public QatCompressorOutputStream(
+      OutputStream out, int bufferSize, Algorithm algorithm, Mode mode) {
     this(out, bufferSize, algorithm, QatZipper.DEFAULT_COMPRESS_LEVEL, mode);
   }
 
@@ -97,7 +99,7 @@ public class QatCompressOutputStream extends FilterOutputStream {
    * @param mode the mode of operation (HARDWARE - only hardware, AUTO - hardware with a software
    *     failover.)
    */
-  public QatCompressOutputStream(
+  public QatCompressorOutputStream(
       OutputStream out, int bufferSize, Algorithm algorithm, int level, Mode mode) {
     super(out);
     if (bufferSize <= 0) throw new IllegalArgumentException();

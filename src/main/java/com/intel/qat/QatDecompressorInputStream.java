@@ -19,7 +19,7 @@ import java.util.Objects;
  * This class implements an InputStream filter that decompresses data using Intel &reg; QuickAssist
  * Technology (QAT).
  */
-public class QatDecompressInputStream extends FilterInputStream {
+public class QatDecompressorInputStream extends FilterInputStream {
   private ByteBuffer inputBuffer;
   private ByteBuffer outputBuffer;
   private QatZipper qzip;
@@ -35,7 +35,7 @@ public class QatDecompressInputStream extends FilterInputStream {
    *
    * @param in the input stream
    */
-  public QatDecompressInputStream(InputStream in) {
+  public QatDecompressorInputStream(InputStream in) {
     this(in, DEFAULT_BUFFER_SIZE, Algorithm.DEFLATE, Mode.AUTO);
   }
 
@@ -45,7 +45,7 @@ public class QatDecompressInputStream extends FilterInputStream {
    * @param in the input stream
    * @param bufferSize the input buffer size
    */
-  public QatDecompressInputStream(InputStream in, int bufferSize) {
+  public QatDecompressorInputStream(InputStream in, int bufferSize) {
     this(in, bufferSize, Algorithm.DEFLATE, Mode.AUTO);
   }
 
@@ -56,7 +56,7 @@ public class QatDecompressInputStream extends FilterInputStream {
    * @param bufferSize the input buffer size
    * @param algorithm the compression algorithm (deflate or LZ4).
    */
-  public QatDecompressInputStream(InputStream in, int bufferSize, Algorithm algorithm) {
+  public QatDecompressorInputStream(InputStream in, int bufferSize, Algorithm algorithm) {
     this(in, bufferSize, algorithm, Mode.AUTO);
   }
 
@@ -68,7 +68,7 @@ public class QatDecompressInputStream extends FilterInputStream {
    * @param mode the mode of operation (HARDWARE - only hardware, AUTO - hardware with a software
    *     failover.)
    */
-  public QatDecompressInputStream(InputStream in, int bufferSize, Mode mode) {
+  public QatDecompressorInputStream(InputStream in, int bufferSize, Mode mode) {
     this(in, bufferSize, Algorithm.DEFLATE, mode);
   }
 
@@ -81,7 +81,8 @@ public class QatDecompressInputStream extends FilterInputStream {
    * @param mode the mode of operation (HARDWARE - only hardware, AUTO - hardware with a software
    *     failover.)
    */
-  public QatDecompressInputStream(InputStream in, int bufferSize, Algorithm algorithm, Mode mode) {
+  public QatDecompressorInputStream(
+      InputStream in, int bufferSize, Algorithm algorithm, Mode mode) {
     super(in);
     if (bufferSize <= 0) throw new IllegalArgumentException();
     Objects.requireNonNull(in);

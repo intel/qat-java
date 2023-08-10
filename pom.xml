@@ -52,6 +52,9 @@
                             <addClasspath>true</addClasspath>
                         </manifest>
                     </archive>
+                    <excludes>
+                        <exclude>com/intel/qat/examples/**</exclude>
+                    </excludes>
                 </configuration>
             </plugin>
             <plugin>

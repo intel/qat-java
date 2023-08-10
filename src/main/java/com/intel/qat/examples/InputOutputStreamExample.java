@@ -6,8 +6,8 @@
 
 package com.intel.qat.examples;
 
-import com.intel.qat.QatCompressOutputStream;
-import com.intel.qat.QatDecompressInputStream;
+import com.intel.qat.QatCompressorOutputStream;
+import com.intel.qat.QatDecompressorInputStream;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -19,14 +19,14 @@ public class InputOutputStreamExample {
       byte[] dataToCompress = "The quick brown fox jumps over the lazy dog.".getBytes();
 
       ByteArrayOutputStream compressedOutput = new ByteArrayOutputStream();
-      QatCompressOutputStream qatOutputStream = new QatCompressOutputStream(compressedOutput);
+      QatCompressorOutputStream qatOutputStream = new QatCompressorOutputStream(compressedOutput);
       qatOutputStream.write(dataToCompress);
       qatOutputStream.close();
 
       byte[] compressedData = compressedOutput.toByteArray();
 
       ByteArrayInputStream compressedInput = new ByteArrayInputStream(compressedData);
-      QatDecompressInputStream qatInputStream = new QatDecompressInputStream(compressedInput);
+      QatDecompressorInputStream qatInputStream = new QatDecompressorInputStream(compressedInput);
       ByteArrayOutputStream decompressedOutput = new ByteArrayOutputStream();
 
       byte[] buffer = new byte[1024];
