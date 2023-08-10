@@ -108,6 +108,18 @@ public class QatCompressOutputStreamTests {
   }
 
   @Test
+  public void testOutputStreamNullStream() throws IOException {
+    ByteArrayOutputStream outputStream = null;
+    try {
+      try (QatCompressOutputStream compressedStream =
+          new QatCompressOutputStream(outputStream, 16 * 1024)) {}
+      fail("Failed to catch NullPointerException");
+    } catch (NullPointerException | IOException e) {
+      assertTrue(true);
+    }
+  }
+
+  @Test
   public void testOutputStreamConstructor() throws IOException {
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     try {

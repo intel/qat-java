@@ -13,6 +13,7 @@ import java.io.FilterOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
+import java.util.Objects;
 
 /**
  * This class implements an OutputStream filter that compresses data using Intel &reg; QuickAssist
@@ -100,6 +101,7 @@ public class QatCompressOutputStream extends FilterOutputStream {
       OutputStream out, int bufferSize, Algorithm algorithm, int level, Mode mode) {
     super(out);
     if (bufferSize <= 0) throw new IllegalArgumentException();
+    Objects.requireNonNull(out);
     qzip = new QatZipper(algorithm, level, mode);
     inputBuffer = ByteBuffer.allocate(bufferSize);
     outputBuffer = ByteBuffer.allocate(qzip.maxCompressedLength(bufferSize));
@@ -168,6 +170,7 @@ public class QatCompressOutputStream extends FilterOutputStream {
     inputBuffer.flip();
     int compressedBytes = qzip.compress(inputBuffer, outputBuffer);
     out.write(outputBuffer.array(), 0, compressedBytes);
+    out.flush();
     inputBuffer.clear();
     outputBuffer.clear();
   }

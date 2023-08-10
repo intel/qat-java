@@ -117,6 +117,19 @@ public class QatDecompressInputStreamTests {
   }
 
   @Test
+  public void testNullStream() {
+    ByteArrayInputStream inputStream = null;
+    byte[] result = new byte[src.length];
+    try {
+      try (QatDecompressInputStream decompressedStream =
+          new QatDecompressInputStream(inputStream, 16 * 1024)) {}
+      fail("Failed to catch NullPointerException");
+    } catch (NullPointerException | IOException e) {
+      assertTrue(true);
+    }
+  }
+
+  @Test
   public void testConstructor() {
     ByteArrayInputStream inputStream = new ByteArrayInputStream(deflateBytes);
     byte[] result = new byte[src.length];

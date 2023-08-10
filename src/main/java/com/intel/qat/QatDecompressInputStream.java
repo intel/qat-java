@@ -13,6 +13,7 @@ import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
+import java.util.Objects;
 
 /**
  * This class implements an InputStream filter that decompresses data using Intel &reg; QuickAssist
@@ -83,6 +84,7 @@ public class QatDecompressInputStream extends FilterInputStream {
   public QatDecompressInputStream(InputStream in, int bufferSize, Algorithm algorithm, Mode mode) {
     super(in);
     if (bufferSize <= 0) throw new IllegalArgumentException();
+    Objects.requireNonNull(in);
     inputBuffer = ByteBuffer.allocate(bufferSize);
     outputBuffer = ByteBuffer.allocate(bufferSize);
     outputBuffer.position(outputBuffer.capacity());
