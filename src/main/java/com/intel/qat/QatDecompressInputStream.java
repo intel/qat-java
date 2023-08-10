@@ -217,19 +217,18 @@ public class QatDecompressInputStream extends FilterInputStream {
   private void fill() throws IOException {
     if (eof) return;
     int bytesRead = in.read(inputBuffer.array(), inputBuffer.position(), inputBuffer.remaining());
-    if (bytesRead < 0) {
-      inputBuffer.limit(inputBuffer.position());
-    } else inputBuffer.limit(inputBuffer.position() + bytesRead);
+    inputBuffer.limit(inputBuffer.position() + Math.max(0, bytesRead));
     inputBuffer.rewind();
     if (bytesRead < 0 && inputBuffer.remaining() == 0) {
       eof = true;
       return;
     }
-    outputBuffer.flip();
+    outputBuffer.clear();
     int decompressed = qzip.decompress(inputBuffer, outputBuffer);
     if (decompressed > 0) outputBuffer.flip();
     if (inputBuffer.hasRemaining()) inputBuffer.compact();
     else if (bytesRead < 0 && inputBuffer.remaining() == 0) eof = true;
     else inputBuffer.clear();
+    if (decompressed == 0) fill();
   }
 }

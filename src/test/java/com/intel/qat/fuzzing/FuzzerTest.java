@@ -6,14 +6,19 @@
 package com.intel.qat.fuzzing;
 
 import com.code_intelligence.jazzer.api.FuzzedDataProvider;
+import com.intel.qat.QatCompressOutputStream;
+import com.intel.qat.QatDecompressInputStream;
 import com.intel.qat.QatException;
 import com.intel.qat.QatZipper;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Random;
 
 public class FuzzerTest {
-  public static void fuzzerTestOneInput(FuzzedDataProvider data) {
+  public static void fuzzerTestOneInput(FuzzedDataProvider data) throws IOException {
     try {
       if (data.remainingBytes() == 0) return;
 
@@ -42,6 +47,8 @@ public class FuzzerTest {
       testMixedTypesTwoLZ4(src);
       testMixedTypesThreeLZ4(src);
       testWithCompressionLengthAndRetryLZ4(src);
+      testQatStreamDeflate(src);
+      testQatStreamLZ4(src);
     } catch (QatException e) {
       throw e;
     }
@@ -505,5 +512,72 @@ public class FuzzerTest {
     zipper.end();
 
     assert Arrays.equals(src, dec) : "The source and decompressed arrays do not match.";
+  }
+
+  static void testQatStreamDeflate(byte[] src) throws IOException {
+    if (src.length < 32) return;
+    Random rnd = new Random();
+    int compressBufferSize = Math.abs(rnd.nextInt(1024 * 1024));
+    int decompressBufferSize = Math.abs(rnd.nextInt(1024 * 1024));
+
+    QatZipper.Algorithm algo = QatZipper.Algorithm.DEFLATE;
+    ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+    try (QatCompressOutputStream compressedStream =
+        new QatCompressOutputStream(outputStream, compressBufferSize, algo, QatZipper.Mode.AUTO)) {
+      compressedStream.write(src);
+    }
+    byte[] outputStreamBuf = outputStream.toByteArray();
+    byte[] buffer = new byte[1024];
+    ByteArrayOutputStream resultStream = new ByteArrayOutputStream();
+    ByteArrayInputStream inputStream = new ByteArrayInputStream(outputStreamBuf);
+    try (QatDecompressInputStream decompressedStream =
+        new QatDecompressInputStream(
+            inputStream, decompressBufferSize, algo, QatZipper.Mode.AUTO)) {
+      int bytesRead;
+      while ((bytesRead = decompressedStream.read(buffer)) != -1) {
+        resultStream.write(buffer, 0, bytesRead);
+      }
+    }
+    assert Arrays.equals(src, resultStream.toByteArray())
+        : "The source and decompressed arrays do not match. cb = "
+            + compressBufferSize
+            + " db = "
+            + decompressBufferSize
+            + " srcLen is "
+            + src.length;
+  }
+
+  static void testQatStreamLZ4(byte[] src) throws IOException {
+    if (src.length < 32) return;
+    Random rnd = new Random();
+    ByteBuffer args = ByteBuffer.wrap(Arrays.copyOf(src, 8));
+    int compressBufferSize = Math.abs(1 + rnd.nextInt(1024 * 1024));
+    int decompressBufferSize = Math.abs(1 + rnd.nextInt(1024 * 1024));
+
+    QatZipper.Algorithm algo = QatZipper.Algorithm.LZ4;
+    ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+    try (QatCompressOutputStream compressedStream =
+        new QatCompressOutputStream(outputStream, compressBufferSize, algo, QatZipper.Mode.AUTO)) {
+      compressedStream.write(src);
+    }
+    byte[] outputStreamBuf = outputStream.toByteArray();
+    byte[] buffer = new byte[1024];
+    ByteArrayOutputStream resultStream = new ByteArrayOutputStream();
+    ByteArrayInputStream inputStream = new ByteArrayInputStream(outputStreamBuf);
+    try (QatDecompressInputStream decompressedStream =
+        new QatDecompressInputStream(
+            inputStream, decompressBufferSize, algo, QatZipper.Mode.AUTO)) {
+      int bytesRead;
+      while ((bytesRead = decompressedStream.read(buffer)) != -1) {
+        resultStream.write(buffer, 0, bytesRead);
+      }
+    }
+    assert Arrays.equals(src, resultStream.toByteArray())
+        : "The source and decompressed arrays do not match. cb = "
+            + compressBufferSize
+            + " db = "
+            + decompressBufferSize
+            + " srcLen is "
+            + src.length;
   }
 }
