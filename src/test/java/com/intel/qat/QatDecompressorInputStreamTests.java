@@ -465,7 +465,41 @@ public class QatDecompressorInputStreamTests {
 
   @ParameterizedTest
   @MethodSource("provideModeAlgorithmParams")
+  public void testInputStreamReadNullArray(Mode mode, Algorithm algo) throws IOException {
+    ByteArrayInputStream inputStream =
+        new ByteArrayInputStream(algo.equals(Algorithm.LZ4) ? lz4Bytes : deflateBytes);
+    byte[] result = new byte[src.length];
+    try (QatDecompressorInputStream decompressedStream =
+        new QatDecompressorInputStream(inputStream, 16 * 1024, algo, mode)) {
+      try {
+        decompressedStream.read(null, result.length - 1, -100);
+        fail("Failed to catch NullPointerException");
+      } catch (NullPointerException npe) {
+        assertTrue(true);
+      }
+    }
+  }
+
+  @ParameterizedTest
+  @MethodSource("provideModeAlgorithmParams")
   public void testInputStreamReadBadLength(Mode mode, Algorithm algo) throws IOException {
+    ByteArrayInputStream inputStream =
+        new ByteArrayInputStream(algo.equals(Algorithm.LZ4) ? lz4Bytes : deflateBytes);
+    byte[] result = new byte[src.length];
+    try (QatDecompressorInputStream decompressedStream =
+        new QatDecompressorInputStream(inputStream, 16 * 1024, algo, mode)) {
+      try {
+        decompressedStream.read(result, result.length - 1, -100);
+        fail("Failed to catch IndexOutOfBoundsException");
+      } catch (IndexOutOfBoundsException oob) {
+        assertTrue(true);
+      }
+    }
+  }
+
+  @ParameterizedTest
+  @MethodSource("provideModeAlgorithmParams")
+  public void testInputStreamReadBadOffsetAndLength(Mode mode, Algorithm algo) throws IOException {
     ByteArrayInputStream inputStream =
         new ByteArrayInputStream(algo.equals(Algorithm.LZ4) ? lz4Bytes : deflateBytes);
     byte[] result = new byte[src.length];

@@ -374,6 +374,23 @@ public class QatCompressorOutputStreamTests {
 
   @ParameterizedTest
   @MethodSource("provideModeAlgorithmParams")
+  public void testOutputStreamWriteNullArray(Mode mode, Algorithm algo) throws IOException {
+    qzip = new QatZipper(algo);
+    byte[] src = Files.readAllBytes(Paths.get(SAMPLE_TEXT_PATH));
+    ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+    try (QatCompressorOutputStream compressedStream =
+        new QatCompressorOutputStream(outputStream, 16 * 1024, algo, mode)) {
+      try {
+        compressedStream.write(null, 33, 100);
+        fail("Failed to catch NullPointerException");
+      } catch (NullPointerException npe) {
+        assertTrue(true);
+      }
+    }
+  }
+
+  @ParameterizedTest
+  @MethodSource("provideModeAlgorithmParams")
   public void testOutputStreamWriteBadOffset(Mode mode, Algorithm algo) throws IOException {
     qzip = new QatZipper(algo);
     byte[] src = Files.readAllBytes(Paths.get(SAMPLE_TEXT_PATH));
@@ -392,6 +409,24 @@ public class QatCompressorOutputStreamTests {
   @ParameterizedTest
   @MethodSource("provideModeAlgorithmParams")
   public void testOutputStreamWriteBadLength(Mode mode, Algorithm algo) throws IOException {
+    qzip = new QatZipper(algo);
+    byte[] src = Files.readAllBytes(Paths.get(SAMPLE_TEXT_PATH));
+    ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+    try (QatCompressorOutputStream compressedStream =
+        new QatCompressorOutputStream(outputStream, 16 * 1024, algo, mode)) {
+      try {
+        compressedStream.write(src, src.length - 1, -100);
+        fail("Failed to catch IndexOutOfBoundsException");
+      } catch (IndexOutOfBoundsException oob) {
+        assertTrue(true);
+      }
+    }
+  }
+
+  @ParameterizedTest
+  @MethodSource("provideModeAlgorithmParams")
+  public void testOutputStreamWriteBadOffsetAndLength(Mode mode, Algorithm algo)
+      throws IOException {
     qzip = new QatZipper(algo);
     byte[] src = Files.readAllBytes(Paths.get(SAMPLE_TEXT_PATH));
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();

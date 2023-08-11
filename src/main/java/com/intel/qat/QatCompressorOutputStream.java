@@ -147,7 +147,8 @@ public class QatCompressorOutputStream extends FilterOutputStream {
   @Override
   public void write(byte[] b, int off, int len) throws IOException {
     if (closed) throw new IOException("Stream is closed");
-    if (off < 0 || off + len > b.length) throw new IndexOutOfBoundsException();
+    Objects.requireNonNull(b);
+    if (off < 0 || len < 0 || off + len > b.length) throw new IndexOutOfBoundsException();
 
     int bytesToWrite = 0;
     while (len > (bytesToWrite = inputBuffer.remaining())) {

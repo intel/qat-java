@@ -135,7 +135,8 @@ public class QatDecompressorInputStream extends FilterInputStream {
   @Override
   public int read(byte[] b, int off, int len) throws IOException {
     if (closed) throw new IOException("Stream is closed");
-    if (off < 0 || off + len > b.length) throw new IndexOutOfBoundsException();
+    Objects.requireNonNull(b);
+    if (off < 0 || len < 0 || off + len > b.length) throw new IndexOutOfBoundsException();
     if (eof && !outputBuffer.hasRemaining()) return -1;
     int result = 0;
     int bytesToRead = 0;
