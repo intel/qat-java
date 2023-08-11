@@ -3,7 +3,7 @@ Qat-Java library provides accelerated compression and decompression using Intel�
 
 Qat-Java currently supports DEFLATE and LZ4 compression algorithms.
 
-### Dependencies
+## Prerequisite
 To use Intel® QAT for compression and decompression, Qat-Java requires the following dependencies to be met.
 
 - ***Install QAT driver***. Download the Intel® QAT driver for Linux from [here](https://www.intel.com/content/www/us/en/download/765501/intel-quickassist-technology-driver-for-linux-hw-version-2-0.html) and then follow these [instructions](https://intel.github.io/quickassist/GSG/2.X/index.html).
@@ -12,28 +12,15 @@ To use Intel® QAT for compression and decompression, Qat-Java requires the foll
 
 *Important!* In cases where a QAT hardware is not available, Qat-Java can use a software-only execution. The instructions for installing and configuring the dependencies for a software-only execution are documented [here](SOFTWARE_ONLY_CONFIG.md).  
 
-## Building Qat-Java
-The following are the prerequisites needed for building the Qat-Java library:
+## Build
+In addition to the prerequisites listed above, building Qat-Java requires the following to be installed:
 
-1. Intel® QAT library - explained in the previous section
-2. Java 11 or above
-3. Build tools - **gcc**, **CMake** , **Maven** and **clang** (for fuzz testing)
-
-> Build instructions were tested using gcc-8.5.0, cmake-3.10.0, mvn-3.5.4 and clang-16.0.0.
+* Java 11 or above.
+* gcc, CMake , Maven, and clang (for fuzz testing).
 
 To build qat-java, run the below command:
 ```
 mvn clean package
-```
-
-You can, for example, run the `ByteArrayExample` example using the below command:
-```
-java -cp .:./target/classes/ com.intel.qat.examples.ByteArrayExample
-```
-
-Or using this command:
-```
-java --module-path target/classes  -m com.intel.qat/com.intel.qat.examples.ByteArrayExample
 ```
 
 Other Maven targets include:
@@ -44,9 +31,9 @@ Other Maven targets include:
 - `javadoc:javadoc` - builds javadocs into ```target/site/apidocs```
 - `package` - builds jar file into ```target``` directory
 
-### Testing
-This library supports both junit testing and Fuzz testing.
+> The build instructions were tested using gcc-8.5.0, cmake-3.10.0, mvn-3.5.4 and clang-16.0.0.
 
+## Testing
 To run all the unit tests, execute the below command.
 ```
 mvn clean test
@@ -62,8 +49,20 @@ You can also install the [Jazzer](https://github.com/CodeIntelligenceTesting/jaz
 mvn clean test -Dfuzzing=true
 ```
 
-## CONTRIBUTING ##
+## Examples
+You can run the examples in the `com.intel.qat.examples`, use the below command:
+```
+java -cp .:./target/classes/ com.intel.qat.examples.<example-class>
+```
+
+Or using this command:
+```
+java --module-path target/classes  -m com.intel.qat/com.intel.qat.examples.<example-class>
+```
+
+## Contributing
 Thanks for your interest! Please see the [CONTRIBUTING.md](CONTRIBUTING.md) document for information on how to contribute.
+
 ## Contacts ##
 For more information on this library, contact Nishchal, Praveen (praveen.nishchal@intel.com) or Mammo, Mulugeta (mulugeta.mammo@intel.com), or  Denloye, Olasoji (olasoji.denloye@intel.com).
 
