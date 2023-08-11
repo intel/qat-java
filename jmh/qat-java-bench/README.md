@@ -1,9 +1,17 @@
 ## Performance Test
-This JMH benchmark uses the [Silesia compression corpus](https://sun.aei.polsl.pl//~sdeor/index.php?page=silesia) to benchmark the performance of Qat-Java against `java.util.zip`.
+This JMH benchmark may be used to performance test the Qat-Java library.
 
-### Build and Run
-To build and run the benchmark, execute the below command:
+## Build
+To build the benchmark, execute the below command:
 ```
-./run_bench.sh
+mvn clean install
 ```
 
+## Run
+To run the benchmark, use the below command:
+
+```
+java -jar target/benchmarks.jar com.intel.qat.jmh.BenchmarkDriver /path/to/a/text-corpus
+```
+
+You may get a text corpus for benchmarking from the [Silesia compression corpus](https://sun.aei.polsl.pl//~sdeor/index.php?page=silesia). 
