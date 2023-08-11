@@ -26,14 +26,14 @@ To build qat-java, run the below command:
 mvn clean package
 ```
 
-You can, for example, compile and run the `ByteArrayExample` using the below command:
-```
-java --module-path target/classes  -m com.intel.qat/com.intel.qat.examples.ByteArrayExample
-```
-
-Or this command:
+You can, for example, run the `ByteArrayExample` example using the below command:
 ```
 java -cp .:./target/classes/ com.intel.qat.examples.ByteArrayExample
+```
+
+Or using this command:
+```
+java --module-path target/classes  -m com.intel.qat/com.intel.qat.examples.ByteArrayExample
 ```
 
 Other Maven targets include:

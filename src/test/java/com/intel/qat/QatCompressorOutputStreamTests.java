@@ -29,6 +29,8 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
 public class QatCompressorOutputStreamTests {
+  private static final String SAMPLE_TEXT_PATH = "src/test/resources/sample.txt";
+
   private QatZipper qzip;
   private static byte[] src;
 
@@ -36,7 +38,7 @@ public class QatCompressorOutputStreamTests {
 
   @BeforeAll
   public static void setup() throws IOException {
-    src = Files.readAllBytes(Paths.get("src/main/resources/sample.txt"));
+    src = Files.readAllBytes(Paths.get(SAMPLE_TEXT_PATH));
   }
 
   @AfterEach
@@ -211,7 +213,7 @@ public class QatCompressorOutputStreamTests {
   @MethodSource("provideModeAlgorithmLengthParams")
   public void testOutputStreamWriteAll3(Mode mode, Algorithm algo, int size) throws IOException {
     qzip = new QatZipper(algo);
-    byte[] src = Files.readAllBytes(Paths.get("src/main/resources/sample.txt"));
+    byte[] src = Files.readAllBytes(Paths.get(SAMPLE_TEXT_PATH));
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     try (QatCompressorOutputStream compressedStream =
         new QatCompressorOutputStream(outputStream, size, algo, mode)) {
@@ -235,7 +237,7 @@ public class QatCompressorOutputStreamTests {
   @MethodSource("provideModeAlgorithmLengthParams")
   public void testOutputStreamWriteByte(Mode mode, Algorithm algo, int size) throws IOException {
     qzip = new QatZipper(algo);
-    byte[] src = Files.readAllBytes(Paths.get("src/main/resources/sample.txt"));
+    byte[] src = Files.readAllBytes(Paths.get(SAMPLE_TEXT_PATH));
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     try (QatCompressorOutputStream compressedStream =
         new QatCompressorOutputStream(outputStream, size, algo, mode)) {
@@ -264,7 +266,7 @@ public class QatCompressorOutputStreamTests {
   @MethodSource("provideModeAlgorithmLengthParams")
   public void testOutputStreamWriteFlush(Mode mode, Algorithm algo, int size) throws IOException {
     qzip = new QatZipper(algo);
-    byte[] src = Files.readAllBytes(Paths.get("src/main/resources/sample.txt"));
+    byte[] src = Files.readAllBytes(Paths.get(SAMPLE_TEXT_PATH));
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     try (QatCompressorOutputStream compressedStream =
         new QatCompressorOutputStream(outputStream, size, algo, mode)) {
@@ -290,7 +292,7 @@ public class QatCompressorOutputStreamTests {
   @ParameterizedTest
   @MethodSource("provideModeAlgorithmLengthParams")
   public void testOutputStreamClose(Mode mode, Algorithm algo, int size) throws IOException {
-    byte[] src = Files.readAllBytes(Paths.get("src/main/resources/sample.txt"));
+    byte[] src = Files.readAllBytes(Paths.get(SAMPLE_TEXT_PATH));
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     QatCompressorOutputStream compressedStream =
         new QatCompressorOutputStream(outputStream, size, algo, mode);
@@ -307,7 +309,7 @@ public class QatCompressorOutputStreamTests {
   @MethodSource("provideModeAlgorithmLengthParams")
   public void testOutputStreamWriteAfterClose(Mode mode, Algorithm algo, int size)
       throws IOException {
-    byte[] src = Files.readAllBytes(Paths.get("src/main/resources/sample.txt"));
+    byte[] src = Files.readAllBytes(Paths.get(SAMPLE_TEXT_PATH));
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     QatCompressorOutputStream compressedStream =
         new QatCompressorOutputStream(outputStream, size, algo, mode);
@@ -324,7 +326,7 @@ public class QatCompressorOutputStreamTests {
   @MethodSource("provideModeAlgorithmLengthParams")
   public void testOutputStreamFlushAfterClose(Mode mode, Algorithm algo, int size)
       throws IOException {
-    byte[] src = Files.readAllBytes(Paths.get("src/main/resources/sample.txt"));
+    byte[] src = Files.readAllBytes(Paths.get(SAMPLE_TEXT_PATH));
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     QatCompressorOutputStream compressedStream =
         new QatCompressorOutputStream(outputStream, size, algo, mode);
@@ -340,7 +342,7 @@ public class QatCompressorOutputStreamTests {
   @ParameterizedTest
   @MethodSource("provideModeAlgorithmLengthParams")
   public void testOutputStreamDoubleClose(Mode mode, Algorithm algo, int size) throws IOException {
-    byte[] src = Files.readAllBytes(Paths.get("src/main/resources/sample.txt"));
+    byte[] src = Files.readAllBytes(Paths.get(SAMPLE_TEXT_PATH));
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     QatCompressorOutputStream compressedStream =
         new QatCompressorOutputStream(outputStream, size, algo, mode);
@@ -374,7 +376,7 @@ public class QatCompressorOutputStreamTests {
   @MethodSource("provideModeAlgorithmParams")
   public void testOutputStreamWriteBadOffset(Mode mode, Algorithm algo) throws IOException {
     qzip = new QatZipper(algo);
-    byte[] src = Files.readAllBytes(Paths.get("src/main/resources/sample.txt"));
+    byte[] src = Files.readAllBytes(Paths.get(SAMPLE_TEXT_PATH));
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     try (QatCompressorOutputStream compressedStream =
         new QatCompressorOutputStream(outputStream, 16 * 1024, algo, mode)) {
@@ -391,7 +393,7 @@ public class QatCompressorOutputStreamTests {
   @MethodSource("provideModeAlgorithmParams")
   public void testOutputStreamWriteBadLength(Mode mode, Algorithm algo) throws IOException {
     qzip = new QatZipper(algo);
-    byte[] src = Files.readAllBytes(Paths.get("src/main/resources/sample.txt"));
+    byte[] src = Files.readAllBytes(Paths.get(SAMPLE_TEXT_PATH));
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     try (QatCompressorOutputStream compressedStream =
         new QatCompressorOutputStream(outputStream, 16 * 1024, algo, mode)) {

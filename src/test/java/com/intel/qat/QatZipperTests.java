@@ -33,11 +33,11 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
 public class QatZipperTests {
+  private final String SAMPLE_TEXT_PATH = "src/test/resources/sample.txt";
+
   private QatZipper qzip;
   private static final Cleaner cleaner = Cleaner.create();
   private Cleaner.Cleanable cleanable;
-
-  private final String filePath = "src/main/resources/sample.txt";
 
   private Random rnd = new Random();
 
@@ -101,6 +101,10 @@ public class QatZipperTests {
     byte[] bytes = new byte[len];
     rnd.nextBytes(bytes);
     return bytes;
+  }
+
+  private byte[] readAllBytes(String fileName) throws IOException {
+    return Files.readAllBytes(Path.of(fileName));
   }
 
   @AfterEach
@@ -293,7 +297,7 @@ public class QatZipperTests {
     try {
       qzip = new QatZipper(algo, mode);
 
-      byte[] src = Files.readAllBytes(Path.of(filePath));
+      byte[] src = readAllBytes(SAMPLE_TEXT_PATH);
       byte[] dst = new byte[qzip.maxCompressedLength(src.length)];
       byte[] dec = new byte[src.length];
 
@@ -314,7 +318,7 @@ public class QatZipperTests {
     try {
       qzip = new QatZipper(algo, mode);
 
-      byte[] src = Files.readAllBytes(Path.of(filePath));
+      byte[] src = readAllBytes(SAMPLE_TEXT_PATH);
       byte[] dst = new byte[qzip.maxCompressedLength(src.length)];
       byte[] dec = new byte[src.length];
 
@@ -340,7 +344,7 @@ public class QatZipperTests {
     try {
       qzip = new QatZipper(algo, mode);
 
-      byte[] src = Files.readAllBytes(Path.of(filePath));
+      byte[] src = readAllBytes(SAMPLE_TEXT_PATH);
       byte[] dec = new byte[src.length];
 
       ByteBuffer srcBuf = ByteBuffer.allocateDirect(src.length);
@@ -371,7 +375,7 @@ public class QatZipperTests {
     try {
       qzip = new QatZipper(algo, mode);
 
-      byte[] src = Files.readAllBytes(Path.of(filePath));
+      byte[] src = readAllBytes(SAMPLE_TEXT_PATH);
       byte[] dec = new byte[src.length];
 
       ByteBuffer srcBuf = ByteBuffer.allocate(src.length);

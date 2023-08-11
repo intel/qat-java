@@ -22,15 +22,12 @@
         <url>https://github.com/intel/qat-java</url>
     </scm>
     <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <skipTests>${fuzzing}</skipTests>
         <fuzzParameters>-runs=10000 -max_total_time=300 -max_len=4194304</fuzzParameters>
     </properties>
     <build>
-        <resources>
-            <resource>
-                <directory>src/main/resources</directory>
-            </resource>
-        </resources>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

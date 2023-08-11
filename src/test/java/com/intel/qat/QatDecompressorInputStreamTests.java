@@ -29,6 +29,7 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
 public class QatDecompressorInputStreamTests {
+  private static final String SAMPLE_TEXT_PATH = "src/test/resources/sample.txt";
   private static byte[] src;
   private static byte[] deflateBytes;
   private static byte[] lz4Bytes;
@@ -36,7 +37,7 @@ public class QatDecompressorInputStreamTests {
 
   @BeforeAll
   public static void setup() throws IOException {
-    src = Files.readAllBytes(Paths.get("src/main/resources/sample.txt"));
+    src = Files.readAllBytes(Paths.get(SAMPLE_TEXT_PATH));
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     try (QatCompressorOutputStream compressedStream =
         new QatCompressorOutputStream(outputStream, 16 * 1024, Algorithm.LZ4)) {
