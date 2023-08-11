@@ -55,6 +55,8 @@ public class BenchmarkDriver {
 
     Collection<RunResult> results = new Runner(opts).run();
     System.out.println("-------------------------");
+    System.out.println("SUMMARY");
+    System.out.println("-------------------------");
 
     long fileSize = new File(args[1]).length();
     for (RunResult rr : results) {
