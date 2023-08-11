@@ -1,8 +1,40 @@
 # Contributing
 
+## Issues
+
+Here you'll find instructions on how to contribute to the QAT-Java Library.
+
+Your contributions are most welcome!  You'll find it is best to begin
+with a conversation about your changes, rather than just writing a bunch
+of code and contributing it out of the blue.
+A great way to suggest new features, offer to add a feature,
+or just begin a dialog about the QAT-Java Library is to open an issue in our [GitHub Issues Database](https://github.com/intel/qat-java/issues)
+
+
+### Contribution Guide
+
+We accept contributions as pull requests on GitHub. Please follow these simple rules: 
+
+* A PR should have a clear purpose, and do one thing only, and nothing more. This will enable us review your PR more quickly.
+* Each commit in PR should be a small, atomic change representing one step in development.
+* Please squash intermediate steps within PR for bugfixes, style cleanups, reversions, etc., so they would not appear in merged PR history.
+* Please explain anything non-obvious from the code in comments, commit messages, or the PR description, as appropriate.
+
+### Code formatting and check
+
+Please check the formatting of the code by running:
+
+```
+mvn spotless:check
+```
+
+The code can be formatted with:
+```
+mvn spotless:apply
+```
 ### License
 
-<PROJECT NAME> is licensed under the terms in [LICENSE]<link to license file in repo>. By contributing to the project, you agree to the license and copyright terms therein and release your contribution under these terms.
+Java* Native Interface binding for Intel® Quick Assist Technology is licensed under the terms in [BSD](https://github.com/intel/qat-java/blob/main/LICENSE). By contributing to the project, you agree to the license and copyright terms therein and release your contribution under these terms.
 
 ### Sign your work
 
