@@ -197,7 +197,8 @@ public class QatZipper {
   }
 
   /**
-   * Returns the maximum compression length for the specified source length.
+   * Returns the maximum compression length for the specified source length. Use this method to
+   * estimate the size of a buffer for compression given the size of a source buffer.
    *
    * @param len the length of the source array or buffer.
    * @return the maximum compression length for the specified length.
