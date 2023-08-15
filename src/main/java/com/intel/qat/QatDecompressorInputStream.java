@@ -180,6 +180,8 @@ public class QatDecompressorInputStream extends FilterInputStream {
     if (closed) return;
     qzip.end();
     in.close();
+    inputBuffer = null;
+    outputBuffer = null;
     closed = true;
   }
 

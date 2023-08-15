@@ -190,6 +190,8 @@ public class QatCompressorOutputStream extends FilterOutputStream {
     flush();
     qzip.end();
     out.close();
+    inputBuffer = null;
+    outputBuffer = null;
     closed = true;
   }
 }
