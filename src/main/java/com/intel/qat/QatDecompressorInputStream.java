@@ -108,7 +108,7 @@ public class QatDecompressorInputStream extends FilterInputStream {
       fill();
     }
     if (eof && !outputBuffer.hasRemaining()) return -1;
-    return outputBuffer.get();
+    return outputBuffer.get() & 0xFF;
   }
 
   /**

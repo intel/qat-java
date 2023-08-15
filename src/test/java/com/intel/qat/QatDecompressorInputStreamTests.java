@@ -264,6 +264,8 @@ public class QatDecompressorInputStreamTests {
     try (QatDecompressorInputStream decompressedStream =
         new QatDecompressorInputStream(inputStream, bufferSize, algo, mode)) {
       read = decompressedStream.read(result);
+      assertEquals(-1, decompressedStream.read());
+      assertEquals(0, decompressedStream.available());
     }
     assertTrue(Arrays.equals(newSrc, Arrays.copyOf(result, read)));
   }
@@ -285,6 +287,8 @@ public class QatDecompressorInputStreamTests {
     try (QatDecompressorInputStream decompressedStream =
         new QatDecompressorInputStream(inputStream, 4, algo, mode)) {
       read = decompressedStream.read(result);
+      assertEquals(-1, decompressedStream.read());
+      assertEquals(0, decompressedStream.available());
     }
     assertTrue(Arrays.equals(newSrc, Arrays.copyOf(result, read)));
   }
@@ -311,6 +315,8 @@ public class QatDecompressorInputStreamTests {
         }
       }
       assertEquals(result.length, i);
+      assertEquals(-1, decompressedStream.read());
+      assertEquals(0, decompressedStream.available());
     }
     assertTrue(Arrays.equals(src, result));
   }
@@ -442,6 +448,8 @@ public class QatDecompressorInputStreamTests {
       assertEquals(0, skipped);
       int read = decompressedStream.read(result);
       assertEquals(result.length, read);
+      assertEquals(-1, decompressedStream.read());
+      assertEquals(0, decompressedStream.available());
     }
     assertTrue(Arrays.equals(src, result));
   }
@@ -527,6 +535,7 @@ public class QatDecompressorInputStreamTests {
       assertEquals(result.length, read);
       read = decompressedStream.read(result2);
       assertEquals(-1, read);
+      assertEquals(0, decompressedStream.available());
     }
     assertTrue(Arrays.equals(src, result));
   }
@@ -543,6 +552,7 @@ public class QatDecompressorInputStreamTests {
       assertEquals(result.length, read);
       read = decompressedStream.read();
       assertEquals(-1, read);
+      assertEquals(0, decompressedStream.available());
     }
     assertTrue(Arrays.equals(src, result));
   }
