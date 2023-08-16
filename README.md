@@ -25,11 +25,13 @@ mvn clean package
 
 Other Maven targets include:
 
-- `compile` - builds sources
-- `test` - builds and runs tests
-- `site` - generates Surefire report into ```target/site```
-- `javadoc:javadoc` - builds javadocs into ```target/site/apidocs```
-- `package` - builds jar file into ```target``` directory
+- `compile` &mdash; builds sources.
+- `test` &mdash; builds and runs tests.
+- `package` &mdash; builds and writes jar files into ```target``` directory.
+- `javadoc:javadoc` &mdash; generates javadocs. 
+- `spotless:check` &mdash; check if source code is formatted well.
+- `spotless:apply` &mdash; fixes source code format issues.
+- `site` &mdash; generates Surefire reports into ```target/site```.
 
 > The build instructions were tested using gcc-8.5.0, cmake-3.10.0, mvn-3.5.4 and clang-16.0.0.
 
