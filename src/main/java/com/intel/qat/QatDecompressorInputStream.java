@@ -108,7 +108,7 @@ public class QatDecompressorInputStream extends FilterInputStream {
       fill();
     }
     if (eof && !outputBuffer.hasRemaining()) return -1;
-    return outputBuffer.get();
+    return Byte.toUnsignedInt(outputBuffer.get());
   }
 
   /**
@@ -180,6 +180,8 @@ public class QatDecompressorInputStream extends FilterInputStream {
     if (closed) return;
     qzip.end();
     in.close();
+    inputBuffer = null;
+    outputBuffer = null;
     closed = true;
   }
 

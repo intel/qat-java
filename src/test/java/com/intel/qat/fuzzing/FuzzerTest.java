@@ -49,6 +49,8 @@ public class FuzzerTest {
       testWithCompressionLengthAndRetryLZ4(src);
       testQatStreamDeflate(src);
       testQatStreamLZ4(src);
+      testQatStreamDeflate2(src);
+      testQatStreamLZ42(src);
     } catch (QatException e) {
       throw e;
     }
@@ -536,6 +538,7 @@ public class FuzzerTest {
       while ((bytesRead = decompressedStream.read(buffer)) != -1) {
         resultStream.write(buffer, 0, bytesRead);
       }
+      assert decompressedStream.available() == 0;
     }
     assert Arrays.equals(src, resultStream.toByteArray())
         : "The source and decompressed arrays do not match. cb = "
@@ -571,6 +574,77 @@ public class FuzzerTest {
       while ((bytesRead = decompressedStream.read(buffer)) != -1) {
         resultStream.write(buffer, 0, bytesRead);
       }
+      assert decompressedStream.available() == 0;
+    }
+    assert Arrays.equals(src, resultStream.toByteArray())
+        : "The source and decompressed arrays do not match. cb = "
+            + compressBufferSize
+            + " db = "
+            + decompressBufferSize
+            + " srcLen is "
+            + src.length;
+  }
+
+  static void testQatStreamDeflate2(byte[] src) throws IOException {
+    if (src.length < 32) return;
+    Random rnd = new Random();
+    int compressBufferSize = 1 + Math.abs(rnd.nextInt(1024 * 1024));
+    int decompressBufferSize = 1 + Math.abs(rnd.nextInt(1024 * 1024));
+
+    QatZipper.Algorithm algo = QatZipper.Algorithm.DEFLATE;
+    ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+    try (QatCompressorOutputStream compressedStream =
+        new QatCompressorOutputStream(
+            outputStream, compressBufferSize, algo, QatZipper.Mode.AUTO)) {
+      compressedStream.write(src);
+    }
+    byte[] outputStreamBuf = outputStream.toByteArray();
+    ByteArrayOutputStream resultStream = new ByteArrayOutputStream();
+    ByteArrayInputStream inputStream = new ByteArrayInputStream(outputStreamBuf);
+    try (QatDecompressorInputStream decompressedStream =
+        new QatDecompressorInputStream(
+            inputStream, decompressBufferSize, algo, QatZipper.Mode.AUTO)) {
+      int bytesRead;
+      while ((bytesRead = decompressedStream.read()) != -1) {
+        resultStream.write(bytesRead);
+      }
+      assert decompressedStream.available() == 0;
+    }
+    assert Arrays.equals(src, resultStream.toByteArray())
+        : "The source and decompressed arrays do not match. cb = "
+            + compressBufferSize
+            + " db = "
+            + decompressBufferSize
+            + " srcLen is "
+            + src.length;
+  }
+
+  static void testQatStreamLZ42(byte[] src) throws IOException {
+    if (src.length < 32) return;
+    Random rnd = new Random();
+    ByteBuffer args = ByteBuffer.wrap(Arrays.copyOf(src, 8));
+    int compressBufferSize = 1 + Math.abs(rnd.nextInt(1024 * 1024));
+    int decompressBufferSize = 1 + Math.abs(rnd.nextInt(1024 * 1024));
+
+    QatZipper.Algorithm algo = QatZipper.Algorithm.LZ4;
+    ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+    try (QatCompressorOutputStream compressedStream =
+        new QatCompressorOutputStream(
+            outputStream, compressBufferSize, algo, QatZipper.Mode.AUTO)) {
+      compressedStream.write(src);
+    }
+    byte[] outputStreamBuf = outputStream.toByteArray();
+    byte[] buffer = new byte[1024];
+    ByteArrayOutputStream resultStream = new ByteArrayOutputStream();
+    ByteArrayInputStream inputStream = new ByteArrayInputStream(outputStreamBuf);
+    try (QatDecompressorInputStream decompressedStream =
+        new QatDecompressorInputStream(
+            inputStream, decompressBufferSize, algo, QatZipper.Mode.AUTO)) {
+      int bytesRead;
+      while ((bytesRead = decompressedStream.read()) != -1) {
+        resultStream.write(bytesRead);
+      }
+      assert decompressedStream.available() == 0;
     }
     assert Arrays.equals(src, resultStream.toByteArray())
         : "The source and decompressed arrays do not match. cb = "
