@@ -24,21 +24,22 @@
             <name>Nishchal, Praveen</name>
             <email>praveen.nishchal@intel.com</email>
             <organization>Intel</organization>
-            <organizationUrl></organizationUrl>
+            <organizationUrl/>
         </developer>
         <developer>
             <name>Mammo, Mulugeta</name>
             <email>mulugeta.mammo@intel.com</email>
             <organization>Intel</organization>
-            <organizationUrl></organizationUrl>
+            <organizationUrl/>
         </developer>
          <developer>
             <name>Denloye, Olasoji</name>
             <email>olasoji.denloye@intel.com</email>
             <organization>Intel</organization>
-            <organizationUrl></organizationUrl>
+            <organizationUrl/>
         </developer>
     </developers>
+
     <scm>
         <connection>scm:git:git://github.com/intel/qat-java.git</connection>
         <developerConnection>scm:git:git@github.com:intel/qat-java.git</developerConnection>
