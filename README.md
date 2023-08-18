@@ -6,11 +6,11 @@ Qat-Java currently supports DEFLATE and LZ4 compression algorithms.
 ## Prerequisite
 To use Intel® QAT for compression and decompression, Qat-Java requires the following dependencies to be met.
 
-- ***Install QAT driver***. Download the Intel® QAT driver for Linux from [here](https://www.intel.com/content/www/us/en/download/765501/intel-quickassist-technology-driver-for-linux-hw-version-2-0.html) and then follow these [instructions](https://intel.github.io/quickassist/GSG/2.X/index.html).
+1. **QAT driver** &mdash; download the Intel® QAT driver for Linux from [here](https://www.intel.com/content/www/us/en/download/765501/intel-quickassist-technology-driver-for-linux-hw-version-2-0.html) and then follow these [installation instructions](https://intel.github.io/quickassist/GSG/2.X/index.html).
 
-- ***Install QATZip***. The instructions for installing QATZip library are available [here](https://github.com/intel/QATzip#installation-instructions).
+2. **QATZip** &mdash; the installation instructions for the QATZip library are available at [github.com/intel/QATZip#installation-instructions](https://github.com/intel/QATzip#installation-instructions).
 
-*Important!* In cases where a QAT hardware is not available, Qat-Java can use a software-only execution. The instructions for installing and configuring the dependencies for a software-only execution are documented [here](SOFTWARE_ONLY_CONFIG.md).  
+In cases where a QAT hardware is not available, Qat-Java can use a software-only execution mode. The instructions for installing and configuring the dependencies for a software-only execution mode are documented [here](SOFTWARE_ONLY_CONFIG.md).
 
 ## Build
 In addition to the prerequisites listed above, building Qat-Java requires the following to be installed:
