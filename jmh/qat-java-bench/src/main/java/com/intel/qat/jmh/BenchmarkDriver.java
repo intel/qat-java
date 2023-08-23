@@ -63,7 +63,7 @@ public class BenchmarkDriver {
       Result r = rr.getAggregatedResult().getPrimaryResult();
       double speed = r.getScore() * fileSize / (1024 * 1024);
       System.out.printf(
-          "%s\t%.2f MB/sec\n", rr.getParams().getBenchmark(), speed);
+          "%-50s%.2f MB/sec\n", rr.getParams().getBenchmark(), speed);
     }
   }
 }
