@@ -35,10 +35,8 @@ import com.intel.qat.QatZipper;
 import com.intel.qat.QatZipper.Algorithm;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.Collection;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
-import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Measurement;
 import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.Param;
@@ -58,7 +56,8 @@ public class QatJavaBench {
   int compressedLength;
   int decompressedLength;
 
-  @Param({""}) String fileName;
+  @Param({""})
+  String fileName;
 
   @Setup
   public void prepare() {
@@ -78,8 +77,9 @@ public class QatJavaBench {
       decompressedLength = qzip.decompress(compressed, decompressed);
 
       System.out.println("\n-------------------------");
-      System.out.printf("Compressed size: %d, ratio: %.2f\n", compressedLength,
-          (double) decompressedLength / compressedLength);
+      System.out.printf(
+          "Compressed size: %d, ratio: %.2f\n",
+          compressedLength, compressedLength * 100.0 / src.length);
       System.out.println("-------------------------");
     } catch (Exception e) {
       e.printStackTrace();
