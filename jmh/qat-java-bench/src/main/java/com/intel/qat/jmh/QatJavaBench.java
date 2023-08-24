@@ -48,39 +48,46 @@ import org.openjdk.jmh.annotations.Warmup;
 
 @State(Scope.Benchmark)
 public class QatJavaBench {
-  QatZipper qzip;
-  byte[] src;
-  byte[] dst;
-  byte[] compressed;
-  byte[] decompressed;
-  int compressedLength;
-  int decompressedLength;
+  private static final int COMPRESSION_LEVEL = 6;
+
+  private byte[] src;
+  private byte[] dst;
+  private byte[] compressed;
+  private byte[] decompressed;
 
   @Param({""})
   String fileName;
 
   @Setup
   public void prepare() {
-    qzip = new QatZipper(Algorithm.DEFLATE, 6, QatZipper.Mode.HARDWARE);
     try {
+      // Create compressor/decompressor object
+      QatZipper qzip = new QatZipper(Algorithm.DEFLATE, COMPRESSION_LEVEL, QatZipper.Mode.HARDWARE);
+
+      // Read input
       src = Files.readAllBytes(Paths.get(fileName));
       dst = new byte[qzip.maxCompressedLength(src.length)];
 
-      // Compress bytes
-      compressedLength = qzip.compress(src, dst);
+      // Compress input
+      int compressedLength = qzip.compress(src, dst);
 
       // Prepare compressed array of size EXACTLY compressedLength
       compressed = new byte[compressedLength];
       System.arraycopy(dst, 0, compressed, 0, compressedLength);
 
+      // Do decompression
       decompressed = new byte[src.length];
-      decompressedLength = qzip.decompress(compressed, decompressed);
+      int decompressedLength = qzip.decompress(compressed, decompressed);
 
+      // Print compressed length and ratio
       System.out.println("\n-------------------------");
       System.out.printf(
           "Compressed size: %d, ratio: %.2f\n",
           compressedLength, compressedLength * 100.0 / src.length);
       System.out.println("-------------------------");
+
+      // Close QatZipper
+      qzip.end();
     } catch (Exception e) {
       e.printStackTrace();
     }
@@ -91,7 +98,9 @@ public class QatJavaBench {
   @Measurement(iterations = 3)
   @BenchmarkMode(Mode.Throughput)
   public void compress() {
+    QatZipper qzip = new QatZipper(Algorithm.DEFLATE, COMPRESSION_LEVEL, QatZipper.Mode.HARDWARE);
     qzip.compress(src, dst);
+    qzip.end();
   }
 
   @Benchmark
@@ -99,11 +108,13 @@ public class QatJavaBench {
   @Measurement(iterations = 3)
   @BenchmarkMode(Mode.Throughput)
   public void decompress() {
+    QatZipper qzip = new QatZipper(Algorithm.DEFLATE, 6, QatZipper.Mode.HARDWARE);
     qzip.decompress(compressed, decompressed);
+    qzip.end();
   }
 
   @TearDown
   public void end() {
-    qzip.end();
+    // Do nothing
   }
 }
