@@ -42,16 +42,16 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 
 public class BenchmarkDriver {
   public static void main(String[] args) throws RunnerException {
-    if (args.length < 2)
-      throw new IllegalArgumentException("Input file required.");
+    if (args.length < 2) throw new IllegalArgumentException("Input file required.");
 
-    Options opts = new OptionsBuilder()
-                       .include(QatJavaBench.class.getSimpleName())
-                       .include(JavaZipBench.class.getSimpleName())
-                       .forks(1)
-                       .param("fileName", args[1])
-                       .jvmArgs("-Xms4g", "-Xmx4g")
-                       .build();
+    Options opts =
+        new OptionsBuilder()
+            .include(QatJavaBench.class.getSimpleName())
+            .include(JavaZipBench.class.getSimpleName())
+            .forks(1)
+            .param("fileName", args[1])
+            .jvmArgs("-Xms4g", "-Xmx4g")
+            .build();
 
     Collection<RunResult> results = new Runner(opts).run();
     System.out.println("-------------------------");
@@ -62,8 +62,7 @@ public class BenchmarkDriver {
     for (RunResult rr : results) {
       Result r = rr.getAggregatedResult().getPrimaryResult();
       double speed = r.getScore() * fileSize / (1024 * 1024);
-      System.out.printf(
-          "%s\t%.2f MB/sec\n", rr.getParams().getBenchmark(), speed);
+      System.out.printf("%-50s%.2f MB/sec\n", rr.getParams().getBenchmark(), speed);
     }
   }
 }

@@ -33,7 +33,6 @@ package com.intel.qat.jmh;
 
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.zip.DataFormatException;
 import java.util.zip.Deflater;
 import java.util.zip.Inflater;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -49,43 +48,52 @@ import org.openjdk.jmh.annotations.Warmup;
 
 @State(Scope.Benchmark)
 public class JavaZipBench {
-  Deflater deflater;
-  Inflater inflater;
-  byte[] src;
-  byte[] dst;
-  byte[] compressed;
-  byte[] decompressed;
-  int compressedLength;
-  int decompressedLength;
+  private static final int COMPRESSION_LEVEL = 6;
 
-  @Param({""}) String fileName;
+  private byte[] src;
+  private byte[] dst;
+  private byte[] compressed;
+  private byte[] decompressed;
+
+  @Param({""})
+  String fileName;
 
   @Setup
   public void prepare() {
-    deflater = new Deflater(6);
-    inflater = new Inflater();
     try {
+      // Create compressor and decompressor objects
+      Deflater deflater = new Deflater(COMPRESSION_LEVEL);
+      Inflater inflater = new Inflater();
+
+      // Read input
       src = Files.readAllBytes(Paths.get(fileName));
       dst = new byte[2 * src.length];
 
-      // Compress bytes
+      // Compress input
       deflater.setInput(src);
-      compressedLength = deflater.deflate(dst);
-      deflater.reset();
+      int compressedLength = deflater.deflate(dst);
+      deflater.end();
 
       // Prepare compressed array of size EXACTLY compressedLength
       compressed = new byte[compressedLength];
       System.arraycopy(dst, 0, compressed, 0, compressedLength);
 
+      // Do decompression
       decompressed = new byte[src.length];
       inflater.setInput(compressed);
-      decompressedLength = inflater.inflate(decompressed);
-      inflater.reset();
+      int decompressedLength = inflater.inflate(decompressed);
+      inflater.end();
 
+      // Print compressed length and ratio
       System.out.println("\n-------------------------");
-      System.out.printf("Compressed size: %d, ratio: %.2f\n", compressedLength,
-          (double) decompressedLength / compressedLength);
+      System.out.printf(
+          "Compressed size: %d, ratio: %.2f\n",
+          compressedLength, compressedLength * 100.0 / src.length);
       System.out.println("-------------------------");
+
+      // Close compressor and decompressor
+      deflater.end();
+      inflater.end();
     } catch (Exception e) {
       e.printStackTrace();
     }
@@ -96,9 +104,10 @@ public class JavaZipBench {
   @Measurement(iterations = 3)
   @BenchmarkMode(Mode.Throughput)
   public void compress() {
+    Deflater deflater = new Deflater(COMPRESSION_LEVEL);
     deflater.setInput(src);
     deflater.deflate(dst);
-    deflater.reset();
+    deflater.end();
   }
 
   @Benchmark
@@ -106,14 +115,14 @@ public class JavaZipBench {
   @Measurement(iterations = 3)
   @BenchmarkMode(Mode.Throughput)
   public void decompress() throws java.util.zip.DataFormatException {
+    Inflater inflater = new Inflater();
     inflater.setInput(compressed);
     inflater.inflate(decompressed);
-    inflater.reset();
+    inflater.end();
   }
 
   @TearDown
   public void end() {
-    deflater.end();
-    inflater.end();
+    // Do nothing
   }
 }
