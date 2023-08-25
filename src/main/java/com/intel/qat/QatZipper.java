@@ -66,10 +66,24 @@ public class QatZipper {
   private int retryCount;
 
   /** Cleaner instance associated with this object. */
-  private static final Cleaner cleaner = Cleaner.create();
+  private static Cleaner cleaner;
 
   /** Cleaner.Cleanable instance representing QAT cleanup action. */
   private final Cleaner.Cleanable cleanable;
+
+  static {
+    SecurityManager sm = System.getSecurityManager();
+    if (sm == null) {
+      cleaner = Cleaner.create();
+    } else {
+      java.security.PrivilegedAction<Void> pa =
+          () -> {
+            cleaner = Cleaner.create();
+            return null;
+          };
+      java.security.AccessController.doPrivileged(pa);
+    }
+  }
 
   /** A reference to a QAT session in C. */
   long session;
