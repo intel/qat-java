@@ -82,8 +82,8 @@ public class QatJavaBench {
       // Print compressed length and ratio
       System.out.println("\n-------------------------");
       System.out.printf(
-          "Compressed size: %d, ratio: %.2f\n",
-          compressedLength, src.length * 1.0 / compressedLength);
+          "Input size: %d, Compressed size: %d, ratio: %.2f\n",
+          src.length, compressedLength, src.length * 1.0 / compressedLength);
       System.out.println("-------------------------");
 
       // Close QatZipper
