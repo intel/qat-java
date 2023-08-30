@@ -25,7 +25,8 @@ static jfieldID nio_bytebuffer_position_id;
  * @param qz_session a pointer to the QzSession_T.
  * @param level the compression level to use.
  */
-static int setup_deflate_session(QzSession_T *qz_session, int level) {
+static int setup_deflate_session(QzSession_T *qz_session, int level,
+                                 unsigned char sw_backup) {
   QzSessionParamsDeflate_T deflate_params;
 
   int status = qzGetDefaultsDeflate(&deflate_params);
@@ -34,6 +35,7 @@ static int setup_deflate_session(QzSession_T *qz_session, int level) {
   deflate_params.data_fmt = QZ_DEFLATE_GZIP_EXT;
   deflate_params.common_params.comp_lvl = level;
   deflate_params.common_params.polling_mode = POLLING_MODE;
+  deflate_params.common_params.sw_backup = sw_backup;
 
   return qzSetupSessionDeflate(qz_session, &deflate_params);
 }
@@ -45,7 +47,8 @@ static int setup_deflate_session(QzSession_T *qz_session, int level) {
  * @param level the compression level to use.
  * @return QZ_OK (0) if successful, non-zero otherwise.
  */
-static int setup_lz4_session(QzSession_T *qz_session, int level) {
+static int setup_lz4_session(QzSession_T *qz_session, int level,
+                             unsigned char sw_backup) {
   QzSessionParamsLZ4_T lz4_params;
 
   int status = qzGetDefaultsLZ4(&lz4_params);
@@ -53,6 +56,7 @@ static int setup_lz4_session(QzSession_T *qz_session, int level) {
 
   lz4_params.common_params.polling_mode = POLLING_MODE;
   lz4_params.common_params.comp_lvl = level;
+  lz4_params.common_params.sw_backup = sw_backup;
 
   return qzSetupSessionLZ4(qz_session, &lz4_params);
 }
@@ -167,9 +171,9 @@ JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_setup(
   }
 
   if (comp_algorithm == DEFLATE_ALGORITHM)
-    status = setup_deflate_session(qz_session, level);
+    status = setup_deflate_session(qz_session, level, (unsigned char)sw_backup);
   else
-    status = setup_lz4_session(qz_session, level);
+    status = setup_lz4_session(qz_session, level, (unsigned char)sw_backup);
 
   if (status != QZ_OK) {
     qzClose(qz_session);
