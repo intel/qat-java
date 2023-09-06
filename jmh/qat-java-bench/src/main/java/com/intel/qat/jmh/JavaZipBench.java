@@ -67,7 +67,7 @@ public class JavaZipBench {
 
       // Read input
       src = Files.readAllBytes(Paths.get(fileName));
-      dst = new byte[2 * src.length];
+      dst = new byte[src.length];
 
       // Compress input
       deflater.setInput(src);
@@ -87,8 +87,8 @@ public class JavaZipBench {
       // Print compressed length and ratio
       System.out.println("\n-------------------------");
       System.out.printf(
-          "Compressed size: %d, ratio: %.2f\n",
-          compressedLength, src.length * 1.0 / compressedLength);
+          "Input size: %d, Compressed size: %d, ratio: %.2f\n",
+          src.length, compressedLength, src.length * 1.0 / compressedLength);
       System.out.println("-------------------------");
 
       // Close compressor and decompressor
