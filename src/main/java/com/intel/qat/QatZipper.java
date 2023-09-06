@@ -218,7 +218,7 @@ public class QatZipper {
    * @return the maximum compression length for the specified length.
    */
   public int maxCompressedLength(long len) {
-    if (!isValid) throw new IllegalStateException();
+    if (!isValid) throw new IllegalStateException("Session has been closed.");
 
     return InternalJNI.maxCompressedSize(session, len);
   }
@@ -250,7 +250,7 @@ public class QatZipper {
    */
   public int compress(
       byte[] src, int srcOffset, int srcLen, byte[] dst, int dstOffset, int dstLen) {
-    if (!isValid) throw new IllegalStateException();
+    if (!isValid) throw new IllegalStateException("Session has been closed.");
 
     if (src == null || dst == null || srcLen == 0 || dst.length == 0)
       throw new IllegalArgumentException(
@@ -279,7 +279,7 @@ public class QatZipper {
    * @return returns the size of the compressed data in bytes
    */
   public int compress(ByteBuffer src, ByteBuffer dst) {
-    if (!isValid) throw new IllegalStateException();
+    if (!isValid) throw new IllegalStateException("Session has been closed.");
 
     if ((src == null || dst == null)
         || (src.position() == src.limit() || dst.position() == dst.limit()))
@@ -387,7 +387,7 @@ public class QatZipper {
    */
   public int decompress(
       byte[] src, int srcOffset, int srcLen, byte[] dst, int dstOffset, int dstLen) {
-    if (!isValid) throw new IllegalStateException();
+    if (!isValid) throw new IllegalStateException("Session has been closed.");
 
     if (src == null || dst == null || srcLen == 0 || dst.length == 0)
       throw new IllegalArgumentException("Empty source or/and destination byte array(s).");
@@ -415,7 +415,7 @@ public class QatZipper {
    * @return returns the size of the decompressed data in bytes
    */
   public int decompress(ByteBuffer src, ByteBuffer dst) {
-    if (!isValid) throw new IllegalStateException();
+    if (!isValid) throw new IllegalStateException("Session has been closed.");
 
     if ((src == null || dst == null)
         || (src.position() == src.limit() || dst.position() == dst.limit()))
@@ -505,7 +505,7 @@ public class QatZipper {
    * @throws QatException if QAT session cannot be gracefully ended.
    */
   public void end() throws QatException {
-    if (!isValid) throw new IllegalStateException();
+    if (!isValid) throw new IllegalStateException("Session has been closed.");
     InternalJNI.teardown(session);
     isValid = false;
   }
