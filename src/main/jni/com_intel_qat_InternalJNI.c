@@ -95,13 +95,13 @@ static int compress(JNIEnv *env, QzSession_T *sess, unsigned char *src_ptr,
     }
   }
 
+  *bytes_read = src_len;
+  *bytes_written = dst_len;
+
   if (status != QZ_OK) {
     throw_exception(env, status, "Error occurred while compressing data.");
     return status;
   }
-
-  *bytes_read = src_len;
-  *bytes_written = dst_len;
 
   return QZ_OK;
 }
@@ -137,13 +137,14 @@ static int decompress(JNIEnv *env, QzSession_T *sess, unsigned char *src_ptr,
       retry_count--;
     }
   }
+
+  *bytes_read = src_len;
+  *bytes_written = dst_len;
+
   if (status != QZ_OK && status != QZ_BUF_ERROR && status != QZ_DATA_ERROR) {
     throw_exception(env, status, "Error occurred while decompressing data.");
     return status;
   }
-
-  *bytes_read = src_len;
-  *bytes_written = dst_len;
 
   return QZ_OK;
 }
