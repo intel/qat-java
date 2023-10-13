@@ -21,15 +21,17 @@ class Native {
   static boolean isLoaded() {
     if (loaded) return true;
     try {
-      java.security.AccessController.doPrivileged(
-          new java.security.PrivilegedAction<Void>() {
-            public Void run() {
-              System.loadLibrary("qat-java"); // Could not load native library from
-              // "java.library.path", try loading from jar
+      SecurityManager sm = System.getSecurityManager();
+      if (sm == null) {
+        System.loadLibrary("qat-java");
+      } else {
+        java.security.PrivilegedAction<Void> pa =
+            () -> {
+              System.loadLibrary("qat-java");
               return null;
-            }
-          });
-
+            };
+        java.security.AccessController.doPrivileged(pa);
+      }
       loaded = true;
     } catch (UnsatisfiedLinkError e) {
       loaded = false;
@@ -88,13 +90,17 @@ class Native {
                 + " is a symbolic link.");
       }
       File finalTempNativeLib = tempNativeLib;
-      java.security.AccessController.doPrivileged(
-          new java.security.PrivilegedAction<Void>() {
-            public Void run() {
+      SecurityManager sm = System.getSecurityManager();
+      if (sm == null) {
+        System.load(finalTempNativeLib.getAbsolutePath());
+      } else {
+        java.security.PrivilegedAction<Void> pa =
+            () -> {
               System.load(finalTempNativeLib.getAbsolutePath());
               return null;
-            }
-          });
+            };
+        java.security.AccessController.doPrivileged(pa);
+      }
       loaded = true;
     } catch (IOException e) {
       throw new ExceptionInInitializerError(

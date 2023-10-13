@@ -66,10 +66,24 @@ public class QatZipper {
   private int retryCount;
 
   /** Cleaner instance associated with this object. */
-  private static final Cleaner cleaner = Cleaner.create();
+  private static Cleaner cleaner;
 
   /** Cleaner.Cleanable instance representing QAT cleanup action. */
   private final Cleaner.Cleanable cleanable;
+
+  static {
+    SecurityManager sm = System.getSecurityManager();
+    if (sm == null) {
+      cleaner = Cleaner.create();
+    } else {
+      java.security.PrivilegedAction<Void> pa =
+          () -> {
+            cleaner = Cleaner.create();
+            return null;
+          };
+      java.security.AccessController.doPrivileged(pa);
+    }
+  }
 
   /** A reference to a QAT session in C. */
   long session;
@@ -100,10 +114,10 @@ public class QatZipper {
 
   /**
    * Creates a new QatZipper that uses {@link Algorithm#DEFLATE}, {@link DEFAULT_COMPRESS_LEVEL},
-   * {@link Mode#AUTO}, and {@link DEFAULT_RETRY_COUNT}.
+   * {@link Mode#HARDWARE}, and {@link DEFAULT_RETRY_COUNT}.
    */
   public QatZipper() {
-    this(Algorithm.DEFLATE, DEFAULT_COMPRESS_LEVEL, Mode.AUTO, DEFAULT_RETRY_COUNT);
+    this(Algorithm.DEFLATE, DEFAULT_COMPRESS_LEVEL, Mode.HARDWARE, DEFAULT_RETRY_COUNT);
   }
 
   /**
@@ -119,13 +133,13 @@ public class QatZipper {
 
   /**
    * Creates a new QatZipper with the specified compression {@link Algorithm}. Uses {@link
-   * DEFAULT_COMPRESS_LEVEL} compression level, {@link Mode#AUTO} execution mode, and {@link
+   * DEFAULT_COMPRESS_LEVEL} compression level, {@link Mode#HARDWARE} execution mode, and {@link
    * DEFAULT_RETRY_COUNT} retries.
    *
    * @param algorithm the compression {@link Algorithm}
    */
   public QatZipper(Algorithm algorithm) {
-    this(algorithm, DEFAULT_COMPRESS_LEVEL, Mode.AUTO, DEFAULT_RETRY_COUNT);
+    this(algorithm, DEFAULT_COMPRESS_LEVEL, Mode.HARDWARE, DEFAULT_RETRY_COUNT);
   }
 
   /**
@@ -141,13 +155,13 @@ public class QatZipper {
 
   /**
    * Creates a new QatZipper with the specified {@link Algorithm} and compression level. Uses {@link
-   * Mode#AUTO} execution mode and {@link DEFAULT_RETRY_COUNT} retries.
+   * Mode#HARDWARE} execution mode and {@link DEFAULT_RETRY_COUNT} retries.
    *
    * @param algorithm the compression algorithm (deflate or LZ4).
    * @param level the compression level.
    */
   public QatZipper(Algorithm algorithm, int level) {
-    this(algorithm, level, Mode.AUTO, DEFAULT_RETRY_COUNT);
+    this(algorithm, level, Mode.HARDWARE, DEFAULT_RETRY_COUNT);
   }
 
   /**
@@ -197,13 +211,14 @@ public class QatZipper {
   }
 
   /**
-   * Returns the maximum compression length for the specified source length.
+   * Returns the maximum compression length for the specified source length. Use this method to
+   * estimate the size of a buffer for compression given the size of a source buffer.
    *
    * @param len the length of the source array or buffer.
    * @return the maximum compression length for the specified length.
    */
   public int maxCompressedLength(long len) {
-    if (!isValid) throw new IllegalStateException();
+    if (!isValid) throw new IllegalStateException("QAT session has been closed.");
 
     return InternalJNI.maxCompressedSize(session, len);
   }
@@ -235,7 +250,7 @@ public class QatZipper {
    */
   public int compress(
       byte[] src, int srcOffset, int srcLen, byte[] dst, int dstOffset, int dstLen) {
-    if (!isValid) throw new IllegalStateException();
+    if (!isValid) throw new IllegalStateException("QAT session has been closed.");
 
     if (src == null || dst == null || srcLen == 0 || dst.length == 0)
       throw new IllegalArgumentException(
@@ -264,7 +279,7 @@ public class QatZipper {
    * @return returns the size of the compressed data in bytes
    */
   public int compress(ByteBuffer src, ByteBuffer dst) {
-    if (!isValid) throw new IllegalStateException();
+    if (!isValid) throw new IllegalStateException("QAT session has been closed.");
 
     if ((src == null || dst == null)
         || (src.position() == src.limit() || dst.position() == dst.limit()))
@@ -372,7 +387,7 @@ public class QatZipper {
    */
   public int decompress(
       byte[] src, int srcOffset, int srcLen, byte[] dst, int dstOffset, int dstLen) {
-    if (!isValid) throw new IllegalStateException();
+    if (!isValid) throw new IllegalStateException("QAT session has been closed.");
 
     if (src == null || dst == null || srcLen == 0 || dst.length == 0)
       throw new IllegalArgumentException("Empty source or/and destination byte array(s).");
@@ -400,7 +415,7 @@ public class QatZipper {
    * @return returns the size of the decompressed data in bytes
    */
   public int decompress(ByteBuffer src, ByteBuffer dst) {
-    if (!isValid) throw new IllegalStateException();
+    if (!isValid) throw new IllegalStateException("QAT session has been closed.");
 
     if ((src == null || dst == null)
         || (src.position() == src.limit() || dst.position() == dst.limit()))
@@ -490,7 +505,7 @@ public class QatZipper {
    * @throws QatException if QAT session cannot be gracefully ended.
    */
   public void end() throws QatException {
-    if (!isValid) throw new IllegalStateException();
+    if (!isValid) throw new IllegalStateException("QAT session has been closed.");
     InternalJNI.teardown(session);
     isValid = false;
   }

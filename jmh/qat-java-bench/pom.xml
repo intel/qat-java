@@ -96,6 +96,35 @@ THE POSSIBILITY OF SUCH DAMAGE.
                 </configuration>
             </plugin>
             <plugin>
+                <groupId>com.diffplug.spotless</groupId>
+                <artifactId>spotless-maven-plugin</artifactId>
+                <version>2.28.0</version>
+                <executions>
+                    <execution>
+                        <id>format</id>
+                        <phase>process-sources</phase>
+                        <goals>
+                            <goal>check</goal>
+                            <goal>apply</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <formats>
+                        <format>
+                            <includes>
+                              <include>*.java</include>
+                            </includes>
+                        </format>
+                    </formats>
+                    <java>
+                        <googleJavaFormat>
+                          <version>1.15.0</version>
+                        </googleJavaFormat>
+                    </java>
+                </configuration>
+            </plugin>
+            <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
                 <version>3.2.1</version>
