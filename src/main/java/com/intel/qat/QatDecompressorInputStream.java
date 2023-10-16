@@ -31,33 +31,33 @@ public class QatDecompressorInputStream extends FilterInputStream {
 
   /**
    * Creates a new input stream with {@link DEFAULT_BUFFER_SIZE}, {@link Algorithm#DEFLATE}, and
-   * {@link Mode#AUTO}.
+   * {@link Mode#HARDWARE}.
    *
    * @param in the input stream
    */
   public QatDecompressorInputStream(InputStream in) {
-    this(in, DEFAULT_BUFFER_SIZE, Algorithm.DEFLATE, Mode.AUTO);
+    this(in, DEFAULT_BUFFER_SIZE, Algorithm.DEFLATE, Mode.HARDWARE);
   }
 
   /**
-   * Creates a new input stream with {@link Algorithm#DEFLATE}, and {@link Mode#AUTO}.
+   * Creates a new input stream with {@link Algorithm#DEFLATE}, and {@link Mode#HARDWARE}.
    *
    * @param in the input stream
    * @param bufferSize the input buffer size
    */
   public QatDecompressorInputStream(InputStream in, int bufferSize) {
-    this(in, bufferSize, Algorithm.DEFLATE, Mode.AUTO);
+    this(in, bufferSize, Algorithm.DEFLATE, Mode.HARDWARE);
   }
 
   /**
-   * Creates a new input stream with the given algorithm, and {@link Mode#AUTO}.
+   * Creates a new input stream with the given algorithm, and {@link Mode#HARDWARE}.
    *
    * @param in the input stream
    * @param bufferSize the input buffer size
    * @param algorithm the compression algorithm (deflate or LZ4).
    */
   public QatDecompressorInputStream(InputStream in, int bufferSize, Algorithm algorithm) {
-    this(in, bufferSize, algorithm, Mode.AUTO);
+    this(in, bufferSize, algorithm, Mode.HARDWARE);
   }
 
   /**
