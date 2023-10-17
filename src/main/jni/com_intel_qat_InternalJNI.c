@@ -17,7 +17,7 @@
 /**
  * The fieldID for java.nio.ByteBuffer/position
  */
-static jfieldID nio_bytebuffer_position_id;
+_Thread_local static jfieldID nio_bytebuffer_position_id;
 
 /**
  * Setups a QAT session for DEFLATE.
@@ -30,8 +30,7 @@ static int setup_deflate_session(QzSession_T *qz_session, int level,
   QzSessionParamsDeflate_T deflate_params;
 
   int status = qzGetDefaultsDeflate(&deflate_params);
-  if (status != QZ_OK)
-    return status;
+  if (status != QZ_OK) return status;
 
   deflate_params.data_fmt = QZ_DEFLATE_GZIP_EXT;
   deflate_params.common_params.comp_lvl = level;
@@ -53,8 +52,7 @@ static int setup_lz4_session(QzSession_T *qz_session, int level,
   QzSessionParamsLZ4_T lz4_params;
 
   int status = qzGetDefaultsLZ4(&lz4_params);
-  if (status != QZ_OK)
-    return status;
+  if (status != QZ_OK) return status;
 
   lz4_params.common_params.polling_mode = POLLING_MODE;
   lz4_params.common_params.comp_lvl = level;
@@ -80,9 +78,8 @@ static int setup_lz4_session(QzSession_T *qz_session, int level,
  * @param bytes_written an out parameter that stores the bytes written to the
  * destination buffer.
  * @param retry_count the number of compression retries before we give up.
- * @return QZ_OK (0) if successful, non-zero otherwise.
  */
-static int compress(JNIEnv *env, QzSession_T *sess, unsigned char *src_ptr,
+static void compress(JNIEnv *env, QzSession_T *sess, unsigned char *src_ptr,
                     unsigned int src_len, unsigned char *dst_ptr,
                     unsigned int dst_len, int *bytes_read, int *bytes_written,
                     int retry_count) {
@@ -97,13 +94,11 @@ static int compress(JNIEnv *env, QzSession_T *sess, unsigned char *src_ptr,
 
   if (status != QZ_OK) {
     throw_exception(env, status, "Error occurred while compressing data.");
-    return status;
+    return;
   }
 
   *bytes_read = src_len;
   *bytes_written = dst_len;
-
-  return QZ_OK;
 }
 
 /**
@@ -123,9 +118,8 @@ static int compress(JNIEnv *env, QzSession_T *sess, unsigned char *src_ptr,
  * @param bytes_written an out parameter that stores the bytes written to the
  * destination buffer.
  * @param retry_count the number of decompression retries before we give up.
- * @return QZ_OK (0) if successful, non-zero otherwise.
  */
-static int decompress(JNIEnv *env, QzSession_T *sess, unsigned char *src_ptr,
+static void decompress(JNIEnv *env, QzSession_T *sess, unsigned char *src_ptr,
                       unsigned int src_len, unsigned char *dst_ptr,
                       unsigned int dst_len, int *bytes_read, int *bytes_written,
                       int retry_count) {
@@ -139,13 +133,11 @@ static int decompress(JNIEnv *env, QzSession_T *sess, unsigned char *src_ptr,
   }
   if (status != QZ_OK && status != QZ_BUF_ERROR && status != QZ_DATA_ERROR) {
     throw_exception(env, status, "Error occurred while decompressing data.");
-    return status;
+    return;
   }
 
   *bytes_read = src_len;
   *bytes_written = dst_len;
-
-  return QZ_OK;
 }
 
 /*
@@ -153,7 +145,7 @@ static int decompress(JNIEnv *env, QzSession_T *sess, unsigned char *src_ptr,
  *
  * Class:     com_intel_qat_InternalJNI
  * Method:    setup
- * Signature: (Lcom/intel/qat/QatZipper;IJII)V
+ * Signature: (Lcom/intel/qat/QatZipper;III)V
  */
 JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_setup(
     JNIEnv *env, jobject obj, jobject qat_zipper, jint sw_backup,
@@ -456,7 +448,7 @@ Java_com_intel_qat_InternalJNI_decompressDirectByteBufferSrc(
 /*
  * Class:     com_intel_qat_InternalJNI
  * Method:    compressDirectByteBufferDst
- * Signature: (J[BIILjava/nio/ByteBuffer;III)I
+ * Signature: (JLjava/nio/ByteBuffer;[BIILjava/nio/ByteBuffer;III)I
  */
 JNIEXPORT jint JNICALL
 Java_com_intel_qat_InternalJNI_compressDirectByteBufferDst(
@@ -548,8 +540,7 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_teardown(JNIEnv *env,
   (void)obj;
 
   QzSession_T *qz_session = (QzSession_T *)sess;
-  if (!qz_session)
-    return QZ_OK;
+  if (!qz_session) return QZ_OK;
 
   int status = qzTeardownSession(qz_session);
   if (status != QZ_OK) {

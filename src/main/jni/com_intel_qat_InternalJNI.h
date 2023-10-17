@@ -10,19 +10,11 @@ extern "C" {
 /*
  * Class:     com_intel_qat_InternalJNI
  * Method:    setup
- * Signature: (Lcom/intel/qat/QatZipper;IJII)V
+ * Signature: (Lcom/intel/qat/QatZipper;III)V
  */
 JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_setup(JNIEnv *, jclass,
                                                             jobject, jint, jint,
                                                             jint);
-
-/*
- * Class:     com_intel_qat_InternalJNI
- * Method:    teardown
- * Signature: (J)I
- */
-JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_teardown(JNIEnv *, jclass,
-                                                               jlong);
 
 /*
  * Class:     com_intel_qat_InternalJNI
@@ -110,7 +102,7 @@ Java_com_intel_qat_InternalJNI_decompressDirectByteBufferSrc(
 /*
  * Class:     com_intel_qat_InternalJNI
  * Method:    compressDirectByteBufferDst
- * Signature: (J[BIILjava/nio/ByteBuffer;III)I
+ * Signature: (JLjava/nio/ByteBuffer;[BIILjava/nio/ByteBuffer;III)I
  */
 JNIEXPORT jint JNICALL
 Java_com_intel_qat_InternalJNI_compressDirectByteBufferDst(JNIEnv *, jclass,
@@ -122,7 +114,7 @@ Java_com_intel_qat_InternalJNI_compressDirectByteBufferDst(JNIEnv *, jclass,
 /*
  * Class:     com_intel_qat_InternalJNI
  * Method:    decompressDirectByteBufferDst
- * Signature: (J[BIILjava/nio/ByteBuffer;III)I
+ * Signature: (JLjava/nio/ByteBuffer;[BIILjava/nio/ByteBuffer;III)I
  */
 JNIEXPORT jint JNICALL
 Java_com_intel_qat_InternalJNI_decompressDirectByteBufferDst(JNIEnv *, jclass,
@@ -130,6 +122,15 @@ Java_com_intel_qat_InternalJNI_decompressDirectByteBufferDst(JNIEnv *, jclass,
                                                              jbyteArray, jint,
                                                              jint, jobject,
                                                              jint, jint, jint);
+
+/*
+ * Class:     com_intel_qat_InternalJNI
+ * Method:    teardown
+ * Signature: (J)I
+ */
+JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_teardown(JNIEnv *, jclass,
+                                                               jlong);
+
 #ifdef __cplusplus
 }
 #endif
