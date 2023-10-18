@@ -126,4 +126,14 @@ class InternalJNI {
       int retryCount);
 
   static native int teardown(long session);
+
+  static native long zstdGetSeqProdFunction();
+
+  static native int zstdStartDevice();
+
+  static native void zstdStopDevice();
+
+  static native long zstdCreateSeqProdState();
+
+  static native void zstdFreeSeqProdState(long sequenceProducerState);
 }

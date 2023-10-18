@@ -32,4 +32,4 @@ else()
 endif()
 
 add_library(${SHARED_LIBRARY_NAME} SHARED ${SOURCE_FILES})
-target_link_libraries(${SHARED_LIBRARY_NAME} -lqatzip)
+target_link_libraries(${SHARED_LIBRARY_NAME} -lqatzip -lqatseqprod)

@@ -8,6 +8,7 @@
 
 #include <stdlib.h>
 
+#include "qatseqprod.h"
 #include "qatzip.h"
 #include "util.h"
 
@@ -80,9 +81,9 @@ static int setup_lz4_session(QzSession_T *qz_session, int level,
  * @param retry_count the number of compression retries before we give up.
  */
 static void compress(JNIEnv *env, QzSession_T *sess, unsigned char *src_ptr,
-                    unsigned int src_len, unsigned char *dst_ptr,
-                    unsigned int dst_len, int *bytes_read, int *bytes_written,
-                    int retry_count) {
+                     unsigned int src_len, unsigned char *dst_ptr,
+                     unsigned int dst_len, int *bytes_read, int *bytes_written,
+                     int retry_count) {
   int status = qzCompress(sess, src_ptr, &src_len, dst_ptr, &dst_len, 1);
 
   if (status == QZ_NOSW_NO_INST_ATTACH && retry_count > 0) {
@@ -120,9 +121,9 @@ static void compress(JNIEnv *env, QzSession_T *sess, unsigned char *src_ptr,
  * @param retry_count the number of decompression retries before we give up.
  */
 static void decompress(JNIEnv *env, QzSession_T *sess, unsigned char *src_ptr,
-                      unsigned int src_len, unsigned char *dst_ptr,
-                      unsigned int dst_len, int *bytes_read, int *bytes_written,
-                      int retry_count) {
+                       unsigned int src_len, unsigned char *dst_ptr,
+                       unsigned int dst_len, int *bytes_read,
+                       int *bytes_written, int retry_count) {
   int status = qzDecompress(sess, src_ptr, &src_len, dst_ptr, &dst_len);
   if (status == QZ_NOSW_NO_INST_ATTACH && retry_count > 0) {
     while (retry_count > 0 && QZ_OK != status && status != QZ_BUF_ERROR &&
@@ -551,4 +552,69 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_teardown(JNIEnv *env,
   free(qz_session);
 
   return QZ_OK;
+}
+
+/*
+ * Class:     com_intel_qat_InternalJNI
+ * Method:    zstdGetSeqProdFunction
+ * Signature: ()J
+ */
+JNIEXPORT jlong JNICALL
+Java_com_intel_qat_InternalJNI_zstdGetSeqProdFunction(JNIEnv *env, jclass obj) {
+  (void)env;
+  (void)obj;
+
+  return (jlong)qatSequenceProducer;
+}
+
+/*
+ * Class:     com_intel_qat_InternalJNI
+ * Method:    zstdStartDevice
+ * Signature: ()I
+ */
+JNIEXPORT jint JNICALL
+Java_com_intel_qat_InternalJNI_zstdStartDevice(JNIEnv *env, jclass obj) {
+  (void)env;
+  (void)obj;
+
+  return QZSTD_startQatDevice();
+}
+
+/*
+ * Class:     com_intel_qat_InternalJNI
+ * Method:    zstdStopDevice
+ * Signature: ()V
+ */
+JNIEXPORT void JNICALL
+Java_com_intel_qat_InternalJNI_zstdStopDevice(JNIEnv *env, jclass obj) {
+  (void)env;
+  (void)obj;
+
+  QZSTD_stopQatDevice();
+}
+
+/*
+ * Class:     com_intel_qat_InternalJNI
+ * Method:    zstdCreateSeqProdState
+ * Signature: ()J
+ */
+JNIEXPORT jlong JNICALL
+Java_com_intel_qat_InternalJNI_zstdCreateSeqProdState(JNIEnv *env, jclass obj) {
+  (void)env;
+  (void)obj;
+
+  return (jlong)QZSTD_createSeqProdState();
+}
+
+/*
+ * Class:     com_intel_qat_InternalJNI
+ * Method:    zstdFreeSeqProdState
+ * Signature: (J)V
+ */
+JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_zstdFreeSeqProdState(
+    JNIEnv *env, jclass obj, jlong sequenceProducerState) {
+  (void)env;
+  (void)obj;
+
+  QZSTD_freeSeqProdState((void *)sequenceProducerState);
 }

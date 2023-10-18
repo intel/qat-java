@@ -131,6 +131,46 @@ Java_com_intel_qat_InternalJNI_decompressDirectByteBufferDst(JNIEnv *, jclass,
 JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_teardown(JNIEnv *, jclass,
                                                                jlong);
 
+/*
+ * Class:     com_intel_qat_InternalJNI
+ * Method:    zstdGetSeqProdFunction
+ * Signature: ()J
+ */
+JNIEXPORT jlong JNICALL
+Java_com_intel_qat_InternalJNI_zstdGetSeqProdFunction(JNIEnv *, jclass);
+
+/*
+ * Class:     com_intel_qat_InternalJNI
+ * Method:    zstdStartDevice
+ * Signature: ()I
+ */
+JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_zstdStartDevice(JNIEnv *,
+                                                                      jclass);
+
+/*
+ * Class:     com_intel_qat_InternalJNI
+ * Method:    zstdStopDevice
+ * Signature: ()V
+ */
+JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_zstdStopDevice(JNIEnv *,
+                                                                     jclass);
+
+/*
+ * Class:     com_intel_qat_InternalJNI
+ * Method:    zstdCreateSeqProdState
+ * Signature: ()J
+ */
+JNIEXPORT jlong JNICALL
+Java_com_intel_qat_InternalJNI_zstdCreateSeqProdState(JNIEnv *, jclass);
+
+/*
+ * Class:     com_intel_qat_InternalJNI
+ * Method:    zstdFreeSeqProdState
+ * Signature: (J)V
+ */
+JNIEXPORT void JNICALL
+Java_com_intel_qat_InternalJNI_zstdFreeSeqProdState(JNIEnv *, jclass, jlong);
+
 #ifdef __cplusplus
 }
 #endif
