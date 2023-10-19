@@ -46,6 +46,10 @@ public class QatZstdSequenceProducer extends AbstractSequenceProducer implements
     return InternalJNI.zstdStartDevice();
   }
 
+  public static void stopDevice() {
+    InternalJNI.zstdStopDevice();
+  }
+
   public QatZstdSequenceProducer() {
     sequenceProducerState = InternalJNI.zstdCreateSeqProdState();
     assert sequenceProducerState != 0;
