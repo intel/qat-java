@@ -62,7 +62,7 @@ public class QatJavaStreamBench {
   @Param({""})
   String fileName;
 
-  @Param({"512", "4096"})
+  @Param({"4096", "65536"})
   private int bufferSize;
 
   @Setup

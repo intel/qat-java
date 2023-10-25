@@ -26,8 +26,8 @@ public class QatDecompressorInputStream extends FilterInputStream {
   private boolean closed;
   private boolean eof;
 
-  /** The default size in bytes of the input buffer. */
-  public static final int DEFAULT_BUFFER_SIZE = 512;
+  /** The default size in bytes of the input buffer (64KB). */
+  public static final int DEFAULT_BUFFER_SIZE = 1 << 16;
 
   /**
    * Creates a new input stream with {@link DEFAULT_BUFFER_SIZE}, {@link Algorithm#DEFLATE}, and
