@@ -74,7 +74,7 @@ public class QatZipper {
   private int bytesWritten;
 
   /** A reference to a QAT session in C. */
-  long session;
+  private long session;
 
   /** Cleaner instance associated with this object. */
   private static Cleaner cleaner;
