@@ -111,7 +111,8 @@ public class QatZipperTests {
 
   @AfterEach
   public void cleanupSession() {
-    if (qzip != null) qzip.end();
+    if (qzip != null)
+      qzip.end();
   }
 
   @Test
@@ -993,8 +994,7 @@ public class QatZipperTests {
       src.flip().position(inOffset);
 
       int outOffset = 5;
-      ByteBuffer compressed =
-          ByteBuffer.allocate(outOffset + qzip.maxCompressedLength(data.length) + outOffset);
+      ByteBuffer compressed = ByteBuffer.allocate(outOffset + qzip.maxCompressedLength(data.length) + outOffset);
       byte[] garbage = new byte[compressed.capacity()];
       new Random().nextBytes(garbage);
       compressed.put(garbage);
@@ -1040,8 +1040,7 @@ public class QatZipperTests {
       ByteBuffer readOnlySrc = src.asReadOnlyBuffer();
 
       int outOffset = 5;
-      ByteBuffer compressed =
-          ByteBuffer.allocate(outOffset + qzip.maxCompressedLength(data.length) + outOffset);
+      ByteBuffer compressed = ByteBuffer.allocate(outOffset + qzip.maxCompressedLength(data.length) + outOffset);
       byte[] garbage = new byte[compressed.capacity()];
       new Random().nextBytes(garbage);
       compressed.put(garbage);
@@ -1152,15 +1151,19 @@ public class QatZipperTests {
   @Test
   public void testZstd() {
     try (ZstdCompressCtx cctx = new ZstdCompressCtx();
-        ZstdDecompressCtx dctx = new ZstdDecompressCtx(); ) {
+        ZstdDecompressCtx dctx = new ZstdDecompressCtx();) {
+
       QatZstdSequenceProducer.startDevice();
       cctx.registerSequenceProducer(new QatZstdSequenceProducer());
+
       byte bytes[] = "Hello, world!".getBytes();
       byte compressed[] = cctx.compress(bytes);
       byte decompressed[] = dctx.decompress(compressed, bytes.length);
+
       boolean result = Arrays.equals(bytes, decompressed);
       QatZstdSequenceProducer.stopDevice();
-      // FIXME: don't unconditionally fail
+
+      // Unconditionally fail, so that the result is always printed
       fail("ZSTD result: " + result);
     }
   }

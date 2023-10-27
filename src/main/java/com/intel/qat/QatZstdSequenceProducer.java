@@ -1,13 +1,13 @@
 package com.intel.qat;
 
-import com.github.luben.zstd.AbstractSequenceProducer;
+import com.github.luben.zstd.SequenceProducer;
 import java.lang.ref.Cleaner;
 
 /**
  * An implementation of an abstract sequence producer plugin. To be used in conjunction with
  * zstd-jni, passed as a
  */
-public class QatZstdSequenceProducer extends AbstractSequenceProducer implements AutoCloseable {
+public class QatZstdSequenceProducer implements SequenceProducer, AutoCloseable {
   /** Pointer to the `sequenceProducerState` */
   private long sequenceProducerState;
 
