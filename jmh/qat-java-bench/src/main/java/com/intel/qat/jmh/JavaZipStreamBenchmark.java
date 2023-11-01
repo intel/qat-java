@@ -41,101 +41,80 @@ import java.util.zip.DeflaterOutputStream;
 import java.util.zip.Inflater;
 import java.util.zip.InflaterInputStream;
 import org.openjdk.jmh.annotations.Benchmark;
-import org.openjdk.jmh.annotations.BenchmarkMode;
-import org.openjdk.jmh.annotations.Measurement;
-import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
-import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
-import org.openjdk.jmh.annotations.TearDown;
-import org.openjdk.jmh.annotations.Warmup;
 
 @State(Scope.Benchmark)
-public class JavaZipStreamBench {
+public class JavaZipStreamBenchmark {
   private static final int COMPRESSION_LEVEL = 6;
 
-  private byte[] src;
-  private byte[] compressed;
-
   @Param({""})
-  String fileName;
+  static String corpus;
 
-  @Param({"4096", "65536"})
-  private int bufferSize;
+  static final int BUFFER_SIZE = 1 << 16; // 64KB
 
-  @Setup
-  public void prepare() {
-    try {
-      // Read input
-      src = Files.readAllBytes(Paths.get(fileName));
+  @State(Scope.Thread)
+  public static class ThreadState {
+    byte[] src;
+    byte[] dst;
+    byte[] compressed;
+    byte[] decompressed;
 
-      // Compress input using streams
-      ByteArrayOutputStream compressedOutput = new ByteArrayOutputStream();
-      Deflater deflater = new Deflater(COMPRESSION_LEVEL);
-      DeflaterOutputStream outputStream =
-          new DeflaterOutputStream(compressedOutput, deflater, bufferSize);
-      outputStream.write(src, 0, src.length);
-      outputStream.close();
+    public ThreadState() {
+      try {
+        // Read input
+        src = Files.readAllBytes(Paths.get(corpus));
 
-      compressed = compressedOutput.toByteArray();
+        // Compress input using streams
+        ByteArrayOutputStream compressedOutput = new ByteArrayOutputStream();
+        Deflater deflater = new Deflater(COMPRESSION_LEVEL);
+        DeflaterOutputStream outputStream =
+            new DeflaterOutputStream(compressedOutput, deflater, BUFFER_SIZE);
+        outputStream.write(src, 0, src.length);
+        outputStream.close();
 
-      // Decompress compressed data
-      ByteArrayInputStream compressedInput = new ByteArrayInputStream(compressed);
-      InflaterInputStream inputStream =
-          new InflaterInputStream(compressedInput, new Inflater(), bufferSize);
-      ByteArrayOutputStream decompressedOutput = new ByteArrayOutputStream();
+        compressed = compressedOutput.toByteArray();
 
-      byte[] buffer = new byte[bufferSize];
-      int bytesRead;
-      while ((bytesRead = inputStream.read(buffer)) != -1) {
-        decompressedOutput.write(buffer, 0, bytesRead);
+        // Decompress compressed data
+        ByteArrayInputStream compressedInput = new ByteArrayInputStream(compressed);
+        InflaterInputStream inputStream =
+            new InflaterInputStream(compressedInput, new Inflater(), BUFFER_SIZE);
+        ByteArrayOutputStream decompressedOutput = new ByteArrayOutputStream();
+
+        byte[] buffer = new byte[BUFFER_SIZE];
+        int bytesRead;
+        while ((bytesRead = inputStream.read(buffer)) != -1) {
+          decompressedOutput.write(buffer, 0, bytesRead);
+        }
+        inputStream.close();
+      } catch (IOException e) {
+        e.printStackTrace();
       }
-      inputStream.close();
-
-      // Print compressed length and ratio
-      System.out.println("\n-------------------------");
-      System.out.printf(
-          "Input size: %d, Compressed size: %d, ratio: %.2f\n",
-          src.length, compressed.length, src.length * 1.0 / compressed.length);
-      System.out.println("-------------------------");
-    } catch (Exception e) {
-      e.printStackTrace();
     }
   }
 
   @Benchmark
-  @Warmup(iterations = 2)
-  @Measurement(iterations = 3)
-  @BenchmarkMode(Mode.Throughput)
-  public void compress() throws IOException {
+  public void compress(ThreadState state) throws IOException {
     ByteArrayOutputStream compressedOutput = new ByteArrayOutputStream();
     DeflaterOutputStream outputStream =
-        new DeflaterOutputStream(compressedOutput, new Deflater(COMPRESSION_LEVEL), bufferSize);
-    outputStream.write(src, 0, src.length);
+        new DeflaterOutputStream(compressedOutput, new Deflater(COMPRESSION_LEVEL), BUFFER_SIZE);
+    outputStream.write(state.src, 0, state.src.length);
     outputStream.close();
   }
 
   @Benchmark
-  @Warmup(iterations = 2)
-  @Measurement(iterations = 3)
-  @BenchmarkMode(Mode.Throughput)
-  public void decompress() throws IOException {
-    ByteArrayInputStream compressedInput = new ByteArrayInputStream(compressed);
+  public void decompress(ThreadState state) throws IOException {
+    ByteArrayInputStream compressedInput = new ByteArrayInputStream(state.compressed);
     InflaterInputStream inputStream =
-        new InflaterInputStream(compressedInput, new Inflater(), bufferSize);
+        new InflaterInputStream(compressedInput, new Inflater(), BUFFER_SIZE);
     ByteArrayOutputStream decompressedOutput = new ByteArrayOutputStream();
 
-    byte[] buffer = new byte[bufferSize];
+    byte[] buffer = new byte[BUFFER_SIZE];
     int bytesRead;
     while ((bytesRead = inputStream.read(buffer)) != -1) {
       decompressedOutput.write(buffer, 0, bytesRead);
     }
     inputStream.close();
-  }
-
-  @TearDown
-  public void end() {
-    // Do nothing
   }
 }

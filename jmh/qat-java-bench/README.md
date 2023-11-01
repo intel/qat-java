@@ -11,7 +11,12 @@ mvn clean install
 To run the benchmark, use the below command:
 
 ```
-java -jar target/benchmarks.jar com.intel.qat.jmh.BenchmarkDriver /path/to/a/text-corpus
+java -jar target/benchmarks.jar <QatJava|QatJavaStream|JavaZip|JavaZipStream>Benchmark -p corpus=/path/to/a/text-corpus <other-jmh-params>
+```
+
+For example:
+```
+java -jar target/benchmarks.jar QatJavaBenchmark -p corpus=/path/to/a/text-corpus -bm thrpt -wi 1 -i 2 -t 1
 ```
 
 You may get a text corpus for benchmarking from [Silesia compression corpus](https://sun.aei.polsl.pl//~sdeor/index.php?page=silesia). 
