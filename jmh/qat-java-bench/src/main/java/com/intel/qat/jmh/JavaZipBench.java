@@ -82,6 +82,7 @@ public class JavaZipBench {
       decompressed = new byte[src.length];
       inflater.setInput(compressed);
       int decompressedLength = inflater.inflate(decompressed);
+      assert decompressedLength == src.length;
       inflater.end();
 
       // Print compressed length and ratio

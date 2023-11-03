@@ -48,6 +48,8 @@ public class BenchmarkDriver {
         new OptionsBuilder()
             .include(QatJavaBench.class.getSimpleName())
             .include(JavaZipBench.class.getSimpleName())
+            .include(QatZstdBench.class.getSimpleName())
+            .include(ZstdSoftwareBench.class.getSimpleName())
             .forks(1)
             .param("fileName", args[1])
             .jvmArgs("-Xms4g", "-Xmx4g")
@@ -60,7 +62,7 @@ public class BenchmarkDriver {
 
     long fileSize = new File(args[1]).length();
     for (RunResult rr : results) {
-      Result r = rr.getAggregatedResult().getPrimaryResult();
+      Result<?> r = rr.getAggregatedResult().getPrimaryResult();
       double speed = r.getScore() * fileSize / (1024 * 1024);
       System.out.printf("%-50s%.2f MB/sec\n", rr.getParams().getBenchmark(), speed);
     }
