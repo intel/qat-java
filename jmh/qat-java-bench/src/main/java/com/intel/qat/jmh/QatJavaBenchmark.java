@@ -1,33 +1,8 @@
-/*
- * Copyright (c) 2014, Oracle America, Inc.
- * All rights reserved.
+/*******************************************************************************
+ * Copyright (C) 2023 Intel Corporation
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- *  * Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *
- *  * Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- *
- *  * Neither the name of Oracle nor the names of its contributors may be used
- *    to endorse or promote products derived from this software without
- *    specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
- * THE POSSIBILITY OF SUCH DAMAGE.
- */
+ * SPDX-License-Identifier: BSD
+ ******************************************************************************/
 
 package com.intel.qat.jmh;
 
@@ -39,61 +14,67 @@ import java.nio.file.Paths;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
+import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 
-@State(Scope.Benchmark)
+@State(Scope.Thread)
 public class QatJavaBenchmark {
-
-  private static final int COMPRESSION_LEVEL = 6;
+  private byte[] src;
+  private byte[] dst;
+  private byte[] compressed;
+  private byte[] decompressed;
 
   @Param({""})
-  static String corpus;
+  static String file;
 
-  @State(Scope.Thread)
-  public static class ThreadState {
-    byte[] src;
-    byte[] dst;
-    byte[] compressed;
-    byte[] decompressed;
+  @Param({"6"})
+  static int level;
 
-    public ThreadState() {
-      try {
-        // Create compressor/decompressor object
-        QatZipper qzip = new QatZipper(Algorithm.DEFLATE, COMPRESSION_LEVEL);
+  @Setup
+  public void prepare() {
+    try {
+      // Create compressor/decompressor object
+      QatZipper qzip = new QatZipper(Algorithm.DEFLATE, level);
 
-        // Read input
-        src = Files.readAllBytes(Paths.get(corpus));
-        dst = new byte[qzip.maxCompressedLength(src.length)];
+      // Read input
+      src = Files.readAllBytes(Paths.get(file));
+      dst = new byte[qzip.maxCompressedLength(src.length)];
 
-        // Compress input
-        int compressedLength = qzip.compress(src, dst);
+      // Compress input
+      int compressedLength = qzip.compress(src, dst);
 
-        // Prepare compressed array of size EXACTLY compressedLength
-        compressed = new byte[compressedLength];
-        System.arraycopy(dst, 0, compressed, 0, compressedLength);
+      // Prepare compressed array of size EXACTLY compressedLength
+      compressed = new byte[compressedLength];
+      System.arraycopy(dst, 0, compressed, 0, compressedLength);
 
-        // Do decompression
-        decompressed = new byte[src.length];
-        int decompressedLength = qzip.decompress(compressed, decompressed);
+      // Do decompression
+      decompressed = new byte[src.length];
+      int decompressedLength = qzip.decompress(compressed, decompressed);
 
-        qzip.end();
-      } catch (IOException e) {
-        e.printStackTrace();
-      }
+      qzip.end();
+
+      System.out.println("\n-------------------------");
+      System.out.printf(
+          "Input size: %d, Compressed size: %d, ratio: %.2f\n",
+          src.length, compressedLength, src.length * 1.0 / compressedLength);
+      System.out.println("-------------------------");
+
+    } catch (IOException e) {
+      e.printStackTrace();
     }
   }
 
   @Benchmark
-  public void compress(ThreadState state) {
-    QatZipper qzip = new QatZipper(Algorithm.DEFLATE, COMPRESSION_LEVEL);
-    qzip.compress(state.src, state.dst);
+  public void compress() {
+    QatZipper qzip = new QatZipper(Algorithm.DEFLATE, level);
+    qzip.compress(src, dst);
     qzip.end();
   }
 
   @Benchmark
-  public void decompress(ThreadState state) {
-    QatZipper qzip = new QatZipper(Algorithm.DEFLATE, COMPRESSION_LEVEL);
-    qzip.decompress(state.compressed, state.decompressed);
+  public void decompress() {
+    QatZipper qzip = new QatZipper(Algorithm.DEFLATE, level);
+    qzip.decompress(compressed, decompressed);
     qzip.end();
   }
 }

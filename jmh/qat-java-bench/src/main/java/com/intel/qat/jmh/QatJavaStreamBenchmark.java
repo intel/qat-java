@@ -1,33 +1,8 @@
-/*
- * Copyright (c) 2014, Oracle America, Inc.
- * All rights reserved.
+/*******************************************************************************
+ * Copyright (C) 2023 Intel Corporation
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- *  * Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *
- *  * Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- *
- *  * Neither the name of Oracle nor the names of its contributors may be used
- *    to endorse or promote products derived from this software without
- *    specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
- * THE POSSIBILITY OF SUCH DAMAGE.
- */
+ * SPDX-License-Identifier: BSD
+ ******************************************************************************/
 
 package com.intel.qat.jmh;
 
@@ -44,81 +19,72 @@ import java.nio.file.Paths;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
+import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 
-@State(Scope.Benchmark)
+@State(Scope.Thread)
 public class QatJavaStreamBenchmark {
+  private static final int BUFFER_SIZE = 1 << 16; // 64KB
 
-  private static final int COMPRESSION_LEVEL = 6;
+  private byte[] src;
+  private byte[] dst;
+  private byte[] compressed;
+  private byte[] decompressed;
 
   @Param({""})
-  static String corpus;
+  static String file;
 
-  static final int BUFFER_SIZE = 1 << 16; // 64KB
+  @Param({"6"})
+  static int level;
 
-  @State(Scope.Thread)
-  public static class ThreadState {
-    byte[] src;
-    byte[] dst;
-    byte[] compressed;
-    byte[] decompressed;
+  @Setup
+  public void setup() {
+    try {
+      // Read input
+      src = Files.readAllBytes(Paths.get(file));
 
-    public ThreadState() {
-      try {
-        // Read input
-        src = Files.readAllBytes(Paths.get(corpus));
+      // Compress input using streams
+      ByteArrayOutputStream compressedOutput = new ByteArrayOutputStream();
+      QatCompressorOutputStream qatOutputStream =
+          new QatCompressorOutputStream(
+              compressedOutput, BUFFER_SIZE, Algorithm.DEFLATE, level, QatZipper.Mode.HARDWARE);
+      qatOutputStream.write(src);
+      qatOutputStream.close();
 
-        // Compress input using streams
-        ByteArrayOutputStream compressedOutput = new ByteArrayOutputStream();
-        QatCompressorOutputStream qatOutputStream =
-            new QatCompressorOutputStream(
-                compressedOutput,
-                BUFFER_SIZE,
-                Algorithm.DEFLATE,
-                COMPRESSION_LEVEL,
-                QatZipper.Mode.HARDWARE);
-        qatOutputStream.write(src);
-        qatOutputStream.close();
+      // Get compressed data from stream
+      compressed = compressedOutput.toByteArray();
 
-        // Get compressed data from stream
-        compressed = compressedOutput.toByteArray();
+      // Decompress compressed data
+      ByteArrayInputStream compressedInput = new ByteArrayInputStream(compressed);
+      QatDecompressorInputStream qatInputStream =
+          new QatDecompressorInputStream(
+              compressedInput, BUFFER_SIZE, Algorithm.DEFLATE, QatZipper.Mode.HARDWARE);
+      ByteArrayOutputStream decompressedOutput = new ByteArrayOutputStream();
 
-        // Decompress compressed data
-        ByteArrayInputStream compressedInput = new ByteArrayInputStream(compressed);
-        QatDecompressorInputStream qatInputStream =
-            new QatDecompressorInputStream(
-                compressedInput, BUFFER_SIZE, Algorithm.DEFLATE, QatZipper.Mode.HARDWARE);
-        ByteArrayOutputStream decompressedOutput = new ByteArrayOutputStream();
-
-        byte[] buffer = new byte[BUFFER_SIZE];
-        int bytesRead;
-        while ((bytesRead = qatInputStream.read(buffer)) != -1) {
-          decompressedOutput.write(buffer, 0, bytesRead);
-        }
-        qatInputStream.close();
-      } catch (IOException e) {
-        e.printStackTrace();
+      byte[] buffer = new byte[BUFFER_SIZE];
+      int bytesRead;
+      while ((bytesRead = qatInputStream.read(buffer)) != -1) {
+        decompressedOutput.write(buffer, 0, bytesRead);
       }
+      qatInputStream.close();
+    } catch (IOException e) {
+      e.printStackTrace();
     }
   }
 
   @Benchmark
-  public void compress(ThreadState state) throws IOException {
+  public void compress() throws IOException {
     ByteArrayOutputStream compressedOutput = new ByteArrayOutputStream();
     QatCompressorOutputStream qatOutputStream =
         new QatCompressorOutputStream(
-            compressedOutput,
-            BUFFER_SIZE,
-            Algorithm.DEFLATE,
-            COMPRESSION_LEVEL,
-            QatZipper.Mode.HARDWARE);
-    qatOutputStream.write(state.src);
+            compressedOutput, BUFFER_SIZE, Algorithm.DEFLATE, level, QatZipper.Mode.HARDWARE);
+    qatOutputStream.write(src);
     qatOutputStream.close();
   }
 
   @Benchmark
-  public void decompress(ThreadState state) throws IOException {
-    ByteArrayInputStream compressedInput = new ByteArrayInputStream(state.compressed);
+  public void decompress() throws IOException {
+    ByteArrayInputStream compressedInput = new ByteArrayInputStream(compressed);
     QatDecompressorInputStream qatInputStream =
         new QatDecompressorInputStream(
             compressedInput, BUFFER_SIZE, Algorithm.DEFLATE, QatZipper.Mode.HARDWARE);
