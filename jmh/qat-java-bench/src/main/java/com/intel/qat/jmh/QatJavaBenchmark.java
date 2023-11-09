@@ -31,7 +31,7 @@ public class QatJavaBenchmark {
   static int level;
 
   @Setup
-  public void prepare() {
+  public void setup() {
     try {
       // Create compressor/decompressor object
       QatZipper qzip = new QatZipper(Algorithm.DEFLATE, level);
