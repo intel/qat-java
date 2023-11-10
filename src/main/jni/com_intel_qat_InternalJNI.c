@@ -39,8 +39,8 @@ static int setup_deflate_session(QzSession_T *qz_session, int level,
 
   deflate_params.data_fmt = QZ_DEFLATE_GZIP_EXT;
   deflate_params.common_params.comp_lvl = level;
-  deflate_params.common_params.polling_mode = POLLING_MODE;
   deflate_params.common_params.sw_backup = sw_backup;
+  deflate_params.common_params.polling_mode = POLLING_MODE;
 
   return qzSetupSessionDeflate(qz_session, &deflate_params);
 }
@@ -59,9 +59,9 @@ static int setup_lz4_session(QzSession_T *qz_session, int level,
   int status = qzGetDefaultsLZ4(&lz4_params);
   if (status != QZ_OK) return status;
 
-  lz4_params.common_params.polling_mode = POLLING_MODE;
   lz4_params.common_params.comp_lvl = level;
   lz4_params.common_params.sw_backup = sw_backup;
+  lz4_params.common_params.polling_mode = POLLING_MODE;
 
   return qzSetupSessionLZ4(qz_session, &lz4_params);
 }
