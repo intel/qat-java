@@ -22,7 +22,7 @@ import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 
 @State(Scope.Thread)
-public class JavaZipStreamBenchmark {
+public class JavaZipStreamBench {
   private static final int BUFFER_SIZE = 1 << 16; // 64KB
 
   private byte[] src;

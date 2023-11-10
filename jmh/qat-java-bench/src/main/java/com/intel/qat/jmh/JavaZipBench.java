@@ -17,7 +17,7 @@ import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 
 @State(Scope.Thread)
-public class JavaZipBenchmark {
+public class JavaZipBench {
   private byte[] src;
   private byte[] dst;
   private byte[] compressed;
