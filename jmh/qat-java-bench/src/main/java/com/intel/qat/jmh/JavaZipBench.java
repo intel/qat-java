@@ -52,8 +52,14 @@ public class JavaZipBench {
       // Do decompression
       decompressed = new byte[src.length];
       inflater.setInput(compressed);
-      int decompressedLength = inflater.inflate(decompressed);
+      inflater.inflate(decompressed);
       inflater.end();
+
+      System.out.println("\n-------------------------");
+      System.out.printf(
+          "Input size: %d, Compressed size: %d, ratio: %.2f\n",
+          src.length, compressedLength, src.length * 1.0 / compressedLength);
+      System.out.println("-------------------------");
     } catch (Exception e) {
       e.printStackTrace();
     }

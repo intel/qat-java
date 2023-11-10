@@ -67,6 +67,12 @@ public class QatJavaStreamBench {
         decompressedOutput.write(buffer, 0, bytesRead);
       }
       qatInputStream.close();
+
+      System.out.println("\n-------------------------");
+      System.out.printf(
+          "Input size: %d, Compressed size: %d, ratio: %.2f\n",
+          src.length, compressed.length, src.length * 1.0 / compressed.length);
+      System.out.println("-------------------------");
     } catch (IOException e) {
       e.printStackTrace();
     }

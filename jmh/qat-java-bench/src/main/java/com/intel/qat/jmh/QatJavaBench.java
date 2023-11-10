@@ -49,7 +49,7 @@ public class QatJavaBench {
 
       // Do decompression
       decompressed = new byte[src.length];
-      int decompressedLength = qzip.decompress(compressed, decompressed);
+      qzip.decompress(compressed, decompressed);
 
       qzip.end();
 
