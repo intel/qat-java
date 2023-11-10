@@ -22,7 +22,7 @@ import java.nio.ReadOnlyBufferException;
  * <pre>{@code
  * try {
  *   String inputStr = "Hello World!";
- *   byte[] input = inputStr.getBytes();
+ *   byte[] input = inputStr.getBytes("UTF-8");
  *
  *   QatZipper qzip = new QatZipper();
  *
@@ -30,17 +30,19 @@ import java.nio.ReadOnlyBufferException;
  *   byte[] output = new byte[qzip.maxCompressedLength(input.length)];
  *
  *   // Compress the bytes
- *   int resultLen = qzip.compress(input, output);
+ *   qzip.compress(input, output);
  *
  *   // Decompress the bytes into a String
  *   byte[] result = new byte[input.length];
- *   resultLen = qzip.decompress(output, result);
+ *   qzip.decompress(output, result);
  *
  *   // Release resources
  *   qzip.end();
  *
  *   // Convert the bytes into a String
- *   String outputStr = new String(result, 0, resultLen);
+ *   String outputStr = new String(result, "UTF-8");
+ * } catch (java.io.UnsupportedEncodingException e) {
+ * //
  * } catch (QatException e) {
  * //
  * }
@@ -202,7 +204,7 @@ public class QatZipper {
     InternalJNI.setup(this, mode.ordinal(), algorithm.ordinal(), level);
 
     // Register a QAT session cleaner for this object
-    cleanable = cleaner.register(this, new QatCleaner(session));
+    cleanable = cleaner.register(this, new QatCleaner(isValid, session));
     isValid = true;
   }
 
@@ -552,16 +554,18 @@ public class QatZipper {
 
   /** A class that represents a cleaner action for a QAT session. */
   static class QatCleaner implements Runnable {
+    private boolean isValid;
     private long qzSession;
 
     /** Creates a new cleaner object that cleans up the specified session. */
-    public QatCleaner(long session) {
-      this.qzSession = qzSession;
+    public QatCleaner(boolean isValid, long session) {
+      this.qzSession = session;
+      this.isValid = isValid;
     }
 
     @Override
     public void run() {
-      if (qzSession != 0) {
+      if (isValid && qzSession != 0) {
         InternalJNI.teardown(qzSession);
       }
     }

@@ -16,7 +16,7 @@ public class InputOutputStreamExample {
 
   public static void main(String[] args) {
     try {
-      byte[] dataToCompress = "The quick brown fox jumps over the lazy dog.".getBytes();
+      byte[] dataToCompress = "The quick brown fox jumps over the lazy dog.".getBytes("UTF-8");
 
       ByteArrayOutputStream compressedOutput = new ByteArrayOutputStream();
       QatCompressorOutputStream qatOutputStream = new QatCompressorOutputStream(compressedOutput);
@@ -37,7 +37,7 @@ public class InputOutputStreamExample {
       qatInputStream.close();
 
       byte[] decompressedData = decompressedOutput.toByteArray();
-      System.out.println("Decompressed data: " + new String(decompressedData));
+      System.out.println("Decompressed data: " + new String(decompressedData, "UTF_8"));
     } catch (IOException e) {
       e.printStackTrace();
     }
