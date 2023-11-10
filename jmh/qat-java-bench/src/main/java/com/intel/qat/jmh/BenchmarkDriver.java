@@ -29,14 +29,13 @@ public class BenchmarkDriver {
 
       col = cmdOpts.getParameter("level");
       if (!col.hasValue()) {
-        throw new IllegalArgumentException("A compression level parameter is required.");
+        throw new IllegalArgumentException("Compression level parameter required.");
       }
-      int level = Integer.parseInt(col.get().iterator().next());
 
       // Run benchmark
       Collection<RunResult> results = new Runner(cmdOpts).run();
 
-      // Summarize results
+      // Print score in MB/sec
       System.out.println("----------------");
       System.out.println("Score in MB/sec");
       System.out.println("----------------");
@@ -47,7 +46,6 @@ public class BenchmarkDriver {
         double speed = r.getScore() * fileSize / (1024 * 1024);
         System.out.printf("%-54s%.2f MB/sec\n", rr.getParams().getBenchmark(), speed);
       }
-
     } catch (RunnerException e) {
       System.err.printf("%s: %s", "Error", e.getMessage());
       System.exit(1);

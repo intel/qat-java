@@ -65,6 +65,7 @@ public class JavaZipStreamBench {
       }
       inputStream.close();
 
+      // Print compression ratio
       System.out.println("\n-------------------------");
       System.out.printf(
           "Input size: %d, Compressed size: %d, ratio: %.2f\n",
