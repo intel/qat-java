@@ -6,10 +6,11 @@
 
 package com.intel.qat.jmh;
 
+import com.intel.qat.QatZipper;
+import com.intel.qat.QatZipper.Algorithm;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.zip.Deflater;
-import java.util.zip.Inflater;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
@@ -17,7 +18,7 @@ import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 
 @State(Scope.Thread)
-public class JavaZipBench {
+public class QatZip {
   private byte[] src;
   private byte[] dst;
   private byte[] compressed;
@@ -32,18 +33,15 @@ public class JavaZipBench {
   @Setup
   public void setup() {
     try {
-      // Create compressor and decompressor objects
-      Deflater deflater = new Deflater(level);
-      Inflater inflater = new Inflater();
+      // Create compressor/decompressor object
+      QatZipper qzip = new QatZipper(Algorithm.DEFLATE, level);
 
       // Read input
       src = Files.readAllBytes(Paths.get(file));
-      dst = new byte[src.length];
+      dst = new byte[qzip.maxCompressedLength(src.length)];
 
       // Compress input
-      deflater.setInput(src);
-      int compressedLength = deflater.deflate(dst);
-      deflater.end();
+      int compressedLength = qzip.compress(src, dst);
 
       // Prepare compressed array of size EXACTLY compressedLength
       compressed = new byte[compressedLength];
@@ -51,33 +49,33 @@ public class JavaZipBench {
 
       // Do decompression
       decompressed = new byte[src.length];
-      inflater.setInput(compressed);
-      inflater.inflate(decompressed);
-      inflater.end();
+      qzip.decompress(compressed, decompressed);
 
+      // End session
+      qzip.end();
+
+      // Print compression ratio
       System.out.println("\n-------------------------");
       System.out.printf(
           "Input size: %d, Compressed size: %d, ratio: %.2f\n",
           src.length, compressedLength, src.length * 1.0 / compressedLength);
       System.out.println("-------------------------");
-    } catch (Exception e) {
+    } catch (IOException e) {
       e.printStackTrace();
     }
   }
 
   @Benchmark
   public void compress() {
-    Deflater deflater = new Deflater(level);
-    deflater.setInput(src);
-    deflater.deflate(dst);
-    deflater.end();
+    QatZipper qzip = new QatZipper(Algorithm.DEFLATE, level);
+    qzip.compress(src, dst);
+    qzip.end();
   }
 
   @Benchmark
-  public void decompress() throws java.util.zip.DataFormatException {
-    Inflater inflater = new Inflater();
-    inflater.setInput(compressed);
-    inflater.inflate(decompressed);
-    inflater.end();
+  public void decompress() {
+    QatZipper qzip = new QatZipper(Algorithm.DEFLATE, level);
+    qzip.decompress(compressed, decompressed);
+    qzip.end();
   }
 }
