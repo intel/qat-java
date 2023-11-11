@@ -37,7 +37,7 @@ public class InputOutputStreamExample {
       qatInputStream.close();
 
       byte[] decompressedData = decompressedOutput.toByteArray();
-      System.out.println("Decompressed data: " + new String(decompressedData, "UTF_8"));
+      System.out.println("Decompressed data: " + new String(decompressedData, "UTF-8"));
     } catch (IOException e) {
       e.printStackTrace();
     }

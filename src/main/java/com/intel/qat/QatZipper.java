@@ -21,8 +21,7 @@ import java.nio.ReadOnlyBufferException;
  *
  * <pre>{@code
  * try {
- *   String inputStr = "Hello World!";
- *   byte[] input = inputStr.getBytes("UTF-8");
+ *   byte[] input = "Hello, world!".getBytes("UTF-8");
  *
  *   QatZipper qzip = new QatZipper();
  *

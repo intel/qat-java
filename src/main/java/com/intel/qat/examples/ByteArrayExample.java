@@ -26,13 +26,13 @@ public class ByteArrayExample {
 
       // Decompress the bytes into a String
       byte[] decompressedData = new byte[input.length];
-      qzip.decompress(compressedData, decompressedData);
+      int decompressedLength = qzip.decompress(compressedData, decompressedData);
 
       // Release resources
       qzip.end();
 
       // Convert the bytes into a String
-      String outputStr = new String(decompressedData, "UTF-8");
+      String outputStr = new String(decompressedData, 0, decompressedLength, "UTF-8");
       System.out.println("Decompressed data: " + outputStr);
     } catch (java.io.UnsupportedEncodingException | QatException e) {
       e.printStackTrace();
