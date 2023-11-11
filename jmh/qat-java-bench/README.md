@@ -11,7 +11,7 @@ mvn clean install
 To run the benchmark, use the below command:
 
 ```
-java -jar target/benchmarks.jar <benchmark-class> -p file=/path/to/a/text-corpus -p level=6 <other-jmh-params>
+java -jar target/benchmarks.jar <benchmark-class> -p file=/path/to/a/text-corpus -p level=<level> <other-jmh-params>
 ```
 
 For example:
