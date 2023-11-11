@@ -25,44 +25,49 @@ public class QatCompressorOutputStream extends FilterOutputStream {
   private ByteBuffer outputBuffer;
   private boolean closed;
 
-  /** The default size in bytes of the output buffer. */
-  public static final int DEFAULT_BUFFER_SIZE = 512;
+  /** The default size in bytes of the output buffer (64KB). */
+  public static final int DEFAULT_BUFFER_SIZE = 1 << 16;
 
   /**
    * Creates a new output stream with {@link DEFAULT_BUFFER_SIZE}, {@link Algorithm#DEFLATE}, {@link
-   * QatZipper#DEFAULT_COMPRESS_LEVEL}, and {@link Mode#AUTO}.
+   * QatZipper#DEFAULT_COMPRESS_LEVEL}, and {@link Mode#HARDWARE}.
    *
    * @param out the output stream
    */
   public QatCompressorOutputStream(OutputStream out) {
-    this(out, DEFAULT_BUFFER_SIZE, Algorithm.DEFLATE, QatZipper.DEFAULT_COMPRESS_LEVEL, Mode.AUTO);
+    this(
+        out,
+        DEFAULT_BUFFER_SIZE,
+        Algorithm.DEFLATE,
+        QatZipper.DEFAULT_COMPRESS_LEVEL,
+        Mode.HARDWARE);
   }
 
   /**
    * Creates a new output stream with {@link Algorithm#DEFLATE}, {@link
-   * QatZipper#DEFAULT_COMPRESS_LEVEL}, and {@link Mode#AUTO}.
+   * QatZipper#DEFAULT_COMPRESS_LEVEL}, and {@link Mode#HARDWARE}.
    *
    * @param out the output stream
    * @param bufferSize the output buffer size
    */
   public QatCompressorOutputStream(OutputStream out, int bufferSize) {
-    this(out, bufferSize, Algorithm.DEFLATE, QatZipper.DEFAULT_COMPRESS_LEVEL, Mode.AUTO);
+    this(out, bufferSize, Algorithm.DEFLATE, QatZipper.DEFAULT_COMPRESS_LEVEL, Mode.HARDWARE);
   }
 
   /**
    * Creates a new output stream with given parameters, {@link QatZipper#DEFAULT_COMPRESS_LEVEL},
-   * and {@link Mode#AUTO}.
+   * and {@link Mode#HARDWARE}.
    *
    * @param out the output stream
    * @param bufferSize the output buffer size
    * @param algorithm the compression algorithm (deflate or LZ4).
    */
   public QatCompressorOutputStream(OutputStream out, int bufferSize, Algorithm algorithm) {
-    this(out, bufferSize, algorithm, QatZipper.DEFAULT_COMPRESS_LEVEL, Mode.AUTO);
+    this(out, bufferSize, algorithm, QatZipper.DEFAULT_COMPRESS_LEVEL, Mode.HARDWARE);
   }
 
   /**
-   * Creates a new output stream with the given parameters and {@link Mode#AUTO}.
+   * Creates a new output stream with the given parameters and {@link Mode#HARDWARE}.
    *
    * @param out the output stream
    * @param bufferSize the output buffer size
@@ -71,7 +76,7 @@ public class QatCompressorOutputStream extends FilterOutputStream {
    */
   public QatCompressorOutputStream(
       OutputStream out, int bufferSize, Algorithm algorithm, int level) {
-    this(out, bufferSize, algorithm, level, Mode.AUTO);
+    this(out, bufferSize, algorithm, level, Mode.HARDWARE);
   }
 
   /**

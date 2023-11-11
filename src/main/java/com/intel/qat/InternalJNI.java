@@ -22,6 +22,7 @@ class InternalJNI {
   static native int maxCompressedSize(long session, long sourceSize);
 
   static native int compressByteArray(
+      QatZipper qzip,
       long session,
       byte[] src,
       int srcOff,
@@ -32,6 +33,7 @@ class InternalJNI {
       int retryCount);
 
   static native int decompressByteArray(
+      QatZipper qzip,
       long session,
       byte[] src,
       int srcOff,

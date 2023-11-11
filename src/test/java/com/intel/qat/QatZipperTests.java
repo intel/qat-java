@@ -114,6 +114,7 @@ public class QatZipperTests {
 
   @Test
   public void testDefaultConstructor() {
+    assumeTrue(QatTestSuite.FORCE_HARDWARE);
     try {
       qzip = new QatZipper();
     } catch (IllegalArgumentException | QatException e) {
@@ -124,7 +125,7 @@ public class QatZipperTests {
   @Test
   public void testEnd() {
     try {
-      QatZipper qzip = new QatZipper();
+      QatZipper qzip = new QatZipper(Mode.AUTO);
       qzip.end();
     } catch (QatException e) {
       fail(e.getMessage());
@@ -148,7 +149,7 @@ public class QatZipperTests {
   @Test
   public void testCompressWithNullByteBuffer() {
     try {
-      qzip = new QatZipper();
+      qzip = new QatZipper(Mode.AUTO);
       ByteBuffer buf = null;
       qzip.compress(buf, buf);
       fail();
@@ -160,7 +161,7 @@ public class QatZipperTests {
   @Test
   public void testCompressWithNullByteArray() {
     try {
-      qzip = new QatZipper();
+      qzip = new QatZipper(Mode.AUTO);
       qzip.compress(null, 0, 100, null, 0, 0);
     } catch (IllegalArgumentException e) {
       assertTrue(true);
@@ -170,7 +171,7 @@ public class QatZipperTests {
   @Test
   public void testDecompressWithNullByteBuffer() {
     try {
-      qzip = new QatZipper();
+      qzip = new QatZipper(Mode.AUTO);
       ByteBuffer buf = null;
       qzip.decompress(buf, buf);
       fail();
@@ -182,7 +183,7 @@ public class QatZipperTests {
   @Test
   public void testDecompressWithNullByteArray() {
     try {
-      qzip = new QatZipper();
+      qzip = new QatZipper(Mode.AUTO);
       int compressedSize = qzip.decompress(null, 0, 100, null, 0, 0);
       fail();
     } catch (IllegalArgumentException e) {
@@ -204,6 +205,7 @@ public class QatZipperTests {
   @ParameterizedTest
   @EnumSource(Algorithm.class)
   public void testSingleArgConstructorAlgo(Algorithm algo) {
+    assumeTrue(QatTestSuite.FORCE_HARDWARE);
     try {
       qzip = new QatZipper(algo);
     } catch (IllegalArgumentException | QatException e) {
@@ -224,6 +226,7 @@ public class QatZipperTests {
   @ParameterizedTest
   @EnumSource(Algorithm.class)
   public void testTwoArgConstructorAlgoAndLevel(Algorithm algo) {
+    assumeTrue(QatTestSuite.FORCE_HARDWARE);
     try {
       qzip = new QatZipper(algo, 9);
     } catch (IllegalArgumentException | QatException e) {
@@ -258,7 +261,7 @@ public class QatZipperTests {
       String inputStr = "Hello World!";
       byte[] input = inputStr.getBytes();
 
-      QatZipper qzip = new QatZipper(algo, level);
+      QatZipper qzip = new QatZipper(algo, level, Mode.AUTO);
       // Create a buffer with enough size for compression
       byte[] output = new byte[qzip.maxCompressedLength(input.length)];
 
@@ -274,6 +277,39 @@ public class QatZipperTests {
 
       // Convert the bytes into a String
       String outputStr = new String(result, 0, resultLen);
+      assertEquals(inputStr, outputStr);
+    } catch (QatException e) {
+      fail(e.getMessage());
+    }
+  }
+
+  @ParameterizedTest
+  @MethodSource("provideAlgorithmLevelParams")
+  public void testHelloWorldExtended(Algorithm algo, int level) {
+    try {
+      String inputStr = "Hello World!";
+      byte[] input = inputStr.getBytes();
+
+      QatZipper qzip = new QatZipper(algo, level, Mode.AUTO);
+      // Create a buffer with enough size for compression
+      byte[] output = new byte[qzip.maxCompressedLength(input.length)];
+
+      // Compress the bytes
+      int resultLen = qzip.compress(input, output);
+      assertEquals(qzip.getBytesRead(), input.length);
+      assertEquals(qzip.getBytesWritten(), resultLen);
+
+      // Decompress the bytes into a String
+      byte[] result = new byte[input.length];
+      int decompLen = qzip.decompress(output, result);
+      assertEquals(qzip.getBytesRead(), resultLen);
+      assertEquals(qzip.getBytesWritten(), input.length);
+
+      // Release resources
+      qzip.end();
+
+      // Convert the bytes into a String
+      String outputStr = new String(result, 0, decompLen);
       assertEquals(inputStr, outputStr);
     } catch (QatException e) {
       fail(e.getMessage());
@@ -302,7 +338,12 @@ public class QatZipperTests {
       byte[] dec = new byte[src.length];
 
       int compressedSize = qzip.compress(src, 0, src.length, dst, 0, dst.length);
+      assertEquals(qzip.getBytesRead(), src.length);
+      assertEquals(qzip.getBytesWritten(), compressedSize);
+
       int decompressedSize = qzip.decompress(dst, 0, compressedSize, dec, 0, dec.length);
+      assertEquals(qzip.getBytesRead(), compressedSize);
+      assertEquals(qzip.getBytesWritten(), decompressedSize);
 
       assertTrue(compressedSize > 0);
       assertEquals(decompressedSize, src.length);
@@ -323,8 +364,12 @@ public class QatZipperTests {
       byte[] dec = new byte[src.length];
 
       int compressedSize = qzip.compress(src, 3, src.length - 3, dst, 0, dst.length);
+      assertEquals(qzip.getBytesRead(), src.length - 3);
+      assertEquals(qzip.getBytesWritten(), compressedSize);
 
       int decompressedSize = qzip.decompress(dst, 0, compressedSize, dec, 3, dec.length - 3);
+      assertEquals(qzip.getBytesRead(), compressedSize);
+      assertEquals(qzip.getBytesWritten(), dec.length - 3);
 
       assertTrue(compressedSize > 0);
       assertEquals(decompressedSize, src.length - 3);
