@@ -568,7 +568,5 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_teardown(JNIEnv *env,
     return 0;
   }
 
-  free(qz_session);
-
   return QZ_OK;
 }

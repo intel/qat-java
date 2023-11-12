@@ -203,7 +203,7 @@ public class QatZipper {
     InternalJNI.setup(this, mode.ordinal(), algorithm.ordinal(), level);
 
     // Register a QAT session cleaner for this object
-    cleanable = cleaner.register(this, new QatCleaner(isValid, session));
+    cleanable = cleaner.register(this, new QatCleaner(session));
     isValid = true;
   }
 
@@ -553,18 +553,16 @@ public class QatZipper {
 
   /** A class that represents a cleaner action for a QAT session. */
   static class QatCleaner implements Runnable {
-    private boolean isValid;
     private long qzSession;
 
     /** Creates a new cleaner object that cleans up the specified session. */
-    public QatCleaner(boolean isValid, long session) {
+    public QatCleaner(long session) {
       this.qzSession = session;
-      this.isValid = isValid;
     }
 
     @Override
     public void run() {
-      if (isValid && qzSession != 0) {
+      if (qzSession != 0) {
         InternalJNI.teardown(qzSession);
       }
     }
