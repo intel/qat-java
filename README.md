@@ -66,7 +66,7 @@ java --module-path target/classes  -m com.intel.qat/com.intel.qat.examples.<exam
 Thanks for your interest! Please see the [CONTRIBUTING.md](CONTRIBUTING.md) document for information on how to contribute.
 
 ## Contacts ##
-For more information on this library, contact Nishchal, Praveen (praveen.nishchal@intel.com) or Mammo, Mulugeta (mulugeta.mammo@intel.com), or  Denloye, Olasoji (olasoji.denloye@intel.com).
+For more information on this library, contact Mammo, Mulugeta (mulugeta.mammo@intel.com) or  Denloye, Olasoji (olasoji.denloye@intel.com).
 
 &nbsp;
 

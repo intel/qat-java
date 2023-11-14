@@ -14,7 +14,7 @@
  * @return the QAT string associated with the given error code.
  *
  */
-static char *get_qz_error_name(int err_code) {
+static char *get_error_msg(int err_code) {
   switch (err_code) {
     case 0:
       return "QZ_OK";
@@ -83,6 +83,6 @@ static char *get_qz_error_name(int err_code) {
 void throw_exception(JNIEnv *env, jlong err_code, const char *err_msg) {
   char buff[256];
   jclass Exception = (*env)->FindClass(env, "com/intel/qat/QatException");
-  snprintf(buff, sizeof(buff), "%s: %s", get_qz_error_name(err_code), err_msg);
+  snprintf(buff, sizeof(buff), "%s: %s", get_error_msg(err_code), err_msg);
   (*env)->ThrowNew(env, Exception, buff);
 }
