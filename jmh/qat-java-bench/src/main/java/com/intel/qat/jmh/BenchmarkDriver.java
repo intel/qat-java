@@ -27,28 +27,21 @@ public class BenchmarkDriver {
       }
       String file = col.get().iterator().next();
 
-      col = cmdOpts.getParameter("level");
-      if (!col.hasValue()) {
-        throw new IllegalArgumentException("Compression level parameter required.");
-      }
-
       // Run benchmark
       Collection<RunResult> results = new Runner(cmdOpts).run();
 
-      // Print score in MB/sec
-      System.out.println("----------------");
-      System.out.println("Score in MB/sec");
-      System.out.println("----------------");
-
+      // Print score in MB/sec (if benchmard mode is throughput)
+      System.out.println();
       long fileSize = new File(file).length();
       for (RunResult rr : results) {
         Result r = rr.getAggregatedResult().getPrimaryResult();
-        double speed = r.getScore() * fileSize / (1024 * 1024);
-        System.out.printf("%-54s%.2f MB/sec\n", rr.getParams().getBenchmark(), speed);
+        if (r.getScoreUnit().equals("ops/s")) {
+          double speed = r.getScore() * fileSize / (1024 * 1024);
+          System.out.printf("%-54s%.2f MB/sec\n", rr.getParams().getBenchmark(), speed);
+        }
       }
     } catch (RunnerException e) {
       System.err.printf("%s: %s", "Error", e.getMessage());
-      System.exit(1);
     } catch (CommandLineOptionException e) {
       System.err.printf("%s: %s", "Error parsing command line", e.getMessage());
     }
