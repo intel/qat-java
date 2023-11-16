@@ -30,14 +30,14 @@ public class BenchmarkDriver {
       // Run benchmark
       Collection<RunResult> results = new Runner(cmdOpts).run();
 
-      // Print score in MB/sec (if benchmard mode is throughput)
+      // Print score in MB/sec (if benchmark mode is throughput)
       System.out.println();
       long fileSize = new File(file).length();
       for (RunResult rr : results) {
-        Result r = rr.getAggregatedResult().getPrimaryResult();
+        Result r = rr.getPrimaryResult();
         if (r.getScoreUnit().equals("ops/s")) {
           double speed = r.getScore() * fileSize / (1024 * 1024);
-          System.out.printf("%-54s%.2f MB/sec\n", rr.getParams().getBenchmark(), speed);
+          System.out.printf("%-54s%.2f MB/sec%n", rr.getParams().getBenchmark(), speed);
         }
       }
     } catch (RunnerException e) {
