@@ -8,20 +8,17 @@ package com.intel.qat.jmh;
 
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.zip.Deflater;
 import java.util.zip.Inflater;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
-import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 
-@State(Scope.Thread)
+@State(Scope.Benchmark)
 public class JavaZipBench {
-  private byte[] src;
-  private byte[] dst;
-  private byte[] compressed;
-  private byte[] decompressed;
+  private static AtomicBoolean flag = new AtomicBoolean(false);
 
   @Param({""})
   static String file;
@@ -29,55 +26,62 @@ public class JavaZipBench {
   @Param({"6"})
   static int level;
 
-  @Setup
-  public void setup() {
-    try {
-      // Create compressor and decompressor objects
-      Deflater deflater = new Deflater(level);
-      Inflater inflater = new Inflater();
+  @State(Scope.Thread)
+  public static class ThreadState {
+    byte[] src;
+    byte[] dst;
+    byte[] compressed;
+    byte[] decompressed;
 
-      // Read input
-      src = Files.readAllBytes(Paths.get(file));
-      dst = new byte[src.length];
+    public ThreadState() {
+      try {
+        // Create compressor and decompressor objects
+        Deflater deflater = new Deflater(level);
+        Inflater inflater = new Inflater();
 
-      // Compress input
-      deflater.setInput(src);
-      int compressedLength = deflater.deflate(dst);
-      deflater.end();
+        // Read input
+        src = Files.readAllBytes(Paths.get(file));
+        dst = new byte[src.length];
 
-      // Prepare compressed array of size EXACTLY compressedLength
-      compressed = new byte[compressedLength];
-      System.arraycopy(dst, 0, compressed, 0, compressedLength);
+        // Compress input
+        deflater.setInput(src);
+        int compressedLength = deflater.deflate(dst);
+        deflater.end();
 
-      // Do decompression
-      decompressed = new byte[src.length];
-      inflater.setInput(compressed);
-      inflater.inflate(decompressed);
-      inflater.end();
+        // Prepare compressed array of size EXACTLY compressedLength
+        compressed = new byte[compressedLength];
+        System.arraycopy(dst, 0, compressed, 0, compressedLength);
 
-      System.out.println("\n-------------------------");
-      System.out.printf(
-          "Input size: %d, Compressed size: %d, ratio: %.2f\n",
-          src.length, compressedLength, src.length * 1.0 / compressedLength);
-      System.out.println("-------------------------");
-    } catch (Exception e) {
-      e.printStackTrace();
+        // Do decompression
+        decompressed = new byte[src.length];
+        inflater.setInput(compressed);
+        inflater.inflate(decompressed);
+        inflater.end();
+
+        if (flag.compareAndSet(false, true)) {
+          System.out.println("\n------------------------");
+          System.out.printf("Compression ratio: %.2f%n", (double) src.length / compressedLength);
+          System.out.println("------------------------");
+        }
+      } catch (Exception e) {
+        e.printStackTrace();
+      }
     }
   }
 
   @Benchmark
-  public void compress() {
+  public void compress(ThreadState state) {
     Deflater deflater = new Deflater(level);
-    deflater.setInput(src);
-    deflater.deflate(dst);
+    deflater.setInput(state.src);
+    deflater.deflate(state.dst);
     deflater.end();
   }
 
   @Benchmark
-  public void decompress() throws java.util.zip.DataFormatException {
+  public void decompress(ThreadState state) throws java.util.zip.DataFormatException {
     Inflater inflater = new Inflater();
-    inflater.setInput(compressed);
-    inflater.inflate(decompressed);
+    inflater.setInput(state.compressed);
+    inflater.inflate(state.decompressed);
     inflater.end();
   }
 }

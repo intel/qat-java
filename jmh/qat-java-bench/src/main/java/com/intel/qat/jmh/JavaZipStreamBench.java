@@ -11,6 +11,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.zip.Deflater;
 import java.util.zip.DeflaterOutputStream;
 import java.util.zip.Inflater;
@@ -18,17 +19,12 @@ import java.util.zip.InflaterInputStream;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
-import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 
-@State(Scope.Thread)
+@State(Scope.Benchmark)
 public class JavaZipStreamBench {
   private static final int BUFFER_SIZE = 1 << 16; // 64KB
-
-  private byte[] src;
-  private byte[] dst;
-  private byte[] compressed;
-  private byte[] decompressed;
+  private static AtomicBoolean flag = new AtomicBoolean(false);
 
   @Param({""})
   static String file;
@@ -36,67 +32,56 @@ public class JavaZipStreamBench {
   @Param({"6"})
   static int level;
 
-  @Setup
-  public void setup() {
-    try {
-      // Read input
-      src = Files.readAllBytes(Paths.get(file));
+  @State(Scope.Thread)
+  public static class ThreadState {
+    byte[] src;
+    byte[] compressed;
 
-      // Compress input using streams
-      ByteArrayOutputStream compressedOutput = new ByteArrayOutputStream();
-      Deflater deflater = new Deflater(level);
-      DeflaterOutputStream outputStream =
-          new DeflaterOutputStream(compressedOutput, deflater, BUFFER_SIZE);
-      outputStream.write(src, 0, src.length);
-      outputStream.close();
+    public ThreadState() {
+      try {
+        // Read input
+        src = Files.readAllBytes(Paths.get(file));
 
-      compressed = compressedOutput.toByteArray();
+        // Compress input using streams
+        ByteArrayOutputStream compressedOutput = new ByteArrayOutputStream();
+        Deflater deflater = new Deflater(level);
+        DeflaterOutputStream outputStream =
+            new DeflaterOutputStream(compressedOutput, deflater, BUFFER_SIZE);
+        outputStream.write(src, 0, src.length);
+        outputStream.close();
 
-      // Decompress compressed data
-      ByteArrayInputStream compressedInput = new ByteArrayInputStream(compressed);
-      InflaterInputStream inputStream =
-          new InflaterInputStream(compressedInput, new Inflater(), BUFFER_SIZE);
-      ByteArrayOutputStream decompressedOutput = new ByteArrayOutputStream();
+        compressed = compressedOutput.toByteArray();
 
-      byte[] buffer = new byte[BUFFER_SIZE];
-      int bytesRead;
-      while ((bytesRead = inputStream.read(buffer)) != -1) {
-        decompressedOutput.write(buffer, 0, bytesRead);
+        if (flag.compareAndSet(false, true)) {
+          System.out.println("\n------------------------");
+          System.out.printf("Compression ratio: %.2f%n", (double) src.length / compressed.length);
+          System.out.println("------------------------");
+        }
+      } catch (IOException e) {
+        e.printStackTrace();
       }
-      inputStream.close();
-
-      // Print compression ratio
-      System.out.println("\n-------------------------");
-      System.out.printf(
-          "Input size: %d, Compressed size: %d, ratio: %.2f\n",
-          src.length, compressed.length, src.length * 1.0 / compressed.length);
-      System.out.println("-------------------------");
-    } catch (IOException e) {
-      e.printStackTrace();
     }
   }
 
   @Benchmark
-  public void compress() throws IOException {
+  public void compress(ThreadState state) throws IOException {
     ByteArrayOutputStream compressedOutput = new ByteArrayOutputStream();
     DeflaterOutputStream outputStream =
         new DeflaterOutputStream(compressedOutput, new Deflater(level), BUFFER_SIZE);
-    outputStream.write(src, 0, src.length);
+    outputStream.write(state.src, 0, state.src.length);
     outputStream.close();
   }
 
   @Benchmark
-  public void decompress() throws IOException {
-    ByteArrayInputStream compressedInput = new ByteArrayInputStream(compressed);
+  public void decompress(ThreadState state) throws IOException {
+    ByteArrayInputStream compressedInput = new ByteArrayInputStream(state.compressed);
     InflaterInputStream inputStream =
         new InflaterInputStream(compressedInput, new Inflater(), BUFFER_SIZE);
-    ByteArrayOutputStream decompressedOutput = new ByteArrayOutputStream();
 
+    int bytesRead = 0;
     byte[] buffer = new byte[BUFFER_SIZE];
-    int bytesRead;
-    while ((bytesRead = inputStream.read(buffer)) != -1) {
-      decompressedOutput.write(buffer, 0, bytesRead);
-    }
+    while ((bytesRead = inputStream.read(buffer)) != -1)
+      ;
     inputStream.close();
   }
 }
