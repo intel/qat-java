@@ -89,10 +89,15 @@ static int compress(JNIEnv *env, QzSession_T *sess, unsigned char *src_ptr,
                     unsigned int src_len, unsigned char *dst_ptr,
                     unsigned int dst_len, int *bytes_read, int *bytes_written,
                     int retry_count) {
+  // Save src_len and dst_len
+  int src_len_l = src_len;
+  int dst_len_l = dst_len;
   int status = qzCompress(sess, src_ptr, &src_len, dst_ptr, &dst_len, 1);
 
   if (status == QZ_NOSW_NO_INST_ATTACH && retry_count > 0) {
     while (retry_count > 0 && QZ_OK != status) {
+      src_len = src_len_l;
+      dst_len = dst_len_l;
       status = qzCompress(sess, src_ptr, &src_len, dst_ptr, &dst_len, 1);
       retry_count--;
     }
@@ -132,14 +137,21 @@ static int decompress(JNIEnv *env, QzSession_T *sess, unsigned char *src_ptr,
                       unsigned int src_len, unsigned char *dst_ptr,
                       unsigned int dst_len, int *bytes_read, int *bytes_written,
                       int retry_count) {
+  // Save src_len and dst_len
+  int src_len_l = src_len;
+  int dst_len_l = dst_len;
   int status = qzDecompress(sess, src_ptr, &src_len, dst_ptr, &dst_len);
+
   if (status == QZ_NOSW_NO_INST_ATTACH && retry_count > 0) {
     while (retry_count > 0 && QZ_OK != status && status != QZ_BUF_ERROR &&
            status != QZ_DATA_ERROR) {
+      src_len = src_len_l;
+      dst_len = dst_len_l;
       status = qzDecompress(sess, src_ptr, &src_len, dst_ptr, &dst_len);
       retry_count--;
     }
   }
+
   if (status != QZ_OK && status != QZ_BUF_ERROR && status != QZ_DATA_ERROR) {
     throw_exception(env, status, "Error occurred while decompressing data.");
     return status;
