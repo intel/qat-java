@@ -39,7 +39,7 @@ public class QatZipperTests {
   private static final Cleaner cleaner = Cleaner.create();
   private Cleaner.Cleanable cleanable;
 
-  private Random rnd = new Random();
+  private static final Random RANDOM = new Random();
 
   public static Stream<Arguments> provideModeAlgorithmParams() {
     return QatTestSuite.FORCE_HARDWARE
@@ -99,7 +99,7 @@ public class QatZipperTests {
 
   private byte[] getRandomBytes(int len) {
     byte[] bytes = new byte[len];
-    rnd.nextBytes(bytes);
+    RANDOM.nextBytes(bytes);
     return bytes;
   }
 
@@ -258,8 +258,8 @@ public class QatZipperTests {
   @MethodSource("provideAlgorithmLevelParams")
   public void testHelloWorld(Algorithm algo, int level) {
     try {
-      String inputStr = "Hello World!";
-      byte[] input = inputStr.getBytes();
+      String inputStr = "Hello, world!";
+      byte[] input = inputStr.getBytes("UTF-8");
 
       QatZipper qzip = new QatZipper(algo, level, Mode.AUTO);
       // Create a buffer with enough size for compression
@@ -276,9 +276,9 @@ public class QatZipperTests {
       qzip.end();
 
       // Convert the bytes into a String
-      String outputStr = new String(result, 0, resultLen);
+      String outputStr = new String(result, 0, resultLen, "UTF-8");
       assertEquals(inputStr, outputStr);
-    } catch (QatException e) {
+    } catch (java.io.UnsupportedEncodingException | QatException e) {
       fail(e.getMessage());
     }
   }
@@ -287,8 +287,8 @@ public class QatZipperTests {
   @MethodSource("provideAlgorithmLevelParams")
   public void testHelloWorldExtended(Algorithm algo, int level) {
     try {
-      String inputStr = "Hello World!";
-      byte[] input = inputStr.getBytes();
+      String inputStr = "Hello, world!";
+      byte[] input = inputStr.getBytes("UTF-8");
 
       QatZipper qzip = new QatZipper(algo, level, Mode.AUTO);
       // Create a buffer with enough size for compression
@@ -309,9 +309,9 @@ public class QatZipperTests {
       qzip.end();
 
       // Convert the bytes into a String
-      String outputStr = new String(result, 0, decompLen);
+      String outputStr = new String(result, 0, decompLen, "UTF-8");
       assertEquals(inputStr, outputStr);
-    } catch (QatException e) {
+    } catch (java.io.UnsupportedEncodingException | QatException e) {
       fail(e.getMessage());
     }
   }
@@ -996,7 +996,7 @@ public class QatZipperTests {
       final int outOffset = 3;
       byte[] garbage = new byte[outOffset + qzip.maxCompressedLength(data.length)];
 
-      new Random().nextBytes(garbage);
+      RANDOM.nextBytes(garbage);
       ByteBuffer dst = ByteBuffer.allocate(outOffset + qzip.maxCompressedLength(data.length));
       dst.put(garbage);
       dst.clear();
@@ -1039,11 +1039,11 @@ public class QatZipperTests {
       ByteBuffer compressed =
           ByteBuffer.allocate(outOffset + qzip.maxCompressedLength(data.length) + outOffset);
       byte[] garbage = new byte[compressed.capacity()];
-      new Random().nextBytes(garbage);
+      RANDOM.nextBytes(garbage);
       compressed.put(garbage);
       compressed.position(outOffset).limit(compressed.capacity() - outOffset);
 
-      int compressedSize = qzip.compress(src, compressed);
+      qzip.compress(src, compressed);
       assertEquals(inOffset + len, src.position());
       assertEquals(inOffset + len, src.limit());
       assertEquals(compressed.capacity() - outOffset, compressed.limit());
@@ -1086,11 +1086,11 @@ public class QatZipperTests {
       ByteBuffer compressed =
           ByteBuffer.allocate(outOffset + qzip.maxCompressedLength(data.length) + outOffset);
       byte[] garbage = new byte[compressed.capacity()];
-      new Random().nextBytes(garbage);
+      RANDOM.nextBytes(garbage);
       compressed.put(garbage);
       compressed.position(outOffset).limit(compressed.capacity() - outOffset);
 
-      int compressedSize = qzip.compress(readOnlySrc, compressed);
+      qzip.compress(readOnlySrc, compressed);
       assertEquals(inOffset + len, readOnlySrc.position());
       assertEquals(inOffset + len, readOnlySrc.limit());
       assertEquals(compressed.capacity() - outOffset, compressed.limit());
