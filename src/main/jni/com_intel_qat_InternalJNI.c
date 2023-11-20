@@ -12,7 +12,7 @@
 #include "util.h"
 
 #define DEFLATE_ALGORITHM 0
-#define POLLING_MODE QZ_BUSY_POLLING
+#define POLLING_MODE QZ_PERIODICAL_POLLING
 
 /**
  * The fieldID for java.nio.ByteBuffer/position
