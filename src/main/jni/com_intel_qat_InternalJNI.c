@@ -12,7 +12,6 @@
 #include "util.h"
 
 #define DEFLATE_ALGORITHM 0
-#define POLLING_MODE QZ_BUSY_POLLING
 
 /**
  * The fieldID for java.nio.ByteBuffer/position
@@ -31,7 +30,7 @@ static jfieldID qzip_bytes_read_id;
  * @param level the compression level to use.
  */
 static int setup_deflate_session(QzSession_T *qz_session, int level,
-                                 unsigned char sw_backup) {
+                                 unsigned char sw_backup, int polling_mode) {
   QzSessionParamsDeflate_T deflate_params;
 
   int status = qzGetDefaultsDeflate(&deflate_params);
@@ -40,7 +39,8 @@ static int setup_deflate_session(QzSession_T *qz_session, int level,
   deflate_params.data_fmt = QZ_DEFLATE_GZIP_EXT;
   deflate_params.common_params.comp_lvl = level;
   deflate_params.common_params.sw_backup = sw_backup;
-  deflate_params.common_params.polling_mode = POLLING_MODE;
+  deflate_params.common_params.polling_mode =
+      polling_mode ? QZ_BUSY_POLLING : QZ_PERIODICAL_POLLING;
 
   return qzSetupSessionDeflate(qz_session, &deflate_params);
 }
@@ -53,7 +53,7 @@ static int setup_deflate_session(QzSession_T *qz_session, int level,
  * @return QZ_OK (0) if successful, non-zero otherwise.
  */
 static int setup_lz4_session(QzSession_T *qz_session, int level,
-                             unsigned char sw_backup) {
+                             unsigned char sw_backup, int polling_mode) {
   QzSessionParamsLZ4_T lz4_params;
 
   int status = qzGetDefaultsLZ4(&lz4_params);
@@ -61,7 +61,8 @@ static int setup_lz4_session(QzSession_T *qz_session, int level,
 
   lz4_params.common_params.comp_lvl = level;
   lz4_params.common_params.sw_backup = sw_backup;
-  lz4_params.common_params.polling_mode = POLLING_MODE;
+  lz4_params.common_params.polling_mode =
+      polling_mode ? QZ_BUSY_POLLING : QZ_PERIODICAL_POLLING;
 
   return qzSetupSessionLZ4(qz_session, &lz4_params);
 }
@@ -172,7 +173,7 @@ static int decompress(JNIEnv *env, QzSession_T *sess, unsigned char *src_ptr,
  */
 JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_setup(
     JNIEnv *env, jclass clz, jobject qat_zipper, jint sw_backup,
-    jint comp_algorithm, jint level) {
+    jint comp_algorithm, jint level, jint polling_mode) {
   (void)clz;
 
   // save the fieldID of nio.ByteBuffer.position
@@ -191,9 +192,11 @@ JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_setup(
   }
 
   if (comp_algorithm == DEFLATE_ALGORITHM)
-    status = setup_deflate_session(qz_session, level, (unsigned char)sw_backup);
+    status = setup_deflate_session(qz_session, level, (unsigned char)sw_backup,
+                                   polling_mode);
   else
-    status = setup_lz4_session(qz_session, level, (unsigned char)sw_backup);
+    status = setup_lz4_session(qz_session, level, (unsigned char)sw_backup,
+                               polling_mode);
 
   if (status != QZ_OK) {
     qzClose(qz_session);

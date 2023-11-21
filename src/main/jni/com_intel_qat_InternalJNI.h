@@ -10,11 +10,11 @@ extern "C" {
 /*
  * Class:     com_intel_qat_InternalJNI
  * Method:    setup
- * Signature: (Lcom/intel/qat/QatZipper;IJII)V
+ * Signature: (Lcom/intel/qat/QatZipper;IJIII)V
  */
 JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_setup(JNIEnv *, jclass,
                                                             jobject, jint, jint,
-                                                            jint);
+                                                            jint, jint);
 
 /*
  * Class:     com_intel_qat_InternalJNI
