@@ -112,6 +112,15 @@ public class QatZipper {
     AUTO;
   }
 
+  /** The polling mode to use. PERIODICAL and BUSY are supported. */
+  public static enum PollingMode {
+    /** The default polling mode. Preferred mode for throughput sensitive uses cases. */
+    PERIODICAL,
+
+    /** BUSY polling. Preferred for latency sensitive use cases. */
+    BUSY
+  }
+
   /** The compression algorithm to use. DEFLATE and LZ4 are supported. */
   public static enum Algorithm {
     /** The deflate compression algorithm. */
@@ -123,59 +132,97 @@ public class QatZipper {
 
   /**
    * Creates a new QatZipper that uses {@link Algorithm#DEFLATE}, {@link DEFAULT_COMPRESS_LEVEL},
-   * {@link Mode#HARDWARE}, and {@link DEFAULT_RETRY_COUNT}.
+   * {@link Mode#HARDWARE}, {@link DEFAULT_RETRY_COUNT}, and {@link PollingMode#PERIODICAL}.
    */
   public QatZipper() {
-    this(Algorithm.DEFLATE, DEFAULT_COMPRESS_LEVEL, Mode.HARDWARE, DEFAULT_RETRY_COUNT);
+    this(
+        Algorithm.DEFLATE,
+        DEFAULT_COMPRESS_LEVEL,
+        Mode.HARDWARE,
+        DEFAULT_RETRY_COUNT,
+        PollingMode.PERIODICAL);
   }
 
   /**
    * Creates a new QatZipper with the specified execution {@link Mode}. Uses {@link
-   * Algorithm#DEFLATE} compression algorithm, {@link DEFAULT_COMPRESS_LEVEL} compression level, and
-   * {@link DEFAULT_RETRY_COUNT} retries.
+   * Algorithm#DEFLATE}, {@link DEFAULT_COMPRESS_LEVEL}, {@link DEFAULT_RETRY_COUNT}, and {@link
+   * PollingMode#PERIODICAL}.
    *
    * @param mode the {@link Mode} of QAT execution
    */
   public QatZipper(Mode mode) {
-    this(Algorithm.DEFLATE, DEFAULT_COMPRESS_LEVEL, mode, DEFAULT_RETRY_COUNT);
+    this(
+        Algorithm.DEFLATE,
+        DEFAULT_COMPRESS_LEVEL,
+        mode,
+        DEFAULT_RETRY_COUNT,
+        PollingMode.PERIODICAL);
+  }
+
+  /**
+   * Creates a new QatZipper with the specified polling {@link PollingMode}. Uses {@link
+   * Algorithm#DEFLATE}, {@link DEFAULT_COMPRESS_LEVEL}, and {@link DEFAULT_RETRY_COUNT}.
+   *
+   * @param pmode the {@link PollingMode}
+   */
+  public QatZipper(PollingMode pmode) {
+    this(Algorithm.DEFLATE, DEFAULT_COMPRESS_LEVEL, Mode.HARDWARE, DEFAULT_RETRY_COUNT, pmode);
   }
 
   /**
    * Creates a new QatZipper with the specified compression {@link Algorithm}. Uses {@link
-   * DEFAULT_COMPRESS_LEVEL} compression level, {@link Mode#HARDWARE} execution mode, and {@link
-   * DEFAULT_RETRY_COUNT} retries.
+   * DEFAULT_COMPRESS_LEVEL}, {@link Mode#HARDWARE}, {@link DEFAULT_RETRY_COUNT}, and {@link
+   * PollingMode#PERIODICAL}.
    *
    * @param algorithm the compression {@link Algorithm}
    */
   public QatZipper(Algorithm algorithm) {
-    this(algorithm, DEFAULT_COMPRESS_LEVEL, Mode.HARDWARE, DEFAULT_RETRY_COUNT);
+    this(
+        algorithm,
+        DEFAULT_COMPRESS_LEVEL,
+        Mode.HARDWARE,
+        DEFAULT_RETRY_COUNT,
+        PollingMode.PERIODICAL);
   }
 
   /**
    * Creates a new QatZipper with the specified {@link Algorithm} and {@link Mode} of execution.
-   * Uses {@link DEFAULT_COMPRESS_LEVEL} compression level and {@link DEFAULT_RETRY_COUNT} retries.
+   * Uses {@link DEFAULT_COMPRESS_LEVEL}, {@link DEFAULT_RETRY_COUNT}, and {@link
+   * PollingMode#PERIODICAL}.
    *
    * @param algorithm the compression {@link Algorithm}
    * @param mode the {@link Mode} of QAT execution
    */
   public QatZipper(Algorithm algorithm, Mode mode) {
-    this(algorithm, DEFAULT_COMPRESS_LEVEL, mode, DEFAULT_RETRY_COUNT);
+    this(algorithm, DEFAULT_COMPRESS_LEVEL, mode, DEFAULT_RETRY_COUNT, PollingMode.PERIODICAL);
+  }
+
+  /**
+   * Creates a new QatZipper with the specified {@link Algorithm} and {@link PollingMode} of
+   * execution. Uses {@link DEFAULT_COMPRESS_LEVEL}, {@link Mode#HARDWARE}, and {@link
+   * DEFAULT_RETRY_COUNT}
+   *
+   * @param algorithm the compression {@link Algorithm}
+   * @param pmode the {@link PollingMode}
+   */
+  public QatZipper(Algorithm algorithm, PollingMode pmode) {
+    this(algorithm, DEFAULT_COMPRESS_LEVEL, Mode.HARDWARE, DEFAULT_RETRY_COUNT, pmode);
   }
 
   /**
    * Creates a new QatZipper with the specified {@link Algorithm} and compression level. Uses {@link
-   * Mode#HARDWARE} execution mode and {@link DEFAULT_RETRY_COUNT} retries.
+   * Mode#HARDWARE}, {@link DEFAULT_RETRY_COUNT}, and {@link PollingMode#PERIODICAL}.
    *
    * @param algorithm the compression algorithm (deflate or LZ4).
    * @param level the compression level.
    */
   public QatZipper(Algorithm algorithm, int level) {
-    this(algorithm, level, Mode.HARDWARE, DEFAULT_RETRY_COUNT);
+    this(algorithm, level, Mode.HARDWARE, DEFAULT_RETRY_COUNT, PollingMode.PERIODICAL);
   }
 
   /**
    * Creates a new QatZipper with the specified {@link Algorithm}, compression level, and {@link
-   * Mode}. Uses {@link DEFAULT_RETRY_COUNT} retries.
+   * Mode}. Uses {@link DEFAULT_RETRY_COUNT} and {@link PollingMode#PERIODICAL}.
    *
    * @param algorithm the compression algorithm (deflate or LZ4).
    * @param level the compression level.
@@ -183,7 +230,32 @@ public class QatZipper {
    *     failover.)
    */
   public QatZipper(Algorithm algorithm, int level, Mode mode) {
-    this(algorithm, level, mode, DEFAULT_RETRY_COUNT);
+    this(algorithm, level, mode, DEFAULT_RETRY_COUNT, PollingMode.PERIODICAL);
+  }
+
+  /**
+   * Creates a new QatZipper with the specified {@link Algorithm}, compression level, and {@link
+   * PollingMode}. Uses {@link Mode#HARDWARE} and {@link DEFAULT_RETRY_COUNT}.
+   *
+   * @param algorithm the compression algorithm (deflate or LZ4).
+   * @param level the compression level.
+   * @param pmode the {@link PollingMode}
+   */
+  public QatZipper(Algorithm algorithm, int level, PollingMode pmode) {
+    this(algorithm, level, Mode.HARDWARE, DEFAULT_RETRY_COUNT, pmode);
+  }
+
+  /**
+   * Creates a new QatZipper with the specified parameters and {@link PollingMode#PERIODICAL}.
+   *
+   * @param algorithm the compression {@link Algorithm}
+   * @param level the compression level.
+   * @param mode the {@link Mode} of QAT execution
+   * @param retryCount the number of attempts to acquire hardware resources
+   * @throws QatException if QAT session cannot be created.
+   */
+  public QatZipper(Algorithm algorithm, int level, Mode mode, int retryCount) {
+    this(algorithm, level, mode, retryCount, PollingMode.PERIODICAL);
   }
 
   /**
@@ -193,14 +265,16 @@ public class QatZipper {
    * @param level the compression level.
    * @param mode the {@link Mode} of QAT execution
    * @param retryCount the number of attempts to acquire hardware resources
+   * @param pmode {@link PollingMode}
    * @throws QatException if QAT session cannot be created.
    */
-  public QatZipper(Algorithm algorithm, int level, Mode mode, int retryCount) throws QatException {
+  public QatZipper(Algorithm algorithm, int level, Mode mode, int retryCount, PollingMode pmode)
+      throws QatException {
     if (!validateParams(algorithm, level, retryCount))
       throw new IllegalArgumentException("Invalid compression level or retry count.");
 
     this.retryCount = retryCount;
-    InternalJNI.setup(this, mode.ordinal(), algorithm.ordinal(), level);
+    InternalJNI.setup(this, mode.ordinal(), algorithm.ordinal(), level, pmode.ordinal());
 
     // Register a QAT session cleaner for this object
     cleanable = cleaner.register(this, new QatCleaner(session));
