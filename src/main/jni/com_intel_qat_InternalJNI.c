@@ -225,9 +225,9 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_compressByteArray(
   QzSession_T *qz_session = (QzSession_T *)sess;
 
   unsigned char *src_ptr =
-      (unsigned char *)(*env)->GetByteArrayElements(env, src_arr, NULL);
+      (unsigned char *)(*env)->GetPrimitiveArrayCritical(env, src_arr, NULL);
   unsigned char *dst_ptr =
-      (unsigned char *)(*env)->GetByteArrayElements(env, dst_arr, NULL);
+      (unsigned char *)(*env)->GetPrimitiveArrayCritical(env, dst_arr, NULL);
 
   int bytes_read = 0;
   int bytes_written = 0;
@@ -235,8 +235,8 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_compressByteArray(
   compress(env, qz_session, src_ptr + src_pos, src_len, dst_ptr + dst_pos,
            dst_len, &bytes_read, &bytes_written, retry_count);
 
-  (*env)->ReleaseByteArrayElements(env, src_arr, (jbyte *)src_ptr, 0);
-  (*env)->ReleaseByteArrayElements(env, dst_arr, (jbyte *)dst_ptr, 0);
+  (*env)->ReleasePrimitiveArrayCritical(env, src_arr, (jbyte *)src_ptr, 0);
+  (*env)->ReleasePrimitiveArrayCritical(env, dst_arr, (jbyte *)dst_ptr, 0);
 
   // Update qatZipper.bytesRead
   (*env)->SetIntField(env, qat_zipper, qzip_bytes_read_id, (jint)bytes_read);
@@ -259,9 +259,9 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_decompressByteArray(
 
   QzSession_T *qz_session = (QzSession_T *)sess;
   unsigned char *src_ptr =
-      (unsigned char *)(*env)->GetByteArrayElements(env, src_arr, NULL);
+      (unsigned char *)(*env)->GetPrimitiveArrayCritical(env, src_arr, NULL);
   unsigned char *dst_ptr =
-      (unsigned char *)(*env)->GetByteArrayElements(env, dst_arr, NULL);
+      (unsigned char *)(*env)->GetPrimitiveArrayCritical(env, dst_arr, NULL);
 
   int bytes_read = 0;
   int bytes_written = 0;
@@ -269,8 +269,8 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_decompressByteArray(
   decompress(env, qz_session, src_ptr + src_pos, src_len, dst_ptr + dst_pos,
              dst_len, &bytes_read, &bytes_written, retry_count);
 
-  (*env)->ReleaseByteArrayElements(env, src_arr, (jbyte *)src_ptr, 0);
-  (*env)->ReleaseByteArrayElements(env, dst_arr, (jbyte *)dst_ptr, 0);
+  (*env)->ReleasePrimitiveArrayCritical(env, src_arr, (jbyte *)src_ptr, 0);
+  (*env)->ReleasePrimitiveArrayCritical(env, dst_arr, (jbyte *)dst_ptr, 0);
 
   // Update qat_zipper.bytesRead
   (*env)->SetIntField(env, qat_zipper, qzip_bytes_read_id, (jint)bytes_read);
@@ -294,9 +294,9 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_compressByteBuffer(
   QzSession_T *qz_session = (QzSession_T *)sess;
 
   unsigned char *src_ptr =
-      (unsigned char *)(*env)->GetByteArrayElements(env, src_arr, NULL);
+      (unsigned char *)(*env)->GetPrimitiveArrayCritical(env, src_arr, NULL);
   unsigned char *dst_ptr =
-      (unsigned char *)(*env)->GetByteArrayElements(env, dst_arr, NULL);
+      (unsigned char *)(*env)->GetPrimitiveArrayCritical(env, dst_arr, NULL);
 
   int bytes_read = 0;
   int bytes_written = 0;
@@ -304,8 +304,8 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_compressByteBuffer(
   compress(env, qz_session, src_ptr + src_pos, src_len, dst_ptr + dst_pos,
            dst_len, &bytes_read, &bytes_written, retry_count);
 
-  (*env)->ReleaseByteArrayElements(env, src_arr, (jbyte *)src_ptr, 0);
-  (*env)->ReleaseByteArrayElements(env, dst_arr, (jbyte *)dst_ptr, 0);
+  (*env)->ReleasePrimitiveArrayCritical(env, src_arr, (jbyte *)src_ptr, 0);
+  (*env)->ReleasePrimitiveArrayCritical(env, dst_arr, (jbyte *)dst_ptr, 0);
 
   (*env)->SetIntField(env, src_buf, nio_bytebuffer_position_id,
                       src_pos + bytes_read);
@@ -328,9 +328,9 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_decompressByteBuffer(
 
   QzSession_T *qz_session = (QzSession_T *)sess;
   unsigned char *src_ptr =
-      (unsigned char *)(*env)->GetByteArrayElements(env, src_arr, NULL);
+      (unsigned char *)(*env)->GetPrimitiveArrayCritical(env, src_arr, NULL);
   unsigned char *dst_ptr =
-      (unsigned char *)(*env)->GetByteArrayElements(env, dst_arr, NULL);
+      (unsigned char *)(*env)->GetPrimitiveArrayCritical(env, dst_arr, NULL);
 
   int bytes_read = 0;
   int bytes_written = 0;
@@ -338,8 +338,8 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_decompressByteBuffer(
   decompress(env, qz_session, src_ptr + src_pos, src_len, dst_ptr + dst_pos,
              dst_len, &bytes_read, &bytes_written, retry_count);
 
-  (*env)->ReleaseByteArrayElements(env, src_arr, (jbyte *)src_ptr, 0);
-  (*env)->ReleaseByteArrayElements(env, dst_arr, (jbyte *)dst_ptr, 0);
+  (*env)->ReleasePrimitiveArrayCritical(env, src_arr, (jbyte *)src_ptr, 0);
+  (*env)->ReleasePrimitiveArrayCritical(env, dst_arr, (jbyte *)dst_ptr, 0);
 
   (*env)->SetIntField(env, src_buf, nio_bytebuffer_position_id,
                       src_pos + bytes_read);
@@ -432,7 +432,7 @@ Java_com_intel_qat_InternalJNI_compressDirectByteBufferSrc(
   unsigned char *src_ptr =
       (unsigned char *)(*env)->GetDirectBufferAddress(env, src_buf);
   unsigned char *dst_ptr =
-      (unsigned char *)(*env)->GetByteArrayElements(env, dst_arr, NULL);
+      (unsigned char *)(*env)->GetPrimitiveArrayCritical(env, dst_arr, NULL);
 
   int bytes_read = 0;
   int bytes_written = 0;
@@ -440,7 +440,7 @@ Java_com_intel_qat_InternalJNI_compressDirectByteBufferSrc(
   compress(env, qz_session, src_ptr + src_pos, src_len, dst_ptr + dst_pos,
            dst_len, &bytes_read, &bytes_written, retry_count);
 
-  (*env)->ReleaseByteArrayElements(env, dst_arr, (jbyte *)dst_ptr, 0);
+  (*env)->ReleasePrimitiveArrayCritical(env, dst_arr, (jbyte *)dst_ptr, 0);
 
   (*env)->SetIntField(env, src_buf, nio_bytebuffer_position_id,
                       src_pos + bytes_read);
@@ -464,7 +464,7 @@ Java_com_intel_qat_InternalJNI_decompressDirectByteBufferSrc(
   unsigned char *src_ptr =
       (unsigned char *)(*env)->GetDirectBufferAddress(env, src_buf);
   unsigned char *dst_ptr =
-      (unsigned char *)(*env)->GetByteArrayElements(env, dst_arr, NULL);
+      (unsigned char *)(*env)->GetPrimitiveArrayCritical(env, dst_arr, NULL);
 
   int bytes_read = 0;
   int bytes_written = 0;
@@ -472,7 +472,7 @@ Java_com_intel_qat_InternalJNI_decompressDirectByteBufferSrc(
   decompress(env, qz_session, src_ptr + src_pos, src_len, dst_ptr + dst_pos,
              dst_len, &bytes_read, &bytes_written, retry_count);
 
-  (*env)->ReleaseByteArrayElements(env, dst_arr, (jbyte *)dst_ptr, 0);
+  (*env)->ReleasePrimitiveArrayCritical(env, dst_arr, (jbyte *)dst_ptr, 0);
 
   (*env)->SetIntField(env, src_buf, nio_bytebuffer_position_id,
                       src_pos + bytes_read);
@@ -494,7 +494,7 @@ Java_com_intel_qat_InternalJNI_compressDirectByteBufferDst(
 
   QzSession_T *qz_session = (QzSession_T *)sess;
   unsigned char *src_ptr =
-      (unsigned char *)(*env)->GetByteArrayElements(env, src_arr, NULL);
+      (unsigned char *)(*env)->GetPrimitiveArrayCritical(env, src_arr, NULL);
   unsigned char *dst_ptr =
       (unsigned char *)(*env)->GetDirectBufferAddress(env, dst_buf);
 
@@ -504,7 +504,7 @@ Java_com_intel_qat_InternalJNI_compressDirectByteBufferDst(
   compress(env, qz_session, src_ptr + src_pos, src_len, dst_ptr + dst_pos,
            dst_len, &bytes_read, &bytes_written, retry_count);
 
-  (*env)->ReleaseByteArrayElements(env, src_arr, (jbyte *)src_ptr, 0);
+  (*env)->ReleasePrimitiveArrayCritical(env, src_arr, (jbyte *)src_ptr, 0);
 
   (*env)->SetIntField(env, src_buf, nio_bytebuffer_position_id,
                       src_pos + bytes_read);
@@ -527,7 +527,7 @@ Java_com_intel_qat_InternalJNI_decompressDirectByteBufferDst(
 
   QzSession_T *qz_session = (QzSession_T *)sess;
   unsigned char *src_ptr =
-      (unsigned char *)(*env)->GetByteArrayElements(env, src_arr, NULL);
+      (unsigned char *)(*env)->GetPrimitiveArrayCritical(env, src_arr, NULL);
   unsigned char *dst_ptr =
       (unsigned char *)(*env)->GetDirectBufferAddress(env, dst_buf);
 
@@ -537,7 +537,7 @@ Java_com_intel_qat_InternalJNI_decompressDirectByteBufferDst(
   decompress(env, qz_session, src_ptr + src_pos, src_len, dst_ptr + dst_pos,
              dst_len, &bytes_read, &bytes_written, retry_count);
 
-  (*env)->ReleaseByteArrayElements(env, src_arr, (jbyte *)src_ptr, 0);
+  (*env)->ReleasePrimitiveArrayCritical(env, src_arr, (jbyte *)src_ptr, 0);
 
   (*env)->SetIntField(env, src_buf, nio_bytebuffer_position_id,
                       src_pos + bytes_read);
