@@ -24,7 +24,7 @@ java -jar target/benchmarks.jar [benchmark-class] -p file=/path/to/a/text-corpus
 
 Example:
 ```
-java -jar target/benchmarks.jar QatZipBench -p file=silesia/dickens -p level=6 -wi 1 -i 2 -t 1
+java -jar target/benchmarks.jar QatJavaBench -p file=silesia/dickens -p level=6 -wi 1 -i 2 -t 1
 ```
 
 You may get a text corpus for benchmarking from [Silesia compression corpus](https://sun.aei.polsl.pl//~sdeor/index.php?page=silesia). 
