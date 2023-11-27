@@ -1,5 +1,13 @@
-## Performance Test
-This JMH benchmark may be used to performance test the Qat-Java library.
+## JMH
+A set of JMH benchmarks.
+```
+Name              | Algorithm
+--------------------------------------------
+QatJavaBench      | DEFLATE, gzip-ext format
+JavaUtilZipBench  | DEFLATE, zlib format
+Lz4JavaBench      | LZ4
+ZstdJniBench      | Zstandard
+```
 
 ## Build
 To build the benchmark, execute the below command:

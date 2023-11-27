@@ -320,9 +320,9 @@ public class QatZipperTests {
   @EnumSource(Algorithm.class)
   public void testInvalidCompressionLevel(Algorithm algo) {
     try {
-      qzip = new QatZipper(algo, 10);
+      qzip = new QatZipper(algo, 15);
       fail();
-    } catch (IllegalArgumentException e) {
+    } catch (QatException e) {
       assertTrue(true);
     }
   }

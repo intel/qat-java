@@ -172,9 +172,15 @@ static int decompress(JNIEnv *env, QzSession_T *sess, unsigned char *src_ptr,
  * Signature: (Lcom/intel/qat/QatZipper;IJII)V
  */
 JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_setup(
-    JNIEnv *env, jclass clz, jobject qat_zipper, jint sw_backup,
-    jint comp_algorithm, jint level, jint polling_mode) {
+    JNIEnv *env, jclass clz, jobject qat_zipper, jint comp_algorithm,
+    jint level, jint sw_backup, jint polling_mode) {
   (void)clz;
+  // check if compression level is valid
+  if (comp_algorithm == DEFLATE_ALGORITHM &&
+      (level < 0 || level > QZ_DEFLATE_COMP_LVL_MAXIMUM)) {
+    throw_exception(env, QZ_PARAMS, "Invalid compression level given.");
+    return;
+  }
 
   // save the fieldID of nio.ByteBuffer.position
   nio_bytebuffer_position_id = (*env)->GetFieldID(

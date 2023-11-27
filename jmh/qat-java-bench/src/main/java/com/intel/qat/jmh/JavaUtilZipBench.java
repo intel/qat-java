@@ -6,19 +6,18 @@
 
 package com.intel.qat.jmh;
 
-import com.intel.qat.QatZipper;
-import com.intel.qat.QatZipper.Algorithm;
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.zip.Deflater;
+import java.util.zip.Inflater;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.State;
 
 @State(Scope.Benchmark)
-public class QatZipBench {
+public class JavaUtilZipBench {
   private static AtomicBoolean flag = new AtomicBoolean(false);
 
   @Param({""})
@@ -36,33 +35,31 @@ public class QatZipBench {
 
     public ThreadState() {
       try {
-        // Create compressor/decompressor object
-        QatZipper qzip = new QatZipper(Algorithm.DEFLATE, level);
+        // Create compressor and decompressor objects
+        Deflater deflater = new Deflater(level);
+        Inflater inflater = new Inflater();
 
         // Read input
         src = Files.readAllBytes(Paths.get(file));
-        dst = new byte[qzip.maxCompressedLength(src.length)];
+
+        decompressed = new byte[src.length];
+        dst = new byte[src.length];
 
         // Compress input
-        int compressedLength = qzip.compress(src, dst);
+        deflater.setInput(src);
+        int compressedLength = deflater.deflate(dst);
+        deflater.end();
 
         // Prepare compressed array of size EXACTLY compressedLength
         compressed = new byte[compressedLength];
         System.arraycopy(dst, 0, compressed, 0, compressedLength);
 
-        // Do decompression
-        decompressed = new byte[src.length];
-        qzip.decompress(compressed, decompressed);
-
-        // End session
-        qzip.end();
-
         if (flag.compareAndSet(false, true)) {
           System.out.println("\n------------------------");
-          System.out.printf("Compression ratio: %.2f%n", (double) src.length / compressedLength);
+          System.out.printf("Compression ratio: %.2f%n", (double) src.length / compressed.length);
           System.out.println("------------------------");
         }
-      } catch (IOException e) {
+      } catch (Exception e) {
         e.printStackTrace();
       }
     }
@@ -70,15 +67,17 @@ public class QatZipBench {
 
   @Benchmark
   public void compress(ThreadState state) {
-    QatZipper qzip = new QatZipper(Algorithm.DEFLATE, level);
-    qzip.compress(state.src, state.dst);
-    qzip.end();
+    Deflater deflater = new Deflater(level);
+    deflater.setInput(state.src);
+    deflater.deflate(state.dst);
+    deflater.end();
   }
 
   @Benchmark
-  public void decompress(ThreadState state) {
-    QatZipper qzip = new QatZipper(Algorithm.DEFLATE, level);
-    qzip.decompress(state.compressed, state.decompressed);
-    qzip.end();
+  public void decompress(ThreadState state) throws java.util.zip.DataFormatException {
+    Inflater inflater = new Inflater();
+    inflater.setInput(state.compressed);
+    inflater.inflate(state.decompressed);
+    inflater.end();
   }
 }

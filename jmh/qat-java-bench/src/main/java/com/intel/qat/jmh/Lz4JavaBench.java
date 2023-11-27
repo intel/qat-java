@@ -31,39 +31,49 @@
 
 package com.intel.qat.jmh;
 
-import com.github.luben.zstd.Zstd;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.concurrent.atomic.AtomicBoolean;
+import net.jpountz.lz4.LZ4Compressor;
+import net.jpountz.lz4.LZ4Decompressor;
+import net.jpountz.lz4.LZ4Factory;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.State;
 
 @State(Scope.Benchmark)
-public class ZstdJniBench {
+public class Lz4JavaBench {
   private static AtomicBoolean flag = new AtomicBoolean(false);
 
   @Param({""})
   static String file;
 
-  @Param({"6"})
-  static int level;
-
   @State(Scope.Thread)
   public static class ThreadState {
     byte[] src;
+    byte[] dst;
     byte[] compressed;
     byte[] decompressed;
 
     public ThreadState() {
       try {
+        // Create compressor/decompressor object
+        LZ4Compressor compressor = LZ4Factory.fastestInstance().fastCompressor();
+
         // Read input
         src = Files.readAllBytes(Paths.get(file));
 
+        decompressed = new byte[src.length];
+        dst = new byte[compressor.maxCompressedLength(src.length)];
+
         // Compress input
-        compressed = Zstd.compress(src, level);
+        int compressedLength = compressor.compress(src, dst);
+
+        // Prepare compressed array of size EXACTLY compressedLength
+        compressed = new byte[compressedLength];
+        System.arraycopy(dst, 0, compressed, 0, compressedLength);
 
         if (flag.compareAndSet(false, true)) {
           System.out.println("\n------------------------");
@@ -78,11 +88,13 @@ public class ZstdJniBench {
 
   @Benchmark
   public void compress(ThreadState state) {
-    state.compressed = Zstd.compress(state.src, level);
+    LZ4Compressor compressor = LZ4Factory.fastestInstance().fastCompressor();
+    compressor.compress(state.src, state.dst);
   }
 
   @Benchmark
   public void decompress(ThreadState state) {
-    state.decompressed = Zstd.decompress(state.compressed, state.src.length);
+    LZ4Decompressor decompressor = LZ4Factory.fastestInstance().fastDecompressor();
+    decompressor.decompress(state.compressed, 0, state.decompressed, 0, state.decompressed.length);
   }
 }
