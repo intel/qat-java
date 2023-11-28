@@ -15,8 +15,6 @@ import static org.junit.jupiter.api.Assertions.fail;
 import static org.junit.jupiter.api.Assumptions.assumeFalse;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
-import com.github.luben.zstd.ZstdCompressCtx;
-import com.github.luben.zstd.ZstdDecompressCtx;
 import java.io.IOException;
 import java.lang.ref.Cleaner;
 import java.nio.ByteBuffer;
@@ -1146,26 +1144,6 @@ public class QatZipperTests {
       fail();
     } catch (QatException | ArrayIndexOutOfBoundsException e) {
       assertTrue(true);
-    }
-  }
-
-  @Test
-  public void testZstd() {
-    try (ZstdCompressCtx cctx = new ZstdCompressCtx();
-        ZstdDecompressCtx dctx = new ZstdDecompressCtx(); ) {
-
-      QatZstdSequenceProducer.startDevice();
-      cctx.registerSequenceProducer(new QatZstdSequenceProducer());
-
-      byte bytes[] = "Hello, world!".getBytes();
-      byte compressed[] = cctx.compress(bytes);
-      byte decompressed[] = dctx.decompress(compressed, bytes.length);
-
-      boolean result = Arrays.equals(bytes, decompressed);
-      QatZstdSequenceProducer.stopDevice();
-
-      // Unconditionally fail, so that the result is always printed
-      fail("ZSTD result: " + result);
     }
   }
 }
