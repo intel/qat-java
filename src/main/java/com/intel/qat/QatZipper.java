@@ -270,27 +270,14 @@ public class QatZipper {
    */
   public QatZipper(Algorithm algorithm, int level, Mode mode, int retryCount, PollingMode pmode)
       throws QatException {
-    if (!validateParams(algorithm, level, retryCount))
-      throw new IllegalArgumentException("Invalid compression level or retry count.");
+    if (retryCount < 0) throw new IllegalArgumentException("Invalid value for retry count.");
 
     this.retryCount = retryCount;
-    InternalJNI.setup(this, mode.ordinal(), algorithm.ordinal(), level, pmode.ordinal());
+    InternalJNI.setup(this, algorithm.ordinal(), level, mode.ordinal(), pmode.ordinal());
 
     // Register a QAT session cleaner for this object
     cleanable = cleaner.register(this, new QatCleaner(session));
     isValid = true;
-  }
-
-  /**
-   * Validates compression level and retry counts.
-   *
-   * @param algorithm the compression {@link algorithm}
-   * @param level the compression level.
-   * @param retryCount how many times to seek for a hardware resources before giving up.
-   * @return true if validation was successful, false otherwise.
-   */
-  private boolean validateParams(Algorithm algorithm, int level, int retryCount) {
-    return !(retryCount < 0 || level < 1 || level > 9);
   }
 
   /**

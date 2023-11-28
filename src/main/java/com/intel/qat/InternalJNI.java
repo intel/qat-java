@@ -17,7 +17,7 @@ class InternalJNI {
     Native.loadLibrary();
   }
 
-  static native void setup(QatZipper qzip, int mode, int codec, int level, int pmode);
+  static native void setup(QatZipper qzip, int algo, int level, int mode, int pmode);
 
   static native int maxCompressedSize(long session, long sourceSize);
 
