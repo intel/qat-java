@@ -1,5 +1,13 @@
-## Performance Test
-This JMH benchmark may be used to performance test the Qat-Java library.
+## JMH
+A set of JMH benchmarks.
+```
+Name              | Algorithm
+--------------------------------------------
+QatJavaBench      | DEFLATE, gzip-ext format
+JavaUtilZipBench  | DEFLATE, zlib format
+Lz4JavaBench      | LZ4
+ZstdJniBench      | Zstandard
+```
 
 ## Build
 To build the benchmark, execute the below command:
@@ -14,9 +22,9 @@ To run the benchmark, use the below command:
 java -jar target/benchmarks.jar [benchmark-class] -p file=/path/to/a/text-corpus -p level=<level> <jmh-params>
 ```
 
-For example:
+Example:
 ```
-java -jar target/benchmarks.jar QatZipBench -p file=silesia/dickens -p level=6 -bm thrpt -wi 1 -i 2 -t 1
+java -jar target/benchmarks.jar QatJavaBench -p file=silesia/dickens -p level=6 -wi 1 -i 2 -t 1
 ```
 
 You may get a text corpus for benchmarking from [Silesia compression corpus](https://sun.aei.polsl.pl//~sdeor/index.php?page=silesia). 

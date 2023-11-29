@@ -6,24 +6,23 @@
 
 package com.intel.qat.jmh;
 
-import static com.intel.qat.QatZipper.Algorithm;
-
-import com.intel.qat.QatCompressorOutputStream;
-import com.intel.qat.QatDecompressorInputStream;
-import com.intel.qat.QatZipper;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.zip.Deflater;
+import java.util.zip.DeflaterOutputStream;
+import java.util.zip.Inflater;
+import java.util.zip.InflaterInputStream;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.State;
 
 @State(Scope.Benchmark)
-public class QatZipStreamBench {
+public class JavaUtilZipStreamBench {
   private static final int BUFFER_SIZE = 1 << 16; // 64KB
   private static AtomicBoolean flag = new AtomicBoolean(false);
 
@@ -45,13 +44,12 @@ public class QatZipStreamBench {
 
         // Compress input using streams
         ByteArrayOutputStream compressedOutput = new ByteArrayOutputStream();
-        QatCompressorOutputStream qatOutputStream =
-            new QatCompressorOutputStream(
-                compressedOutput, BUFFER_SIZE, Algorithm.DEFLATE, level, QatZipper.Mode.HARDWARE);
-        qatOutputStream.write(src);
-        qatOutputStream.close();
+        Deflater deflater = new Deflater(level);
+        DeflaterOutputStream outputStream =
+            new DeflaterOutputStream(compressedOutput, deflater, BUFFER_SIZE);
+        outputStream.write(src, 0, src.length);
+        outputStream.close();
 
-        // Get compressed data from stream
         compressed = compressedOutput.toByteArray();
 
         if (flag.compareAndSet(false, true)) {
@@ -68,24 +66,22 @@ public class QatZipStreamBench {
   @Benchmark
   public void compress(ThreadState state) throws IOException {
     ByteArrayOutputStream compressedOutput = new ByteArrayOutputStream();
-    QatCompressorOutputStream qatOutputStream =
-        new QatCompressorOutputStream(
-            compressedOutput, BUFFER_SIZE, Algorithm.DEFLATE, level, QatZipper.Mode.HARDWARE);
-    qatOutputStream.write(state.src);
-    qatOutputStream.close();
+    DeflaterOutputStream outputStream =
+        new DeflaterOutputStream(compressedOutput, new Deflater(level), BUFFER_SIZE);
+    outputStream.write(state.src, 0, state.src.length);
+    outputStream.close();
   }
 
   @Benchmark
   public void decompress(ThreadState state) throws IOException {
     ByteArrayInputStream compressedInput = new ByteArrayInputStream(state.compressed);
-    QatDecompressorInputStream qatInputStream =
-        new QatDecompressorInputStream(
-            compressedInput, BUFFER_SIZE, Algorithm.DEFLATE, QatZipper.Mode.HARDWARE);
+    InflaterInputStream inputStream =
+        new InflaterInputStream(compressedInput, new Inflater(), BUFFER_SIZE);
 
     int bytesRead = 0;
     byte[] buffer = new byte[BUFFER_SIZE];
-    while ((bytesRead = qatInputStream.read(buffer)) != -1)
+    while ((bytesRead = inputStream.read(buffer)) != -1)
       ;
-    qatInputStream.close();
+    inputStream.close();
   }
 }
