@@ -11,6 +11,19 @@
 #include "qatzip.h"
 #include "util.h"
 
+#ifndef CPA_DC_API_VERSION_AT_LEAST
+#define CPA_DC_API_VERSION_AT_LEAST(major, minor) \
+  (CPA_DC_API_VERSION_NUM_MAJOR > major ||        \
+   (CPA_DC_API_VERSION_NUM_MAJOR == major &&      \
+    CPA_DC_API_VERSION_NUM_MINOR >= minor))
+#endif
+
+#if CPA_DC_API_VERSION_AT_LEAST(3, 1)
+#define COMP_LVL_MAXIMUM QZ_LZS_COMP_LVL_MAXIMUM
+#else
+#define COMP_LVL_MAXIMUM QZ_DEFLATE_COMP_LVL_MAXIMUM
+#endif
+
 #define DEFLATE_ALGORITHM 0
 
 /**
@@ -175,9 +188,8 @@ JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_setup(
     JNIEnv *env, jclass clz, jobject qat_zipper, jint comp_algorithm,
     jint level, jint sw_backup, jint polling_mode) {
   (void)clz;
-  // check if compression level is valid
-  if (comp_algorithm == DEFLATE_ALGORITHM &&
-      (level < 0 || level > QZ_DEFLATE_COMP_LVL_MAXIMUM)) {
+  // Check if compression level is valid
+  if (level < 1 || level > COMP_LVL_MAXIMUM) {
     throw_exception(env, QZ_PARAMS, "Invalid compression level given.");
     return;
   }
@@ -234,7 +246,7 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_compressByteArray(
       (unsigned char *)(*env)->GetPrimitiveArrayCritical(env, src_arr, NULL);
   unsigned char *dst_ptr =
       (unsigned char *)(*env)->GetPrimitiveArrayCritical(env, dst_arr, NULL);
-  
+
   int bytes_read = 0;
   int bytes_written = 0;
 

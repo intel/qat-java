@@ -136,7 +136,7 @@ public class QatZipperTests {
   public void duplicateEndHW() {
     assumeTrue(QatTestSuite.FORCE_HARDWARE);
     try {
-      QatZipper qzip = new QatZipper(Algorithm.LZ4, 0, Mode.HARDWARE);
+      QatZipper qzip = new QatZipper(Algorithm.LZ4, Mode.HARDWARE);
       qzip.end();
       qzip.end();
     } catch (IllegalStateException | IllegalArgumentException is) {
