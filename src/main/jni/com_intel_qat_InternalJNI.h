@@ -10,11 +10,19 @@ extern "C" {
 /*
  * Class:     com_intel_qat_InternalJNI
  * Method:    setup
- * Signature: (Lcom/intel/qat/QatZipper;III)V
+ * Signature: (Lcom/intel/qat/QatZipper;IIII)V
  */
 JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_setup(JNIEnv *, jclass,
                                                             jobject, jint, jint,
                                                             jint);
+
+/*
+ * Class:     com_intel_qat_InternalJNI
+ * Method:    teardown
+ * Signature: (J)I
+ */
+JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_teardown(JNIEnv *, jclass,
+                                                               jlong);
 
 /*
  * Class:     com_intel_qat_InternalJNI
@@ -27,20 +35,20 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_maxCompressedSize(
 /*
  * Class:     com_intel_qat_InternalJNI
  * Method:    compressByteArray
- * Signature: (J[BII[BIII)I
+ * Signature: (Lcom/intel/qat/QatZipper;J[BII[BIII)I
  */
 JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_compressByteArray(
-    JNIEnv *, jclass, jlong, jbyteArray, jint, jint, jbyteArray, jint, jint,
-    jint);
+    JNIEnv *, jclass, jobject, jlong, jbyteArray, jint, jint, jbyteArray, jint,
+    jint, jint);
 
 /*
  * Class:     com_intel_qat_InternalJNI
  * Method:    decompressByteArray
- * Signature: (J[BII[BIII)I
+ * Signature: (Lcom/intel/qat/QatZipper;J[BII[BIII)I
  */
 JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_decompressByteArray(
-    JNIEnv *, jclass, jlong, jbyteArray, jint, jint, jbyteArray, jint, jint,
-    jint);
+    JNIEnv *, jclass, jobject, jlong, jbyteArray, jint, jint, jbyteArray, jint,
+    jint, jint);
 
 /*
  * Class:     com_intel_qat_InternalJNI
@@ -122,14 +130,6 @@ Java_com_intel_qat_InternalJNI_decompressDirectByteBufferDst(JNIEnv *, jclass,
                                                              jbyteArray, jint,
                                                              jint, jobject,
                                                              jint, jint, jint);
-
-/*
- * Class:     com_intel_qat_InternalJNI
- * Method:    teardown
- * Signature: (J)I
- */
-JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_teardown(JNIEnv *, jclass,
-                                                               jlong);
 
 /*
  * Class:     com_intel_qat_InternalJNI

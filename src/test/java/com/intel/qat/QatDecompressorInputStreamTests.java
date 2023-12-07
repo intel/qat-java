@@ -12,6 +12,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -33,20 +34,20 @@ public class QatDecompressorInputStreamTests {
   private static byte[] src;
   private static byte[] deflateBytes;
   private static byte[] lz4Bytes;
-  private Random rnd = new Random();
+  private Random RANDOM = new Random();
 
   @BeforeAll
   public static void setup() throws IOException {
     src = Files.readAllBytes(Paths.get(SAMPLE_TEXT_PATH));
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     try (QatCompressorOutputStream compressedStream =
-        new QatCompressorOutputStream(outputStream, 16 * 1024, Algorithm.LZ4)) {
+        new QatCompressorOutputStream(outputStream, 16 * 1024, Algorithm.LZ4, Mode.AUTO)) {
       compressedStream.write(src);
     }
     lz4Bytes = outputStream.toByteArray();
     ByteArrayOutputStream outputStream2 = new ByteArrayOutputStream();
     try (QatCompressorOutputStream compressedStream =
-        new QatCompressorOutputStream(outputStream2, 16 * 1024, Algorithm.DEFLATE)) {
+        new QatCompressorOutputStream(outputStream2, 16 * 1024, Algorithm.DEFLATE, Mode.AUTO)) {
       compressedStream.write(src);
     }
     deflateBytes = outputStream2.toByteArray();
@@ -120,7 +121,6 @@ public class QatDecompressorInputStreamTests {
   @Test
   public void testNullStream() {
     ByteArrayInputStream inputStream = null;
-    byte[] result = new byte[src.length];
     try {
       try (QatDecompressorInputStream decompressedStream =
           new QatDecompressorInputStream(inputStream, 16 * 1024)) {}
@@ -132,8 +132,8 @@ public class QatDecompressorInputStreamTests {
 
   @Test
   public void testConstructor() {
+    assumeTrue(QatTestSuite.FORCE_HARDWARE);
     ByteArrayInputStream inputStream = new ByteArrayInputStream(deflateBytes);
-    byte[] result = new byte[src.length];
     try {
       try (QatDecompressorInputStream decompressedStream =
           new QatDecompressorInputStream(inputStream, 16 * 1024)) {}
@@ -144,8 +144,8 @@ public class QatDecompressorInputStreamTests {
 
   @Test
   public void testOneArgConstructor() {
+    assumeTrue(QatTestSuite.FORCE_HARDWARE);
     ByteArrayInputStream inputStream = new ByteArrayInputStream(deflateBytes);
-    byte[] result = new byte[src.length];
     try {
       try (QatDecompressorInputStream decompressedStream =
           new QatDecompressorInputStream(inputStream)) {}
@@ -157,9 +157,9 @@ public class QatDecompressorInputStreamTests {
   @ParameterizedTest
   @EnumSource(Algorithm.class)
   public void testConstructor1(Algorithm algo) {
+    assumeTrue(QatTestSuite.FORCE_HARDWARE);
     ByteArrayInputStream inputStream =
         new ByteArrayInputStream(algo.equals(Algorithm.LZ4) ? lz4Bytes : deflateBytes);
-    byte[] result = new byte[src.length];
     try {
       try (QatDecompressorInputStream decompressedStream =
           new QatDecompressorInputStream(inputStream, 16 * 1024, algo)) {}
@@ -173,7 +173,6 @@ public class QatDecompressorInputStreamTests {
   public void testConstructor2(Mode mode, Algorithm algo) {
     ByteArrayInputStream inputStream =
         new ByteArrayInputStream(algo.equals(Algorithm.LZ4) ? lz4Bytes : deflateBytes);
-    byte[] result = new byte[src.length];
     try {
       try (QatDecompressorInputStream decompressedStream =
           new QatDecompressorInputStream(inputStream, 16 * 1024, algo, mode)) {}
@@ -187,9 +186,8 @@ public class QatDecompressorInputStreamTests {
   public void testReset(Algorithm algo) throws IOException {
     ByteArrayInputStream inputStream =
         new ByteArrayInputStream(algo.equals(Algorithm.LZ4) ? lz4Bytes : deflateBytes);
-    byte[] result = new byte[src.length];
     try (QatDecompressorInputStream decompressedStream =
-        new QatDecompressorInputStream(inputStream, 16 * 1024, algo)) {
+        new QatDecompressorInputStream(inputStream, 16 * 1024, algo, Mode.AUTO)) {
       try {
         decompressedStream.reset();
         fail("Failed to catch IOException!");
@@ -204,9 +202,8 @@ public class QatDecompressorInputStreamTests {
   public void testMarkSupported(Algorithm algo) throws IOException {
     ByteArrayInputStream inputStream =
         new ByteArrayInputStream(algo.equals(Algorithm.LZ4) ? lz4Bytes : deflateBytes);
-    byte[] result = new byte[src.length];
     try (QatDecompressorInputStream decompressedStream =
-        new QatDecompressorInputStream(inputStream, 16 * 1024, algo)) {
+        new QatDecompressorInputStream(inputStream, 16 * 1024, algo, Mode.AUTO)) {
       assertFalse(decompressedStream.markSupported());
     }
   }
@@ -238,7 +235,7 @@ public class QatDecompressorInputStreamTests {
       int i;
       int len = 0;
       for (i = 0; i < result.length; i += len) {
-        len = Math.min(rnd.nextInt(20 * 1024), result.length - i);
+        len = Math.min(RANDOM.nextInt(20 * 1024), result.length - i);
         int read = decompressedStream.read(result, i, len);
         assertEquals(len, read);
       }
@@ -309,7 +306,7 @@ public class QatDecompressorInputStreamTests {
           len = 1;
           result[i] = (byte) decompressedStream.read();
         } else {
-          len = Math.min(rnd.nextInt(20 * 1024), result.length - i);
+          len = Math.min(RANDOM.nextInt(20 * 1024), result.length - i);
           int read = decompressedStream.read(result, i, len);
           assertEquals(len, read);
         }
@@ -353,8 +350,8 @@ public class QatDecompressorInputStreamTests {
         new QatDecompressorInputStream(inputStream, bufferSize, algo, mode);
     decompressedStream.close();
     try {
-      decompressedStream.read(result);
-      fail("Failed to catch IOException!");
+      int r = decompressedStream.read(result);
+      fail("Failed to catch IOException. Return was " + r);
     } catch (IOException ioe) {
       assertTrue(true);
     }
@@ -370,8 +367,8 @@ public class QatDecompressorInputStreamTests {
         new QatDecompressorInputStream(inputStream, bufferSize, algo, mode);
     decompressedStream.close();
     try {
-      decompressedStream.read();
-      fail("Failed to catch IOException!");
+      int r = decompressedStream.read();
+      fail("Failed to catch IOException. Returned was " + r);
     } catch (IOException ioe) {
       assertTrue(true);
     }
@@ -400,7 +397,6 @@ public class QatDecompressorInputStreamTests {
       throws IOException {
     ByteArrayInputStream inputStream =
         new ByteArrayInputStream(algo.equals(Algorithm.LZ4) ? lz4Bytes : deflateBytes);
-    byte[] result = new byte[src.length];
     QatDecompressorInputStream decompressedStream =
         new QatDecompressorInputStream(inputStream, bufferSize, algo, mode);
     decompressedStream.close();
@@ -514,8 +510,8 @@ public class QatDecompressorInputStreamTests {
     try (QatDecompressorInputStream decompressedStream =
         new QatDecompressorInputStream(inputStream, 16 * 1024, algo, mode)) {
       try {
-        decompressedStream.read(result, result.length - 1, 100);
-        fail("Failed to catch IndexOutOfBoundsException");
+        int r = decompressedStream.read(result, result.length - 1, 100);
+        fail("Failed to catch IndexOutOfBoundsException. Returned " + r);
       } catch (IndexOutOfBoundsException oob) {
         assertTrue(true);
       }

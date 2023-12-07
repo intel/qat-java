@@ -12,6 +12,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -123,6 +124,7 @@ public class QatCompressorOutputStreamTests {
 
   @Test
   public void testOutputStreamConstructor() throws IOException {
+    assumeTrue(QatTestSuite.FORCE_HARDWARE);
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     try {
       try (QatCompressorOutputStream compressedStream =
@@ -134,6 +136,7 @@ public class QatCompressorOutputStreamTests {
 
   @Test
   public void testOutputStreamOneArgConstructor() throws IOException {
+    assumeTrue(QatTestSuite.FORCE_HARDWARE);
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     try {
       try (QatCompressorOutputStream compressedStream =
@@ -146,6 +149,7 @@ public class QatCompressorOutputStreamTests {
   @ParameterizedTest
   @EnumSource(Algorithm.class)
   public void testOutputStreamConstructor1(Algorithm algo) throws IOException {
+    assumeTrue(QatTestSuite.FORCE_HARDWARE);
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     try {
       try (QatCompressorOutputStream compressedStream =
@@ -158,6 +162,7 @@ public class QatCompressorOutputStreamTests {
   @ParameterizedTest
   @MethodSource("provideAlgorithmLevelParams")
   public void testOutputStreamConstructor2(Algorithm algo, int level) throws IOException {
+    assumeTrue(QatTestSuite.FORCE_HARDWARE);
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     try {
       try (QatCompressorOutputStream compressedStream =
@@ -195,7 +200,7 @@ public class QatCompressorOutputStreamTests {
   @ParameterizedTest
   @MethodSource("provideModeAlgorithmLengthParams")
   public void testOutputStreamWriteAll1(Mode mode, Algorithm algo, int size) throws IOException {
-    qzip = new QatZipper(algo);
+    qzip = new QatZipper(algo, mode);
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     try (QatCompressorOutputStream compressedStream =
         new QatCompressorOutputStream(outputStream, size, algo, mode)) {
@@ -203,8 +208,7 @@ public class QatCompressorOutputStreamTests {
     }
     byte[] outputStreamBuf = outputStream.toByteArray();
     byte[] result = new byte[src.length];
-    int decompressedLen =
-        qzip.decompress(outputStreamBuf, 0, outputStreamBuf.length, result, 0, result.length);
+    qzip.decompress(outputStreamBuf, 0, outputStreamBuf.length, result, 0, result.length);
 
     assertTrue(Arrays.equals(src, result));
   }
@@ -212,7 +216,7 @@ public class QatCompressorOutputStreamTests {
   @ParameterizedTest
   @MethodSource("provideModeAlgorithmLengthParams")
   public void testOutputStreamWriteAll3(Mode mode, Algorithm algo, int size) throws IOException {
-    qzip = new QatZipper(algo);
+    qzip = new QatZipper(algo, mode);
     byte[] src = Files.readAllBytes(Paths.get(SAMPLE_TEXT_PATH));
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     try (QatCompressorOutputStream compressedStream =
@@ -227,8 +231,7 @@ public class QatCompressorOutputStreamTests {
     }
     byte[] outputStreamBuf = outputStream.toByteArray();
     byte[] result = new byte[src.length];
-    int decompressedLen =
-        qzip.decompress(outputStreamBuf, 0, outputStreamBuf.length, result, 0, result.length);
+    qzip.decompress(outputStreamBuf, 0, outputStreamBuf.length, result, 0, result.length);
 
     assertTrue(Arrays.equals(src, result));
   }
@@ -236,7 +239,7 @@ public class QatCompressorOutputStreamTests {
   @ParameterizedTest
   @MethodSource("provideModeAlgorithmLengthParams")
   public void testOutputStreamWriteByte(Mode mode, Algorithm algo, int size) throws IOException {
-    qzip = new QatZipper(algo);
+    qzip = new QatZipper(algo, mode);
     byte[] src = Files.readAllBytes(Paths.get(SAMPLE_TEXT_PATH));
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     try (QatCompressorOutputStream compressedStream =
@@ -256,8 +259,7 @@ public class QatCompressorOutputStreamTests {
     }
     byte[] outputStreamBuf = outputStream.toByteArray();
     byte[] result = new byte[src.length];
-    int decompressedLen =
-        qzip.decompress(outputStreamBuf, 0, outputStreamBuf.length, result, 0, result.length);
+    qzip.decompress(outputStreamBuf, 0, outputStreamBuf.length, result, 0, result.length);
 
     assertTrue(Arrays.equals(src, result));
   }
@@ -265,7 +267,7 @@ public class QatCompressorOutputStreamTests {
   @ParameterizedTest
   @MethodSource("provideModeAlgorithmLengthParams")
   public void testOutputStreamWriteFlush(Mode mode, Algorithm algo, int size) throws IOException {
-    qzip = new QatZipper(algo);
+    qzip = new QatZipper(algo, mode);
     byte[] src = Files.readAllBytes(Paths.get(SAMPLE_TEXT_PATH));
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     try (QatCompressorOutputStream compressedStream =
@@ -283,8 +285,7 @@ public class QatCompressorOutputStreamTests {
     }
     byte[] outputStreamBuf = outputStream.toByteArray();
     byte[] result = new byte[src.length];
-    int decompressedLen =
-        qzip.decompress(outputStreamBuf, 0, outputStreamBuf.length, result, 0, result.length);
+    qzip.decompress(outputStreamBuf, 0, outputStreamBuf.length, result, 0, result.length);
 
     assertTrue(Arrays.equals(src, result));
   }
@@ -326,7 +327,6 @@ public class QatCompressorOutputStreamTests {
   @MethodSource("provideModeAlgorithmLengthParams")
   public void testOutputStreamFlushAfterClose(Mode mode, Algorithm algo, int size)
       throws IOException {
-    byte[] src = Files.readAllBytes(Paths.get(SAMPLE_TEXT_PATH));
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     QatCompressorOutputStream compressedStream =
         new QatCompressorOutputStream(outputStream, size, algo, mode);
@@ -342,7 +342,6 @@ public class QatCompressorOutputStreamTests {
   @ParameterizedTest
   @MethodSource("provideModeAlgorithmLengthParams")
   public void testOutputStreamDoubleClose(Mode mode, Algorithm algo, int size) throws IOException {
-    byte[] src = Files.readAllBytes(Paths.get(SAMPLE_TEXT_PATH));
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     QatCompressorOutputStream compressedStream =
         new QatCompressorOutputStream(outputStream, size, algo, mode);
@@ -354,7 +353,7 @@ public class QatCompressorOutputStreamTests {
   @ParameterizedTest
   @MethodSource("provideModeAlgorithmLengthParams")
   public void testOutputStreamFlushOnClose(Mode mode, Algorithm algo, int size) throws IOException {
-    QatZipper qzip = new QatZipper(algo);
+    QatZipper qzip = new QatZipper(algo, mode);
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     final byte[] preResult;
     try (QatCompressorOutputStream compressedStream =
@@ -366,8 +365,7 @@ public class QatCompressorOutputStreamTests {
     byte[] outputStreamBuf = outputStream.toByteArray();
     assertFalse(Arrays.equals(outputStreamBuf, preResult));
     byte[] result = new byte[src.length];
-    int decompressedLen =
-        qzip.decompress(outputStreamBuf, 0, outputStreamBuf.length, result, 0, result.length);
+    qzip.decompress(outputStreamBuf, 0, outputStreamBuf.length, result, 0, result.length);
 
     assertTrue(Arrays.equals(src, result));
   }
@@ -375,8 +373,7 @@ public class QatCompressorOutputStreamTests {
   @ParameterizedTest
   @MethodSource("provideModeAlgorithmParams")
   public void testOutputStreamWriteNullArray(Mode mode, Algorithm algo) throws IOException {
-    qzip = new QatZipper(algo);
-    byte[] src = Files.readAllBytes(Paths.get(SAMPLE_TEXT_PATH));
+    qzip = new QatZipper(algo, mode);
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     try (QatCompressorOutputStream compressedStream =
         new QatCompressorOutputStream(outputStream, 16 * 1024, algo, mode)) {
@@ -392,7 +389,7 @@ public class QatCompressorOutputStreamTests {
   @ParameterizedTest
   @MethodSource("provideModeAlgorithmParams")
   public void testOutputStreamWriteBadOffset(Mode mode, Algorithm algo) throws IOException {
-    qzip = new QatZipper(algo);
+    qzip = new QatZipper(algo, mode);
     byte[] src = Files.readAllBytes(Paths.get(SAMPLE_TEXT_PATH));
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     try (QatCompressorOutputStream compressedStream =
@@ -409,7 +406,7 @@ public class QatCompressorOutputStreamTests {
   @ParameterizedTest
   @MethodSource("provideModeAlgorithmParams")
   public void testOutputStreamWriteBadLength(Mode mode, Algorithm algo) throws IOException {
-    qzip = new QatZipper(algo);
+    qzip = new QatZipper(algo, mode);
     byte[] src = Files.readAllBytes(Paths.get(SAMPLE_TEXT_PATH));
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     try (QatCompressorOutputStream compressedStream =
@@ -427,7 +424,7 @@ public class QatCompressorOutputStreamTests {
   @MethodSource("provideModeAlgorithmParams")
   public void testOutputStreamWriteBadOffsetAndLength(Mode mode, Algorithm algo)
       throws IOException {
-    qzip = new QatZipper(algo);
+    qzip = new QatZipper(algo, mode);
     byte[] src = Files.readAllBytes(Paths.get(SAMPLE_TEXT_PATH));
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     try (QatCompressorOutputStream compressedStream =

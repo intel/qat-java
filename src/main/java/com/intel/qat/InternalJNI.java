@@ -17,11 +17,12 @@ class InternalJNI {
     Native.loadLibrary();
   }
 
-  static native void setup(QatZipper qzip, int mode, int codec, int level);
+  static native void setup(QatZipper qzip, int algo, int level, int mode, int pmode);
 
   static native int maxCompressedSize(long session, long sourceSize);
 
   static native int compressByteArray(
+      QatZipper qzip,
       long session,
       byte[] src,
       int srcOff,
@@ -32,6 +33,7 @@ class InternalJNI {
       int retryCount);
 
   static native int decompressByteArray(
+      QatZipper qzip,
       long session,
       byte[] src,
       int srcOff,
