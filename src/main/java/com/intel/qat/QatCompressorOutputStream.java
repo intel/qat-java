@@ -174,6 +174,7 @@ public class QatCompressorOutputStream extends FilterOutputStream {
    * @param out the output stream
    * @param bufferSize the output buffer size
    * @param algorithm the compression algorithm (deflate or LZ4).
+   * @param level the compression level.
    * @param mode the mode of operation (HARDWARE - only hardware, AUTO - hardware with a software
    *     failover.)
    */
@@ -188,6 +189,7 @@ public class QatCompressorOutputStream extends FilterOutputStream {
    * @param out the output stream
    * @param bufferSize the output buffer size
    * @param algorithm the compression algorithm (deflate or LZ4).
+   * @param level the compression level.
    * @param pmode the polling mode
    */
   public QatCompressorOutputStream(

@@ -123,6 +123,7 @@ public class QatDecompressorInputStream extends FilterInputStream {
    * @param algorithm the compression algorithm (deflate or LZ4).
    * @param mode the mode of operation (HARDWARE - only hardware, AUTO - hardware with a software
    *     failover.)
+   * @param pmode the polling mode
    */
   public QatDecompressorInputStream(
       InputStream in, int bufferSize, Algorithm algorithm, Mode mode, PollingMode pmode) {
