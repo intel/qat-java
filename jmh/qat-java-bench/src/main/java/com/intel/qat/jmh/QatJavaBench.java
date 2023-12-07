@@ -78,6 +78,7 @@ public class QatJavaBench {
       // Do decompression
       decompressed = new byte[src.length];
       int decompressedLength = qzip.decompress(compressed, decompressed);
+      assert decompressedLength == src.length;
 
       // Print compressed length and ratio
       System.out.println("\n-------------------------");
