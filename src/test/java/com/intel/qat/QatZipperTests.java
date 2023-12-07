@@ -1163,8 +1163,7 @@ public class QatZipperTests {
       boolean result = Arrays.equals(bytes, decompressed);
       QatZstdSequenceProducer.stopDevice();
 
-      // Unconditionally fail, so that the result is always printed
-      fail("ZSTD result: " + result);
+      if (!result) fail();
     }
   }
 }

@@ -2,10 +2,10 @@ package com.intel.qat.jmh;
 
 import com.github.luben.zstd.Zstd;
 import com.github.luben.zstd.ZstdCompressCtx;
-import com.github.luben.zstd.ZstdDecompressCtx;
 import com.intel.qat.QatZstdSequenceProducer;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.Arrays;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Measurement;
@@ -19,74 +19,102 @@ import org.openjdk.jmh.annotations.Warmup;
 
 @State(Scope.Benchmark)
 public class QatZstdBench {
-  private static final int COMPRESSION_LEVEL = 9;
-
   private byte[] src;
-  private byte[] dst;
-  private byte[] compressed;
-  private byte[] decompressed;
-  ZstdCompressCtx cctx;
-  ZstdDecompressCtx dctx;
-  QatZstdSequenceProducer seqprod;
+  private byte[][] srcChunks;
+  private int chunkCompressBound;
 
   @Param({""})
   String fileName;
 
-  // @Param({"1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"})
-  // String levelStr;
+  @Param({"9"})
+  String zstdLevel;
+
+  @Param({"16384"})
+  String chunkSize;
+
+  protected ZstdCompressCtx newCctx() {
+    ZstdCompressCtx cctx = new ZstdCompressCtx();
+    cctx.setLevel(Integer.parseInt(zstdLevel));
+    cctx.setWorkers(0);
+    QatZstdSequenceProducer seqprod = new QatZstdSequenceProducer();
+    cctx.registerSequenceProducer(seqprod);
+    cctx.setSequenceProducerFallback(false);
+    cctx.setSearchForExternalRepcodes(Zstd.ParamSwitch.DISABLE);
+    cctx.setEnableLongDistanceMatching(Zstd.ParamSwitch.DISABLE);
+    return cctx;
+  }
 
   @Setup
   public void prepare() {
-    // Create compressor and decompressor objects
     try {
-      QatZstdSequenceProducer.startDevice();
-      cctx = new ZstdCompressCtx();
-      dctx = new ZstdDecompressCtx();
-      seqprod = new QatZstdSequenceProducer();
-      // cctx.setLevel(Integer.parseInt(levelStr));
-      cctx.setLevel(COMPRESSION_LEVEL);
-      cctx.registerSequenceProducer(seqprod);
-      cctx.setSequenceProducerFallback(false);
-
       // Read input
       src = Files.readAllBytes(Paths.get(fileName));
-      dst = new byte[(int) Zstd.compressBound(src.length)];
+
+      // Split into chunks
+      int intChunkSize = Integer.parseInt(chunkSize);
+      assert src.length > 0;
+      assert intChunkSize > 0;
+      assert intChunkSize <= (1 << 30);
+      int nChunks = (src.length + (intChunkSize - 1)) / intChunkSize;
+      srcChunks = new byte[nChunks][];
+      for (int i = 0; i < nChunks - 1; i++)
+        srcChunks[i] = Arrays.copyOfRange(src, i * intChunkSize, (i + 1) * intChunkSize);
+      srcChunks[nChunks - 1] = Arrays.copyOfRange(src, (nChunks - 1) * intChunkSize, src.length);
+      chunkCompressBound = (int) Zstd.compressBound(intChunkSize);
 
       // Compress input
-      int compressedLength = cctx.compress(dst, src);
+      QatZstdSequenceProducer.startDevice();
+      try (ZstdCompressCtx cctx = newCctx(); ) {
+        int compressedLength = 0;
+        byte[] dst = new byte[chunkCompressBound];
+        for (int i = 0; i < srcChunks.length; i++)
+          compressedLength += cctx.compress(dst, srcChunks[i]);
 
-      // Prepare compressed array of size EXACTLY compressedLength
-      compressed = new byte[compressedLength];
-      System.arraycopy(dst, 0, compressed, 0, compressedLength);
-
-      // Do decompression
-      decompressed = new byte[src.length];
-      int decompressedLength = dctx.decompress(decompressed, compressed);
-      assert decompressedLength == src.length;
-
-      // Print compressed length and ratio
-      System.out.println("\n-------------------------");
-      System.out.printf(
-          "Input size: %d, Compressed size: %d, ratio: %.2f\n",
-          src.length, compressedLength, src.length * 1.0 / compressedLength);
-      System.out.println("-------------------------");
+        // Print compressed length and ratio
+        System.out.println("\n-------------------------");
+        System.out.printf(
+            "Input size: %d, Compressed size: %d, ratio: %.2f\n",
+            src.length, compressedLength, src.length * 1.0 / compressedLength);
+        System.out.println("-------------------------");
+      }
     } catch (Exception e) {
       e.printStackTrace();
+    } finally {
+      QatZstdSequenceProducer.stopDevice();
+    }
+  }
+
+  /** Thread-local state. Stores the thread-specific zstd compression context. */
+  @State(Scope.Thread)
+  public static class ThreadState {
+    private byte[] dst;
+    ZstdCompressCtx cctx;
+
+    @Setup
+    public void prepare(QatZstdBench bench) {
+      QatZstdSequenceProducer.startDevice();
+      dst = new byte[bench.chunkCompressBound];
+      cctx = bench.newCctx();
+    }
+
+    @TearDown
+    public void end() {
+      cctx.close();
     }
   }
 
   @Benchmark
-  @Warmup(iterations = 3)
-  @Measurement(iterations = 4)
+  @Warmup(iterations = 2)
+  @Measurement(iterations = 3)
   @BenchmarkMode(Mode.Throughput)
-  public void compress() {
-    cctx.compress(dst, src);
+  public void compress(ThreadState threadState) {
+    // Compress all chunks
+    for (int i = 0; i < srcChunks.length; i++)
+      threadState.cctx.compress(threadState.dst, srcChunks[i]);
   }
 
   @TearDown
   public void end() {
-    cctx.close();
-    dctx.close();
     QatZstdSequenceProducer.stopDevice();
   }
 }
