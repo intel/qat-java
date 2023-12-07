@@ -259,7 +259,7 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_compressByteArray(
   (*env)->ReleasePrimitiveArrayCritical(env, src_arr, (jbyte *)src_ptr, 0);
 
   // Update qatZipper.bytesRead
-  (*env)->SetIntField(env, qat_zipper, get_qzip_bytes_read_id(), (jint)bytes_read);
+  (*env)->SetIntField(env, qat_zipper, get_qzip_bytes_read_id(env), (jint)bytes_read);
 
   return bytes_written;
 }
@@ -293,7 +293,7 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_decompressByteArray(
   (*env)->ReleasePrimitiveArrayCritical(env, src_arr, (jbyte *)src_ptr, 0);
 
   // Update qat_zipper.bytesRead
-  (*env)->SetIntField(env, qat_zipper, get_qzip_bytes_read_id(), (jint)bytes_read);
+  (*env)->SetIntField(env, qat_zipper, get_qzip_bytes_read_id(env), (jint)bytes_read);
 
   return bytes_written;
 }
