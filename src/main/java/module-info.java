@@ -11,5 +11,7 @@
  * through JNI bindings.
  */
 module com.intel.qat {
+  requires com.github.luben.zstd_jni;
+
   exports com.intel.qat;
 }

@@ -8,6 +8,7 @@
 
 #include <stdlib.h>
 
+#include "qatseqprod.h"
 #include "qatzip.h"
 #include "util.h"
 
@@ -29,12 +30,26 @@
 /**
  * The fieldID for java.nio.ByteBuffer/position
  */
-static jfieldID nio_bytebuffer_position_id;
+_Thread_local static jfieldID cached_nio_bytebuffer_position_id = NULL;
 
 /**
  * The fieldID for com.intel.qat.QatZipper/bytesRead
  */
-static jfieldID qzip_bytes_read_id;
+_Thread_local static jfieldID cached_qzip_bytes_read_id = NULL;
+
+static jfieldID get_nio_bytebuffer_position_id(JNIEnv *env) {
+  if (cached_nio_bytebuffer_position_id == NULL)
+    cached_nio_bytebuffer_position_id = (*env)->GetFieldID(
+      env, (*env)->FindClass(env, "java/nio/ByteBuffer"), "position", "I");
+  return cached_nio_bytebuffer_position_id;
+}
+
+static jfieldID get_qzip_bytes_read_id(JNIEnv *env) {
+  if (cached_qzip_bytes_read_id == NULL)
+    cached_qzip_bytes_read_id = (*env)->GetFieldID(
+      env, (*env)->FindClass(env, "com/intel/qat/QatZipper"), "bytesRead", "I");
+  return cached_qzip_bytes_read_id;
+}
 
 /**
  * Setups a QAT session for DEFLATE.
@@ -97,12 +112,11 @@ static int setup_lz4_session(QzSession_T *qz_session, int level,
  * @param bytes_written an out parameter that stores the bytes written to the
  * destination buffer.
  * @param retry_count the number of compression retries before we give up.
- * @return QZ_OK (0) if successful, non-zero otherwise.
  */
-static int compress(JNIEnv *env, QzSession_T *sess, unsigned char *src_ptr,
-                    unsigned int src_len, unsigned char *dst_ptr,
-                    unsigned int dst_len, int *bytes_read, int *bytes_written,
-                    int retry_count) {
+static void compress(JNIEnv *env, QzSession_T *sess, unsigned char *src_ptr,
+                     unsigned int src_len, unsigned char *dst_ptr,
+                     unsigned int dst_len, int *bytes_read, int *bytes_written,
+                     int retry_count) {
   // Save src_len and dst_len
   int src_len_l = src_len;
   int dst_len_l = dst_len;
@@ -119,13 +133,11 @@ static int compress(JNIEnv *env, QzSession_T *sess, unsigned char *src_ptr,
 
   if (status != QZ_OK) {
     throw_exception(env, status, "Error occurred while compressing data.");
-    return status;
+    return;
   }
 
   *bytes_read = src_len;
   *bytes_written = dst_len;
-
-  return QZ_OK;
 }
 
 /**
@@ -145,12 +157,11 @@ static int compress(JNIEnv *env, QzSession_T *sess, unsigned char *src_ptr,
  * @param bytes_written an out parameter that stores the bytes written to the
  * destination buffer.
  * @param retry_count the number of decompression retries before we give up.
- * @return QZ_OK (0) if successful, non-zero otherwise.
  */
-static int decompress(JNIEnv *env, QzSession_T *sess, unsigned char *src_ptr,
-                      unsigned int src_len, unsigned char *dst_ptr,
-                      unsigned int dst_len, int *bytes_read, int *bytes_written,
-                      int retry_count) {
+static void decompress(JNIEnv *env, QzSession_T *sess, unsigned char *src_ptr,
+                       unsigned int src_len, unsigned char *dst_ptr,
+                       unsigned int dst_len, int *bytes_read,
+                       int *bytes_written, int retry_count) {
   // Save src_len and dst_len
   int src_len_l = src_len;
   int dst_len_l = dst_len;
@@ -168,13 +179,11 @@ static int decompress(JNIEnv *env, QzSession_T *sess, unsigned char *src_ptr,
 
   if (status != QZ_OK && status != QZ_BUF_ERROR && status != QZ_DATA_ERROR) {
     throw_exception(env, status, "Error occurred while decompressing data.");
-    return status;
+    return;
   }
 
   *bytes_read = src_len;
   *bytes_written = dst_len;
-
-  return QZ_OK;
 }
 
 /*
@@ -182,7 +191,7 @@ static int decompress(JNIEnv *env, QzSession_T *sess, unsigned char *src_ptr,
  *
  * Class:     com_intel_qat_InternalJNI
  * Method:    setup
- * Signature: (Lcom/intel/qat/QatZipper;IJII)V
+ * Signature: (Lcom/intel/qat/QatZipper;III)V
  */
 JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_setup(
     JNIEnv *env, jclass clz, jobject qat_zipper, jint comp_algorithm,
@@ -193,13 +202,6 @@ JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_setup(
     throw_exception(env, QZ_PARAMS, "Invalid compression level given.");
     return;
   }
-
-  // save the fieldID of nio.ByteBuffer.position
-  nio_bytebuffer_position_id = (*env)->GetFieldID(
-      env, (*env)->FindClass(env, "java/nio/ByteBuffer"), "position", "I");
-
-  qzip_bytes_read_id = (*env)->GetFieldID(
-      env, (*env)->FindClass(env, "com/intel/qat/QatZipper"), "bytesRead", "I");
 
   QzSession_T *qz_session = (QzSession_T *)calloc(1, sizeof(QzSession_T));
 
@@ -257,7 +259,7 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_compressByteArray(
   (*env)->ReleasePrimitiveArrayCritical(env, src_arr, (jbyte *)src_ptr, 0);
 
   // Update qatZipper.bytesRead
-  (*env)->SetIntField(env, qat_zipper, qzip_bytes_read_id, (jint)bytes_read);
+  (*env)->SetIntField(env, qat_zipper, get_qzip_bytes_read_id(env), (jint)bytes_read);
 
   return bytes_written;
 }
@@ -291,7 +293,7 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_decompressByteArray(
   (*env)->ReleasePrimitiveArrayCritical(env, src_arr, (jbyte *)src_ptr, 0);
 
   // Update qat_zipper.bytesRead
-  (*env)->SetIntField(env, qat_zipper, qzip_bytes_read_id, (jint)bytes_read);
+  (*env)->SetIntField(env, qat_zipper, get_qzip_bytes_read_id(env), (jint)bytes_read);
 
   return bytes_written;
 }
@@ -325,6 +327,7 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_compressByteBuffer(
   (*env)->ReleasePrimitiveArrayCritical(env, dst_arr, (jbyte *)dst_ptr, 0);
   (*env)->ReleasePrimitiveArrayCritical(env, src_arr, (jbyte *)src_ptr, 0);
 
+  jfieldID nio_bytebuffer_position_id = get_nio_bytebuffer_position_id(env);
   (*env)->SetIntField(env, src_buf, nio_bytebuffer_position_id,
                       src_pos + bytes_read);
 
@@ -359,6 +362,7 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_decompressByteBuffer(
   (*env)->ReleasePrimitiveArrayCritical(env, dst_arr, (jbyte *)dst_ptr, 0);
   (*env)->ReleasePrimitiveArrayCritical(env, src_arr, (jbyte *)src_ptr, 0);
 
+  jfieldID nio_bytebuffer_position_id = get_nio_bytebuffer_position_id(env);
   (*env)->SetIntField(env, src_buf, nio_bytebuffer_position_id,
                       src_pos + bytes_read);
 
@@ -391,6 +395,7 @@ jint JNICALL Java_com_intel_qat_InternalJNI_compressDirectByteBuffer(
            dst_len, &bytes_read, &bytes_written, retry_count);
 
   // set src and dest buffer positions
+  jfieldID nio_bytebuffer_position_id = get_nio_bytebuffer_position_id(env);
   (*env)->SetIntField(env, src_buf, nio_bytebuffer_position_id,
                       src_pos + bytes_read);
   (*env)->SetIntField(env, dst_buf, nio_bytebuffer_position_id,
@@ -426,6 +431,7 @@ Java_com_intel_qat_InternalJNI_decompressDirectByteBuffer(
              dst_len, &bytes_read, &bytes_written, retry_count);
 
   // set src and dest buffer positions
+  jfieldID nio_bytebuffer_position_id = get_nio_bytebuffer_position_id(env);
   (*env)->SetIntField(env, src_buf, nio_bytebuffer_position_id,
                       src_pos + bytes_read);
   (*env)->SetIntField(env, dst_buf, nio_bytebuffer_position_id,
@@ -460,6 +466,7 @@ Java_com_intel_qat_InternalJNI_compressDirectByteBufferSrc(
 
   (*env)->ReleasePrimitiveArrayCritical(env, dst_arr, (jbyte *)dst_ptr, 0);
 
+  jfieldID nio_bytebuffer_position_id = get_nio_bytebuffer_position_id(env);
   (*env)->SetIntField(env, src_buf, nio_bytebuffer_position_id,
                       src_pos + bytes_read);
 
@@ -492,6 +499,7 @@ Java_com_intel_qat_InternalJNI_decompressDirectByteBufferSrc(
 
   (*env)->ReleasePrimitiveArrayCritical(env, dst_arr, (jbyte *)dst_ptr, 0);
 
+  jfieldID nio_bytebuffer_position_id = get_nio_bytebuffer_position_id(env);
   (*env)->SetIntField(env, src_buf, nio_bytebuffer_position_id,
                       src_pos + bytes_read);
 
@@ -501,7 +509,7 @@ Java_com_intel_qat_InternalJNI_decompressDirectByteBufferSrc(
 /*
  * Class:     com_intel_qat_InternalJNI
  * Method:    compressDirectByteBufferDst
- * Signature: (J[BIILjava/nio/ByteBuffer;III)I
+ * Signature: (JLjava/nio/ByteBuffer;[BIILjava/nio/ByteBuffer;III)I
  */
 JNIEXPORT jint JNICALL
 Java_com_intel_qat_InternalJNI_compressDirectByteBufferDst(
@@ -524,6 +532,7 @@ Java_com_intel_qat_InternalJNI_compressDirectByteBufferDst(
 
   (*env)->ReleasePrimitiveArrayCritical(env, src_arr, (jbyte *)src_ptr, 0);
 
+  jfieldID nio_bytebuffer_position_id = get_nio_bytebuffer_position_id(env);
   (*env)->SetIntField(env, src_buf, nio_bytebuffer_position_id,
                       src_pos + bytes_read);
   (*env)->SetIntField(env, dst_buf, nio_bytebuffer_position_id,
@@ -557,6 +566,7 @@ Java_com_intel_qat_InternalJNI_decompressDirectByteBufferDst(
 
   (*env)->ReleasePrimitiveArrayCritical(env, src_arr, (jbyte *)src_ptr, 0);
 
+  jfieldID nio_bytebuffer_position_id = get_nio_bytebuffer_position_id(env);
   (*env)->SetIntField(env, src_buf, nio_bytebuffer_position_id,
                       src_pos + bytes_read);
   (*env)->SetIntField(env, dst_buf, nio_bytebuffer_position_id,
@@ -602,4 +612,69 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_teardown(JNIEnv *env,
   }
 
   return QZ_OK;
+}
+
+/*
+ * Class:     com_intel_qat_InternalJNI
+ * Method:    zstdGetSeqProdFunction
+ * Signature: ()J
+ */
+JNIEXPORT jlong JNICALL
+Java_com_intel_qat_InternalJNI_zstdGetSeqProdFunction(JNIEnv *env, jclass obj) {
+  (void)env;
+  (void)obj;
+
+  return (jlong)qatSequenceProducer;
+}
+
+/*
+ * Class:     com_intel_qat_InternalJNI
+ * Method:    zstdStartDevice
+ * Signature: ()I
+ */
+JNIEXPORT jint JNICALL
+Java_com_intel_qat_InternalJNI_zstdStartDevice(JNIEnv *env, jclass obj) {
+  (void)env;
+  (void)obj;
+
+  return QZSTD_startQatDevice();
+}
+
+/*
+ * Class:     com_intel_qat_InternalJNI
+ * Method:    zstdStopDevice
+ * Signature: ()V
+ */
+JNIEXPORT void JNICALL
+Java_com_intel_qat_InternalJNI_zstdStopDevice(JNIEnv *env, jclass obj) {
+  (void)env;
+  (void)obj;
+
+  QZSTD_stopQatDevice();
+}
+
+/*
+ * Class:     com_intel_qat_InternalJNI
+ * Method:    zstdCreateSeqProdState
+ * Signature: ()J
+ */
+JNIEXPORT jlong JNICALL
+Java_com_intel_qat_InternalJNI_zstdCreateSeqProdState(JNIEnv *env, jclass obj) {
+  (void)env;
+  (void)obj;
+
+  return (jlong)QZSTD_createSeqProdState();
+}
+
+/*
+ * Class:     com_intel_qat_InternalJNI
+ * Method:    zstdFreeSeqProdState
+ * Signature: (J)V
+ */
+JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_zstdFreeSeqProdState(
+    JNIEnv *env, jclass obj, jlong sequenceProducerState) {
+  (void)env;
+  (void)obj;
+
+  QZSTD_freeSeqProdState((void *)sequenceProducerState);
 }
