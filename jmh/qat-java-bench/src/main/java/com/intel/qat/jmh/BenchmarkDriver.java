@@ -41,8 +41,11 @@ public class BenchmarkDriver {
       builder =
           builder
               .parent(cli)
+              .include(classPattern(JavaUtilZipBench.class))
+              .include(classPattern(JavaUtilZipStreamBench.class))
+              .include(classPattern(Lz4JavaBench.class))
               .include(classPattern(QatJavaBench.class))
-              .include(classPattern(JavaZipBench.class))
+              .include(classPattern(QatJavaStreamBench.class))
               .include(classPattern(QatZstdBench.class))
               .include(classPattern(ZstdSoftwareBench.class));
     } else {
