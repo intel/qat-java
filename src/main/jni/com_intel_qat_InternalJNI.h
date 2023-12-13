@@ -9,6 +9,14 @@ extern "C" {
 #endif
 /*
  * Class:     com_intel_qat_InternalJNI
+ * Method:    initFieldIDs
+ * Signature: ()V
+ */
+JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_initFieldIDs
+  (JNIEnv *, jclass);
+
+/*
+ * Class:     com_intel_qat_InternalJNI
  * Method:    setup
  * Signature: (Lcom/intel/qat/QatZipper;IJIII)V
  */

@@ -90,6 +90,8 @@ public class QatZipper {
   private final Cleaner.Cleanable cleanable;
 
   static {
+    InternalJNI.initFieldIDs();
+
     SecurityManager sm = System.getSecurityManager();
     if (sm == null) {
       cleaner = Cleaner.create();
