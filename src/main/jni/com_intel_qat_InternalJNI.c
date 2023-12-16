@@ -37,7 +37,7 @@ static jfieldID nio_bytebuffer_position_id;
 static jfieldID qzip_bytes_read_id;
 
 /**
- * Setups a QAT session for DEFLATE.
+ * Sets up a QAT session for DEFLATE.
  *
  * @param qz_session a pointer to the QzSession_T.
  * @param level the compression level to use.
@@ -59,7 +59,7 @@ static int setup_deflate_session(QzSession_T *qz_session, int level,
 }
 
 /**
- * Setups a QAT session for LZ4.
+ * Sets up a QAT session for LZ4.
  *
  * @param qz_session a pointer to the QzSession_T.
  * @param level the compression level to use.
@@ -182,11 +182,10 @@ static int decompress(JNIEnv *env, QzSession_T *sess, unsigned char *src_ptr,
  * Method:    initFieldIDs
  * Signature: ()V
  */
-JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_initFieldIDs
-  (JNIEnv *env, jclass clz) {
-	(void)clz;
+JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_initFieldIDs(JNIEnv *env,
+                                                                   jclass clz) {
+  (void)clz;
 
-  // save the fieldID of nio.ByteBuffer.position
   nio_bytebuffer_position_id = (*env)->GetFieldID(
       env, (*env)->FindClass(env, "java/nio/ByteBuffer"), "position", "I");
 
@@ -199,7 +198,7 @@ JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_initFieldIDs
  *
  * Class:     com_intel_qat_InternalJNI
  * Method:    setup
- * Signature: (Lcom/intel/qat/QatZipper;IJII)V
+ * Signature: (Lcom/intel/qat/QatZipper;IIII)V
  */
 JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_setup(
     JNIEnv *env, jclass clz, jobject qat_zipper, jint comp_algorithm,
@@ -242,7 +241,7 @@ JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_setup(
  *
  * Class:     com_intel_qat_InternalJNI
  * Method:    compressByteArray
- * Signature: (J[BII[BIII)I
+ * Signature: (Lcom/intel/qat/QatZipper;J[BII[BIII)I
  */
 JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_compressByteArray(
     JNIEnv *env, jclass clz, jobject qat_zipper, jlong sess, jbyteArray src_arr,
@@ -277,7 +276,7 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_compressByteArray(
  *
  * Class:     com_intel_qat_InternalJNI
  * Method:    decompressByteArray
- * Signature: (J[BII[BIII)I
+ * Signature: (Lcom/intel/qat/QatZipper;J[BII[BIII)I
  */
 JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_decompressByteArray(
     JNIEnv *env, jclass clz, jobject qat_zipper, jlong sess, jbyteArray src_arr,
@@ -511,7 +510,7 @@ Java_com_intel_qat_InternalJNI_decompressDirectByteBufferSrc(
 /*
  * Class:     com_intel_qat_InternalJNI
  * Method:    compressDirectByteBufferDst
- * Signature: (J[BIILjava/nio/ByteBuffer;III)I
+ * Signature: (JLjava/nio/ByteBuffer;[BIILjava/nio/ByteBuffer;III)I
  */
 JNIEXPORT jint JNICALL
 Java_com_intel_qat_InternalJNI_compressDirectByteBufferDst(
@@ -541,6 +540,7 @@ Java_com_intel_qat_InternalJNI_compressDirectByteBufferDst(
 
   return bytes_written;
 }
+
 /*
  * Class:     com_intel_qat_InternalJNI
  * Method:    decompressDirectByteBufferDst
@@ -591,7 +591,7 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_maxCompressedSize(
 }
 
 /*
- * Tearsdown the given QAT session.
+ * Tear downs the given QAT session.
  *
  * Class:     com_intel_qat_InternalJNI
  * Method:    teardown

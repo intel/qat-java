@@ -66,7 +66,7 @@ public class QatZipper {
   public static final Mode DEFAULT_MODE = Mode.HARDWARE;
 
   /** The default polling mode. */
-  public static final PollingMode DEFAULT_POLLING_MODE = PollingMode.PERIODICAL;
+  public static final PollingMode DEFAULT_POLLING_MODE = PollingMode.BUSY;
 
   private boolean isValid;
 
@@ -120,13 +120,37 @@ public class QatZipper {
     AUTO;
   }
 
-  /** The polling mode to use. PERIODICAL and BUSY are supported. */
+  /**
+   * Polling mode dictates how QAT processes compression/decompression requests and waits for a
+   * response, directly affecting the performance of these operations. Two polling modes are
+   * supported: BUSY and PERIODICAL. <br>
+   * Use BUSY polling mode when:
+   *
+   * <ul>
+   *   <li>Your CPUs are not fully saturated and have cycles to spare.
+   *   <li>
+   *   <li>Your workload is latency sensitive
+   * </ul>
+   *
+   * <br>
+   * Use PERIODICAL polling mode when:
+   *
+   * <ul>
+   *   <li>Your workload has very high CPU utilization.
+   *   <li>Your workload is throughput sensitive.
+   * </ul>
+   *
+   * In cases where you are not able to make a determination, considering checking both modes.
+   */
   public static enum PollingMode {
-    /** The default polling mode. Preferred mode for throughput sensitive uses cases. */
-    PERIODICAL,
+    /**
+     * Use when (i) your CPUS are not fully saturated, or/and (ii) your workload is latency
+     * sensitive.
+     */
+    BUSY,
 
-    /** BUSY polling. Preferred for latency sensitive use cases. */
-    BUSY
+    /** Use when (i) your workload is CPU bound, or/and (ii) your work is throghput sensitive. */
+    PERIODICAL
   }
 
   /** The compression algorithm to use. DEFLATE and LZ4 are supported. */
