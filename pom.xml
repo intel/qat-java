@@ -21,6 +21,20 @@
         <developerConnection>scm:git:git@github.com:intel/qat-java.git</developerConnection>
         <url>https://github.com/intel/qat-java</url>
     </scm>
+    <developers>
+        <developer>
+            <name>Mammo, Mulugeta</name>
+            <email>mulugeta.mammo@intel.com</email>
+            <organization>Intel</organization>
+            <organizationUrl/>
+        </developer>
+         <developer>
+            <name>Denloye, Olasoji</name>
+            <email>olasoji.denloye@intel.com</email>
+            <organization>Intel</organization>
+            <organizationUrl/>
+        </developer>
+    </developers>
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>

@@ -68,8 +68,12 @@ public class QatZipper {
   /** The default polling mode. */
   public static final PollingMode DEFAULT_POLLING_MODE = PollingMode.BUSY;
 
+  /** Indicates if a QAT session is valid or not. */
   private boolean isValid;
 
+  /**
+   * The number of retry counts for session creation before Qat-Java gives up and throws an error.
+   */
   private int retryCount;
 
   /** Number of bytes read from the source by the most recent call to a compress/decompress. */
@@ -92,6 +96,7 @@ public class QatZipper {
   static {
     InternalJNI.initFieldIDs();
 
+    // Needed for applications where a Java security manager is in place -- e.g. OpenSearch.
     SecurityManager sm = System.getSecurityManager();
     if (sm == null) {
       cleaner = Cleaner.create();
@@ -123,13 +128,13 @@ public class QatZipper {
   /**
    * Polling mode dictates how QAT processes compression/decompression requests and waits for a
    * response, directly affecting the performance of these operations. Two polling modes are
-   * supported: BUSY and PERIODICAL. <br>
+   * supported: BUSY and PERIODICAL. BUSY polling is the default polling mode.<br>
+   * <br>
    * Use BUSY polling mode when:
    *
    * <ul>
    *   <li>Your CPUs are not fully saturated and have cycles to spare.
-   *   <li>
-   *   <li>Your workload is latency sensitive
+   *   <li>Your workload is latency-sensitive.
    * </ul>
    *
    * <br>
@@ -137,19 +142,14 @@ public class QatZipper {
    *
    * <ul>
    *   <li>Your workload has very high CPU utilization.
-   *   <li>Your workload is throughput sensitive.
+   *   <li>Your workload is throughput-sensitive.
    * </ul>
-   *
-   * In cases where you are not able to make a determination, considering checking both modes.
    */
   public static enum PollingMode {
-    /**
-     * Use when (i) your CPUS are not fully saturated, or/and (ii) your workload is latency
-     * sensitive.
-     */
+    /** Use this mode unless your workload is CPU-bound. */
     BUSY,
 
-    /** Use when (i) your workload is CPU bound, or/and (ii) your work is throghput sensitive. */
+    /** Use this mode when your workload is CPU-bound. */
     PERIODICAL
   }
 
@@ -176,6 +176,18 @@ public class QatZipper {
   }
 
   /**
+   * Creates a new QatZipper with the specified compression {@link Algorithm}. Uses {@link
+   * DEFAULT_COMPRESS_LEVEL}, {@link DEFAULT_MODE}, {@link DEFAULT_RETRY_COUNT}, and {@link
+   * DEFAULT_POLLING_MODE}.
+   *
+   * @param algorithm the compression {@link Algorithm}
+   */
+  public QatZipper(Algorithm algorithm) {
+    this(
+        algorithm, DEFAULT_COMPRESS_LEVEL, DEFAULT_MODE, DEFAULT_RETRY_COUNT, DEFAULT_POLLING_MODE);
+  }
+
+  /**
    * Creates a new QatZipper with the specified execution {@link Mode}. Uses {@link
    * Algorithm#DEFLATE}, {@link DEFAULT_COMPRESS_LEVEL}, {@link DEFAULT_RETRY_COUNT}, and {@link
    * DEFAULT_POLLING_MODE}.
@@ -198,15 +210,14 @@ public class QatZipper {
   }
 
   /**
-   * Creates a new QatZipper with the specified compression {@link Algorithm}. Uses {@link
-   * DEFAULT_COMPRESS_LEVEL}, {@link DEFAULT_MODE}, {@link DEFAULT_RETRY_COUNT}, and {@link
-   * DEFAULT_POLLING_MODE}.
+   * Creates a new QatZipper with the specified {@link Algorithm} and compression level. Uses {@link
+   * DEFAULT_MODE}, {@link DEFAULT_RETRY_COUNT}, and {@link DEFAULT_POLLING_MODE}.
    *
-   * @param algorithm the compression {@link Algorithm}
+   * @param algorithm the compression algorithm (deflate or LZ4).
+   * @param level the compression level.
    */
-  public QatZipper(Algorithm algorithm) {
-    this(
-        algorithm, DEFAULT_COMPRESS_LEVEL, DEFAULT_MODE, DEFAULT_RETRY_COUNT, DEFAULT_POLLING_MODE);
+  public QatZipper(Algorithm algorithm, int level) {
+    this(algorithm, level, DEFAULT_MODE, DEFAULT_RETRY_COUNT, DEFAULT_POLLING_MODE);
   }
 
   /**
@@ -243,17 +254,6 @@ public class QatZipper {
    */
   public QatZipper(Algorithm algorithm, Mode mode, PollingMode pmode) {
     this(algorithm, DEFAULT_COMPRESS_LEVEL, mode, DEFAULT_RETRY_COUNT, pmode);
-  }
-
-  /**
-   * Creates a new QatZipper with the specified {@link Algorithm} and compression level. Uses {@link
-   * DEFAULT_MODE}, {@link DEFAULT_RETRY_COUNT}, and {@link DEFAULT_POLLING_MODE}.
-   *
-   * @param algorithm the compression algorithm (deflate or LZ4).
-   * @param level the compression level.
-   */
-  public QatZipper(Algorithm algorithm, int level) {
-    this(algorithm, level, DEFAULT_MODE, DEFAULT_RETRY_COUNT, DEFAULT_POLLING_MODE);
   }
 
   /**
