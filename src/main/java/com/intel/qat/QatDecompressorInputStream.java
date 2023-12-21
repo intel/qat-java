@@ -13,7 +13,6 @@ import static com.intel.qat.QatZipper.PollingMode;
 import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.ByteBuffer;
 import java.util.Objects;
 
 /**
@@ -21,8 +20,12 @@ import java.util.Objects;
  * Technology (QAT).
  */
 public class QatDecompressorInputStream extends FilterInputStream {
-  private ByteBuffer inputBuffer;
-  private ByteBuffer outputBuffer;
+  private byte[] inputBuffer;
+  private byte[] outputBuffer;
+  private int inputPosition;
+  private int outputPosition;
+  private int inputBufferLimit;
+  private int outputBufferLimit;
   private QatZipper qzip;
   private boolean closed;
   private boolean eof;
@@ -130,9 +133,11 @@ public class QatDecompressorInputStream extends FilterInputStream {
     super(in);
     if (bufferSize <= 0) throw new IllegalArgumentException();
     Objects.requireNonNull(in);
-    inputBuffer = ByteBuffer.allocate(bufferSize);
-    outputBuffer = ByteBuffer.allocate(bufferSize);
-    outputBuffer.position(outputBuffer.capacity());
+    inputBuffer = new byte[bufferSize];
+    outputBuffer = new byte[bufferSize];
+    outputPosition = outputBuffer.length;
+    inputBufferLimit = bufferSize;
+    outputBufferLimit = bufferSize;
     qzip = new QatZipper(algorithm, mode, pmode);
     closed = false;
     eof = false;
@@ -147,12 +152,12 @@ public class QatDecompressorInputStream extends FilterInputStream {
   @Override
   public int read() throws IOException {
     if (closed) throw new IOException("Stream is closed");
-    if (eof && !outputBuffer.hasRemaining()) return -1;
-    if (!outputBuffer.hasRemaining()) {
+    if (eof && outputPosition == outputBufferLimit) return -1;
+    if (outputPosition == outputBufferLimit) {
       fill();
     }
-    if (eof && !outputBuffer.hasRemaining()) return -1;
-    return Byte.toUnsignedInt(outputBuffer.get());
+    if (eof && outputPosition == outputBufferLimit) return -1;
+    return Byte.toUnsignedInt(outputBuffer[outputPosition++]);
   }
 
   /**
@@ -181,11 +186,12 @@ public class QatDecompressorInputStream extends FilterInputStream {
     if (closed) throw new IOException("Stream is closed");
     Objects.requireNonNull(b);
     if (off < 0 || len < 0 || off + len > b.length) throw new IndexOutOfBoundsException();
-    if (eof && !outputBuffer.hasRemaining()) return -1;
+    if (eof && outputPosition == outputBufferLimit) return -1;
     int result = 0;
     int bytesToRead = 0;
-    while (len > (bytesToRead = outputBuffer.remaining())) {
-      outputBuffer.get(b, off, bytesToRead);
+    while (len > (bytesToRead = outputBufferLimit - outputPosition)) {
+      System.arraycopy(outputBuffer, outputPosition, b, off, bytesToRead);
+      outputPosition += bytesToRead;
       len -= bytesToRead;
       result += bytesToRead;
       off += bytesToRead;
@@ -194,7 +200,8 @@ public class QatDecompressorInputStream extends FilterInputStream {
       }
       fill();
     }
-    outputBuffer.get(b, off, len);
+    System.arraycopy(outputBuffer, outputPosition, b, off, len);
+    outputPosition += len;
     result += len;
     return result;
   }
@@ -208,7 +215,7 @@ public class QatDecompressorInputStream extends FilterInputStream {
   @Override
   public int available() throws IOException {
     if (closed) throw new IOException("Stream is closed");
-    if (outputBuffer.hasRemaining()) return outputBuffer.remaining();
+    if (outputPosition != outputBufferLimit) return (outputBufferLimit - outputPosition);
     if (eof) return 0;
     else return 1;
   }
@@ -269,19 +276,37 @@ public class QatDecompressorInputStream extends FilterInputStream {
 
   private void fill() throws IOException {
     if (eof) return;
-    int bytesRead = in.read(inputBuffer.array(), inputBuffer.position(), inputBuffer.remaining());
-    inputBuffer.limit(inputBuffer.position() + Math.max(0, bytesRead));
-    inputBuffer.rewind();
-    if (bytesRead < 0 && inputBuffer.remaining() == 0) {
+    int bytesRead = in.read(inputBuffer, inputPosition, inputBuffer.length - inputPosition);
+    inputBufferLimit = (inputPosition + Math.max(0, bytesRead));
+    inputPosition = 0;
+    if (bytesRead < 0 && inputBufferLimit == 0) {
       eof = true;
       return;
     }
-    outputBuffer.clear();
-    int decompressed = qzip.decompress(inputBuffer, outputBuffer);
-    outputBuffer.flip();
-    if (inputBuffer.hasRemaining()) inputBuffer.compact();
-    else if (bytesRead < 0 && inputBuffer.remaining() == 0) eof = true;
-    else inputBuffer.clear();
+    outputPosition = 0;
+    outputBufferLimit = outputBuffer.length;
+    int decompressed =
+        qzip.decompress(
+            inputBuffer,
+            inputPosition,
+            inputBufferLimit,
+            outputBuffer,
+            outputPosition,
+            outputBufferLimit - outputPosition);
+    inputPosition += qzip.getBytesRead();
+    outputPosition += decompressed;
+    outputBufferLimit = outputPosition;
+    outputPosition = 0;
+    if (inputPosition != inputBufferLimit) {
+      System.arraycopy(
+          inputBuffer, inputPosition, inputBuffer, 0, inputBufferLimit - inputPosition);
+      inputPosition = inputBufferLimit - inputPosition;
+      inputBufferLimit = inputBuffer.length;
+    } else if (bytesRead < 0 && inputPosition == inputBufferLimit) eof = true;
+    else {
+      inputPosition = 0;
+      inputBufferLimit = inputBuffer.length;
+    }
     if (decompressed == 0) fill();
   }
 }
