@@ -13,7 +13,6 @@ import static com.intel.qat.QatZipper.PollingMode;
 import java.io.FilterOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.nio.ByteBuffer;
 import java.util.Objects;
 
 /**
@@ -21,13 +20,41 @@ import java.util.Objects;
  * Technology (QAT).
  */
 public class QatCompressorOutputStream extends FilterOutputStream {
-  private ByteBuffer inputBuffer;
+  private byte[] inputBuffer;
+  private int inputPosition;
   private QatZipper qzip;
-  private ByteBuffer outputBuffer;
+  private byte[] outputBuffer;
+  private int outputPosition;
   private boolean closed;
 
   /** The default size in bytes of the output buffer (64KB). */
   public static final int DEFAULT_BUFFER_SIZE = 1 << 16;
+
+  /**
+   * Creates a new output stream with the given paramters.
+   *
+   * @param out the output stream
+   * @param bufferSize the output buffer size
+   * @param algorithm the compression algorithm (deflate or LZ4).
+   * @param level the compression level.
+   * @param mode the mode of operation (HARDWARE - only hardware, AUTO - hardware with a software
+   * @param pmode the polling mode
+   */
+  public QatCompressorOutputStream(
+      OutputStream out,
+      int bufferSize,
+      Algorithm algorithm,
+      int level,
+      Mode mode,
+      PollingMode pmode) {
+    super(out);
+    if (bufferSize <= 0) throw new IllegalArgumentException();
+    Objects.requireNonNull(out);
+    qzip = new QatZipper(algorithm, level, mode, pmode);
+    inputBuffer = new byte[bufferSize];
+    outputBuffer = new byte[qzip.maxCompressedLength(bufferSize)];
+    closed = false;
+  }
 
   /**
    * Creates a new output stream with {@link DEFAULT_BUFFER_SIZE}, {@link Algorithm#DEFLATE}, {@link
@@ -198,32 +225,6 @@ public class QatCompressorOutputStream extends FilterOutputStream {
   }
 
   /**
-   * Creates a new output stream with the given paramters.
-   *
-   * @param out the output stream
-   * @param bufferSize the output buffer size
-   * @param algorithm the compression algorithm (deflate or LZ4).
-   * @param level the compression level.
-   * @param mode the mode of operation (HARDWARE - only hardware, AUTO - hardware with a software
-   * @param pmode the polling mode
-   */
-  public QatCompressorOutputStream(
-      OutputStream out,
-      int bufferSize,
-      Algorithm algorithm,
-      int level,
-      Mode mode,
-      PollingMode pmode) {
-    super(out);
-    if (bufferSize <= 0) throw new IllegalArgumentException();
-    Objects.requireNonNull(out);
-    qzip = new QatZipper(algorithm, level, mode, pmode);
-    inputBuffer = ByteBuffer.allocate(bufferSize);
-    outputBuffer = ByteBuffer.allocate(qzip.maxCompressedLength(bufferSize));
-    closed = false;
-  }
-
-  /**
    * Writes a byte to the compressed output stream.
    *
    * @param b the data to be written
@@ -232,10 +233,10 @@ public class QatCompressorOutputStream extends FilterOutputStream {
   @Override
   public void write(int b) throws IOException {
     if (closed) throw new IOException("Stream is closed");
-    if (!inputBuffer.hasRemaining()) {
+    if (inputPosition == inputBuffer.length) {
       flush();
     }
-    inputBuffer.put((byte) b);
+    inputBuffer[inputPosition++] = (byte) b;
   }
 
   /**
@@ -264,13 +265,15 @@ public class QatCompressorOutputStream extends FilterOutputStream {
     if (off < 0 || len < 0 || off + len > b.length) throw new IndexOutOfBoundsException();
 
     int bytesToWrite = 0;
-    while (len > (bytesToWrite = inputBuffer.remaining())) {
-      inputBuffer.put(b, off, bytesToWrite);
+    while (len > (bytesToWrite = (inputBuffer.length - inputPosition))) {
+      System.arraycopy(b, off, inputBuffer, inputPosition, bytesToWrite);
+      inputPosition += bytesToWrite;
       len -= bytesToWrite;
       off += bytesToWrite;
       flush();
     }
-    inputBuffer.put(b, off, len);
+    System.arraycopy(b, off, inputBuffer, inputPosition, len);
+    inputPosition += len;
   }
 
   /**
@@ -282,13 +285,20 @@ public class QatCompressorOutputStream extends FilterOutputStream {
   @Override
   public void flush() throws IOException {
     if (closed) throw new IOException("Stream is closed");
-    if (inputBuffer.position() == 0) return;
-    inputBuffer.flip();
-    int compressedBytes = qzip.compress(inputBuffer, outputBuffer);
-    out.write(outputBuffer.array(), 0, compressedBytes);
+    if (inputPosition == 0) return;
+    int currentPosition = inputPosition;
+    inputPosition = 0;
+    int compressedBytes =
+        qzip.compress(
+            inputBuffer,
+            inputPosition,
+            currentPosition,
+            outputBuffer,
+            outputPosition,
+            outputBuffer.length - outputPosition);
+    out.write(outputBuffer, 0, compressedBytes);
     out.flush();
-    inputBuffer.clear();
-    outputBuffer.clear();
+    outputPosition = 0;
   }
 
   /**
