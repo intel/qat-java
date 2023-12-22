@@ -163,6 +163,28 @@ public class QatZipper {
   }
 
   /**
+   * Creates a new QatZipper with the specified parameters.
+   *
+   * @param algorithm the compression {@link Algorithm}
+   * @param level the compression level.
+   * @param mode the {@link Mode} of QAT execution
+   * @param retryCount the number of attempts to acquire hardware resources
+   * @param pmode {@link PollingMode}
+   * @throws QatException if QAT session cannot be created.
+   */
+  public QatZipper(Algorithm algorithm, int level, Mode mode, int retryCount, PollingMode pmode)
+      throws QatException {
+    if (retryCount < 0) throw new IllegalArgumentException("Invalid value for retry count.");
+
+    this.retryCount = retryCount;
+    InternalJNI.setup(this, algorithm.ordinal(), level, mode.ordinal(), pmode.ordinal());
+
+    // Register a QAT session cleaner for this object
+    cleanable = cleaner.register(this, new QatCleaner(session));
+    isValid = true;
+  }
+
+  /**
    * Creates a new QatZipper that uses {@link Algorithm#DEFLATE}, {@link DEFAULT_COMPRESS_LEVEL},
    * {@link DEFAULT_MODE}, {@link DEFAULT_RETRY_COUNT}, and {@link DEFAULT_POLLING_MODE}.
    */
@@ -305,28 +327,6 @@ public class QatZipper {
    */
   public QatZipper(Algorithm algorithm, int level, Mode mode, PollingMode pmode) {
     this(algorithm, level, mode, DEFAULT_RETRY_COUNT, pmode);
-  }
-
-  /**
-   * Creates a new QatZipper with the specified parameters.
-   *
-   * @param algorithm the compression {@link Algorithm}
-   * @param level the compression level.
-   * @param mode the {@link Mode} of QAT execution
-   * @param retryCount the number of attempts to acquire hardware resources
-   * @param pmode {@link PollingMode}
-   * @throws QatException if QAT session cannot be created.
-   */
-  public QatZipper(Algorithm algorithm, int level, Mode mode, int retryCount, PollingMode pmode)
-      throws QatException {
-    if (retryCount < 0) throw new IllegalArgumentException("Invalid value for retry count.");
-
-    this.retryCount = retryCount;
-    InternalJNI.setup(this, algorithm.ordinal(), level, mode.ordinal(), pmode.ordinal());
-
-    // Register a QAT session cleaner for this object
-    cleanable = cleaner.register(this, new QatCleaner(session));
-    isValid = true;
   }
 
   /**

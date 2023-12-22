@@ -31,6 +31,32 @@ public class QatCompressorOutputStream extends FilterOutputStream {
   public static final int DEFAULT_BUFFER_SIZE = 1 << 16;
 
   /**
+   * Creates a new output stream with the given paramters.
+   *
+   * @param out the output stream
+   * @param bufferSize the output buffer size
+   * @param algorithm the compression algorithm (deflate or LZ4).
+   * @param level the compression level.
+   * @param mode the mode of operation (HARDWARE - only hardware, AUTO - hardware with a software
+   * @param pmode the polling mode
+   */
+  public QatCompressorOutputStream(
+      OutputStream out,
+      int bufferSize,
+      Algorithm algorithm,
+      int level,
+      Mode mode,
+      PollingMode pmode) {
+    super(out);
+    if (bufferSize <= 0) throw new IllegalArgumentException();
+    Objects.requireNonNull(out);
+    qzip = new QatZipper(algorithm, level, mode, pmode);
+    inputBuffer = new byte[bufferSize];
+    outputBuffer = new byte[qzip.maxCompressedLength(bufferSize)];
+    closed = false;
+  }
+
+  /**
    * Creates a new output stream with {@link DEFAULT_BUFFER_SIZE}, {@link Algorithm#DEFLATE}, {@link
    * QatZipper#DEFAULT_COMPRESS_LEVEL}, {@link QatZipper#DEFAULT_MODE}, and {@link
    * PollingMode#BUSY}.
@@ -196,32 +222,6 @@ public class QatCompressorOutputStream extends FilterOutputStream {
   public QatCompressorOutputStream(
       OutputStream out, int bufferSize, Algorithm algorithm, int level, PollingMode pmode) {
     this(out, bufferSize, algorithm, level, QatZipper.DEFAULT_MODE, pmode);
-  }
-
-  /**
-   * Creates a new output stream with the given paramters.
-   *
-   * @param out the output stream
-   * @param bufferSize the output buffer size
-   * @param algorithm the compression algorithm (deflate or LZ4).
-   * @param level the compression level.
-   * @param mode the mode of operation (HARDWARE - only hardware, AUTO - hardware with a software
-   * @param pmode the polling mode
-   */
-  public QatCompressorOutputStream(
-      OutputStream out,
-      int bufferSize,
-      Algorithm algorithm,
-      int level,
-      Mode mode,
-      PollingMode pmode) {
-    super(out);
-    if (bufferSize <= 0) throw new IllegalArgumentException();
-    Objects.requireNonNull(out);
-    qzip = new QatZipper(algorithm, level, mode, pmode);
-    inputBuffer = new byte[bufferSize];
-    outputBuffer = new byte[qzip.maxCompressedLength(bufferSize)];
-    closed = false;
   }
 
   /**

@@ -34,6 +34,31 @@ public class QatDecompressorInputStream extends FilterInputStream {
   public static final int DEFAULT_BUFFER_SIZE = 1 << 16;
 
   /**
+   * Creates a new input stream with the given parameters.
+   *
+   * @param in the input stream
+   * @param bufferSize the input buffer size
+   * @param algorithm the compression algorithm (deflate or LZ4).
+   * @param mode the mode of operation (HARDWARE - only hardware, AUTO - hardware with a software
+   *     failover.)
+   * @param pmode the polling mode
+   */
+  public QatDecompressorInputStream(
+      InputStream in, int bufferSize, Algorithm algorithm, Mode mode, PollingMode pmode) {
+    super(in);
+    if (bufferSize <= 0) throw new IllegalArgumentException();
+    Objects.requireNonNull(in);
+    inputBuffer = new byte[bufferSize];
+    outputBuffer = new byte[bufferSize];
+    outputPosition = outputBuffer.length;
+    inputBufferLimit = bufferSize;
+    outputBufferLimit = bufferSize;
+    qzip = new QatZipper(algorithm, mode, pmode);
+    closed = false;
+    eof = false;
+  }
+
+  /**
    * Creates a new input stream with {@link DEFAULT_BUFFER_SIZE}, {@link Algorithm#DEFLATE}, {@link
    * QatZipper#DEFAULT_MODE}, and {@link PollingMode#BUSY}.
    *
@@ -116,31 +141,6 @@ public class QatDecompressorInputStream extends FilterInputStream {
   public QatDecompressorInputStream(
       InputStream in, int bufferSize, Algorithm algorithm, PollingMode pmode) {
     this(in, bufferSize, algorithm, QatZipper.DEFAULT_MODE, pmode);
-  }
-
-  /**
-   * Creates a new input stream with the given parameters.
-   *
-   * @param in the input stream
-   * @param bufferSize the input buffer size
-   * @param algorithm the compression algorithm (deflate or LZ4).
-   * @param mode the mode of operation (HARDWARE - only hardware, AUTO - hardware with a software
-   *     failover.)
-   * @param pmode the polling mode
-   */
-  public QatDecompressorInputStream(
-      InputStream in, int bufferSize, Algorithm algorithm, Mode mode, PollingMode pmode) {
-    super(in);
-    if (bufferSize <= 0) throw new IllegalArgumentException();
-    Objects.requireNonNull(in);
-    inputBuffer = new byte[bufferSize];
-    outputBuffer = new byte[bufferSize];
-    outputPosition = outputBuffer.length;
-    inputBufferLimit = bufferSize;
-    outputBufferLimit = bufferSize;
-    qzip = new QatZipper(algorithm, mode, pmode);
-    closed = false;
-    eof = false;
   }
 
   /**
