@@ -2,6 +2,7 @@ package com.intel.qat.jmh;
 
 import com.github.luben.zstd.Zstd;
 import com.github.luben.zstd.ZstdCompressCtx;
+import com.github.luben.zstd.ZstdDecompressCtx;
 import com.intel.qat.QatZstdSequenceProducer;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -89,12 +90,14 @@ public class QatZstdBench {
   public static class ThreadState {
     private byte[] dst;
     ZstdCompressCtx cctx;
+    ZstdDecompressCtx dctx;
 
     @Setup
     public void prepare(QatZstdBench bench) {
       QatZstdSequenceProducer.startDevice();
       dst = new byte[bench.chunkCompressBound];
       cctx = bench.newCctx();
+      dctx = new ZstdDecompressCtx();
     }
 
     @TearDown
@@ -111,6 +114,11 @@ public class QatZstdBench {
     // Compress all chunks
     for (int i = 0; i < srcChunks.length; i++)
       threadState.cctx.compress(threadState.dst, srcChunks[i]);
+  }
+
+  @Benchmark
+  public void decompress(ThreadState threadState) {
+    threadState.dctx.decompress(threadState.dst, src.length);
   }
 
   @TearDown
