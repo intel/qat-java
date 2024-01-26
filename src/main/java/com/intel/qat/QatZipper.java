@@ -375,8 +375,11 @@ public class QatZipper {
       throw new IllegalArgumentException(
           "Either source or destination array or both have size 0 or null value.");
 
-    if (srcOffset < 0 || (srcLen > src.length) || srcOffset >= src.length)
-      throw new ArrayIndexOutOfBoundsException("Source offset is out of bounds.");
+    if (srcOffset < 0 || srcLen < 0 || srcOffset > src.length - srcLen)
+      throw new ArrayIndexOutOfBoundsException("Source offset is out of bound.");
+
+    if (dstOffset < 0 || dstLen < 0 || dstOffset > dst.length - dstLen)
+      throw new ArrayIndexOutOfBoundsException("Destination offset is out of bound.");
 
     bytesRead = bytesWritten = 0;
 
@@ -517,8 +520,11 @@ public class QatZipper {
     if (src == null || dst == null || srcLen == 0 || dst.length == 0)
       throw new IllegalArgumentException("Empty source or/and destination byte array(s).");
 
-    if (srcOffset < 0 || (srcLen > src.length) || srcOffset >= src.length)
-      throw new ArrayIndexOutOfBoundsException("Source offset is out of bounds.");
+    if (srcOffset < 0 || srcLen < 0 || srcOffset > src.length - srcLen)
+      throw new ArrayIndexOutOfBoundsException("Source offset is out of bound.");
+
+    if (dstOffset < 0 || dstLen < 0 || dstOffset > dst.length - dstLen)
+      throw new ArrayIndexOutOfBoundsException("Destination offset is out of bound.");
 
     bytesRead = bytesWritten = 0;
 
