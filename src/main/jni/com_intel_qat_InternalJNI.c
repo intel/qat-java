@@ -126,7 +126,7 @@ static int compress(JNIEnv *env, QzSession_T *sess, unsigned char *src_ptr,
   *bytes_read = src_len;
   *bytes_written = dst_len;
 
-   return QZ_OK;
+  return QZ_OK;
 }
 
 /**
@@ -150,8 +150,8 @@ static int compress(JNIEnv *env, QzSession_T *sess, unsigned char *src_ptr,
  */
 static int decompress(JNIEnv *env, QzSession_T *sess, unsigned char *src_ptr,
                       unsigned int src_len, unsigned char *dst_ptr,
-                      unsigned int dst_len, int *bytes_read,
-                      int *bytes_written, int retry_count) {
+                      unsigned int dst_len, int *bytes_read, int *bytes_written,
+                      int retry_count) {
   // Save src_len and dst_len
   int src_len_l = src_len;
   int dst_len_l = dst_len;
@@ -169,7 +169,7 @@ static int decompress(JNIEnv *env, QzSession_T *sess, unsigned char *src_ptr,
 
   if (status != QZ_OK && status != QZ_BUF_ERROR && status != QZ_DATA_ERROR) {
     throw_exception(env, status, "Error occurred while decompressing data.");
-    return  status;
+    return status;
   }
 
   *bytes_read = src_len;
@@ -335,7 +335,6 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_compressByteBuffer(
   (*env)->ReleasePrimitiveArrayCritical(env, dst_arr, (jbyte *)dst_ptr, 0);
   (*env)->ReleasePrimitiveArrayCritical(env, src_arr, (jbyte *)src_ptr, 0);
 
-  jfieldID nio_bytebuffer_position_id = nio_bytebuffer_position_id;
   (*env)->SetIntField(env, src_buf, nio_bytebuffer_position_id,
                       src_pos + bytes_read);
 
@@ -370,7 +369,6 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_decompressByteBuffer(
   (*env)->ReleasePrimitiveArrayCritical(env, dst_arr, (jbyte *)dst_ptr, 0);
   (*env)->ReleasePrimitiveArrayCritical(env, src_arr, (jbyte *)src_ptr, 0);
 
-  jfieldID nio_bytebuffer_position_id = nio_bytebuffer_position_id;
   (*env)->SetIntField(env, src_buf, nio_bytebuffer_position_id,
                       src_pos + bytes_read);
 
@@ -403,7 +401,6 @@ jint JNICALL Java_com_intel_qat_InternalJNI_compressDirectByteBuffer(
            dst_len, &bytes_read, &bytes_written, retry_count);
 
   // set src and dest buffer positions
-  jfieldID nio_bytebuffer_position_id = nio_bytebuffer_position_id;
   (*env)->SetIntField(env, src_buf, nio_bytebuffer_position_id,
                       src_pos + bytes_read);
   (*env)->SetIntField(env, dst_buf, nio_bytebuffer_position_id,
@@ -439,7 +436,6 @@ Java_com_intel_qat_InternalJNI_decompressDirectByteBuffer(
              dst_len, &bytes_read, &bytes_written, retry_count);
 
   // set src and dest buffer positions
-  jfieldID nio_bytebuffer_position_id = nio_bytebuffer_position_id;
   (*env)->SetIntField(env, src_buf, nio_bytebuffer_position_id,
                       src_pos + bytes_read);
   (*env)->SetIntField(env, dst_buf, nio_bytebuffer_position_id,
@@ -474,7 +470,6 @@ Java_com_intel_qat_InternalJNI_compressDirectByteBufferSrc(
 
   (*env)->ReleasePrimitiveArrayCritical(env, dst_arr, (jbyte *)dst_ptr, 0);
 
-  jfieldID nio_bytebuffer_position_id = nio_bytebuffer_position_id;
   (*env)->SetIntField(env, src_buf, nio_bytebuffer_position_id,
                       src_pos + bytes_read);
 
@@ -507,7 +502,6 @@ Java_com_intel_qat_InternalJNI_decompressDirectByteBufferSrc(
 
   (*env)->ReleasePrimitiveArrayCritical(env, dst_arr, (jbyte *)dst_ptr, 0);
 
-  jfieldID nio_bytebuffer_position_id = nio_bytebuffer_position_id;
   (*env)->SetIntField(env, src_buf, nio_bytebuffer_position_id,
                       src_pos + bytes_read);
 
@@ -540,7 +534,6 @@ Java_com_intel_qat_InternalJNI_compressDirectByteBufferDst(
 
   (*env)->ReleasePrimitiveArrayCritical(env, src_arr, (jbyte *)src_ptr, 0);
 
-  jfieldID nio_bytebuffer_position_id = nio_bytebuffer_position_id;
   (*env)->SetIntField(env, src_buf, nio_bytebuffer_position_id,
                       src_pos + bytes_read);
   (*env)->SetIntField(env, dst_buf, nio_bytebuffer_position_id,
@@ -575,7 +568,6 @@ Java_com_intel_qat_InternalJNI_decompressDirectByteBufferDst(
 
   (*env)->ReleasePrimitiveArrayCritical(env, src_arr, (jbyte *)src_ptr, 0);
 
-  jfieldID nio_bytebuffer_position_id = nio_bytebuffer_position_id;
   (*env)->SetIntField(env, src_buf, nio_bytebuffer_position_id,
                       src_pos + bytes_read);
   (*env)->SetIntField(env, dst_buf, nio_bytebuffer_position_id,

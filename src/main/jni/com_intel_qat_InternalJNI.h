@@ -139,7 +139,6 @@ Java_com_intel_qat_InternalJNI_decompressDirectByteBufferDst(JNIEnv *, jclass,
 JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_teardown(JNIEnv *, jclass,
                                                                jlong);
 
-
 /*
  * Class:     com_intel_qat_InternalJNI
  * Method:    zstdGetSeqProdFunction
