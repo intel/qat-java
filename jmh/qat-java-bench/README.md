@@ -41,7 +41,7 @@ By default, all benchmarks will be run; to run individual benchmarks instead, sp
 For example:
 
 ```
-java -jar target/benchmarks.jar QatJavaBench -p file=silesia/dickens -p level=6 -wi 1 -i 2 -t 1
+java -jar target/benchmarks.jar QatJavaBench -p file=silesia/dickens -p level=6 -f 1 -wi 1 -i 2 -t 1
 ```
 <!-- ``` TODO DELETE
 java -jar target/benchmarks.jar ~/Downloads/silesia.concat -t64 -p zstdChunkSize=16384 QatZstdBench ZstdSoftwareBench

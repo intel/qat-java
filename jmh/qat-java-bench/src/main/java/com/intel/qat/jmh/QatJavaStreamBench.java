@@ -47,7 +47,11 @@ public class QatJavaStreamBench {
         ByteArrayOutputStream compressedOutput = new ByteArrayOutputStream();
         QatCompressorOutputStream qatOutputStream =
             new QatCompressorOutputStream(
-                compressedOutput, BUFFER_SIZE, Algorithm.DEFLATE, level, QatZipper.Mode.HARDWARE);
+                compressedOutput,
+                BUFFER_SIZE,
+                Algorithm.DEFLATE,
+                level,
+                QatZipper.PollingMode.BUSY);
         qatOutputStream.write(src);
         qatOutputStream.close();
 
@@ -70,7 +74,7 @@ public class QatJavaStreamBench {
     ByteArrayOutputStream compressedOutput = new ByteArrayOutputStream();
     QatCompressorOutputStream qatOutputStream =
         new QatCompressorOutputStream(
-            compressedOutput, BUFFER_SIZE, Algorithm.DEFLATE, level, QatZipper.Mode.HARDWARE);
+            compressedOutput, BUFFER_SIZE, Algorithm.DEFLATE, level, QatZipper.PollingMode.BUSY);
     qatOutputStream.write(state.src);
     qatOutputStream.close();
   }
@@ -80,7 +84,7 @@ public class QatJavaStreamBench {
     ByteArrayInputStream compressedInput = new ByteArrayInputStream(state.compressed);
     QatDecompressorInputStream qatInputStream =
         new QatDecompressorInputStream(
-            compressedInput, BUFFER_SIZE, Algorithm.DEFLATE, QatZipper.Mode.HARDWARE);
+            compressedInput, BUFFER_SIZE, Algorithm.DEFLATE, QatZipper.PollingMode.BUSY);
 
     int bytesRead = 0;
     byte[] buffer = new byte[BUFFER_SIZE];

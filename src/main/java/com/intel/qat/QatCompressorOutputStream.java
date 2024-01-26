@@ -8,11 +8,11 @@ package com.intel.qat;
 
 import static com.intel.qat.QatZipper.Algorithm;
 import static com.intel.qat.QatZipper.Mode;
+import static com.intel.qat.QatZipper.PollingMode;
 
 import java.io.FilterOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.nio.ByteBuffer;
 import java.util.Objects;
 
 /**
@@ -20,17 +20,46 @@ import java.util.Objects;
  * Technology (QAT).
  */
 public class QatCompressorOutputStream extends FilterOutputStream {
-  private ByteBuffer inputBuffer;
+  private byte[] inputBuffer;
+  private int inputPosition;
   private QatZipper qzip;
-  private ByteBuffer outputBuffer;
+  private byte[] outputBuffer;
+  private int outputPosition;
   private boolean closed;
 
   /** The default size in bytes of the output buffer (64KB). */
   public static final int DEFAULT_BUFFER_SIZE = 1 << 16;
 
   /**
+   * Creates a new output stream with the given paramters.
+   *
+   * @param out the output stream
+   * @param bufferSize the output buffer size
+   * @param algorithm the compression algorithm (deflate or LZ4).
+   * @param level the compression level.
+   * @param mode the mode of operation (HARDWARE - only hardware, AUTO - hardware with a software
+   * @param pmode the polling mode
+   */
+  public QatCompressorOutputStream(
+      OutputStream out,
+      int bufferSize,
+      Algorithm algorithm,
+      int level,
+      Mode mode,
+      PollingMode pmode) {
+    super(out);
+    if (bufferSize <= 0) throw new IllegalArgumentException();
+    Objects.requireNonNull(out);
+    qzip = new QatZipper(algorithm, level, mode, pmode);
+    inputBuffer = new byte[bufferSize];
+    outputBuffer = new byte[qzip.maxCompressedLength(bufferSize)];
+    closed = false;
+  }
+
+  /**
    * Creates a new output stream with {@link DEFAULT_BUFFER_SIZE}, {@link Algorithm#DEFLATE}, {@link
-   * QatZipper#DEFAULT_COMPRESS_LEVEL}, and {@link Mode#HARDWARE}.
+   * QatZipper#DEFAULT_COMPRESS_LEVEL}, {@link QatZipper#DEFAULT_MODE}, and {@link
+   * PollingMode#BUSY}.
    *
    * @param out the output stream
    */
@@ -40,34 +69,86 @@ public class QatCompressorOutputStream extends FilterOutputStream {
         DEFAULT_BUFFER_SIZE,
         Algorithm.DEFLATE,
         QatZipper.DEFAULT_COMPRESS_LEVEL,
-        Mode.HARDWARE);
+        QatZipper.DEFAULT_MODE,
+        PollingMode.BUSY);
   }
 
   /**
    * Creates a new output stream with {@link Algorithm#DEFLATE}, {@link
-   * QatZipper#DEFAULT_COMPRESS_LEVEL}, and {@link Mode#HARDWARE}.
+   * QatZipper#DEFAULT_COMPRESS_LEVEL}, {@link QatZipper#DEFAULT_MODE}, and {@link
+   * PollingMode#BUSY}.
    *
    * @param out the output stream
    * @param bufferSize the output buffer size
    */
   public QatCompressorOutputStream(OutputStream out, int bufferSize) {
-    this(out, bufferSize, Algorithm.DEFLATE, QatZipper.DEFAULT_COMPRESS_LEVEL, Mode.HARDWARE);
+    this(
+        out,
+        bufferSize,
+        Algorithm.DEFLATE,
+        QatZipper.DEFAULT_COMPRESS_LEVEL,
+        QatZipper.DEFAULT_MODE,
+        PollingMode.BUSY);
   }
 
   /**
    * Creates a new output stream with given parameters, {@link QatZipper#DEFAULT_COMPRESS_LEVEL},
-   * and {@link Mode#HARDWARE}.
+   * {@link QatZipper#DEFAULT_MODE}, and {@link PollingMode#BUSY}.
    *
    * @param out the output stream
    * @param bufferSize the output buffer size
    * @param algorithm the compression algorithm (deflate or LZ4).
    */
   public QatCompressorOutputStream(OutputStream out, int bufferSize, Algorithm algorithm) {
-    this(out, bufferSize, algorithm, QatZipper.DEFAULT_COMPRESS_LEVEL, Mode.HARDWARE);
+    this(
+        out,
+        bufferSize,
+        algorithm,
+        QatZipper.DEFAULT_COMPRESS_LEVEL,
+        QatZipper.DEFAULT_MODE,
+        PollingMode.BUSY);
   }
 
   /**
-   * Creates a new output stream with the given parameters and {@link Mode#HARDWARE}.
+   * Creates a new output stream with given parameters, {@link Algorithm#DEFLATE}, {@link
+   * QatZipper#DEFAULT_COMPRESS_LEVEL}, and {@link PollingMode#BUSY}.
+   *
+   * @param out the output stream
+   * @param bufferSize the output buffer size
+   * @param mode the mode of operation (HARDWARE - only hardware, AUTO - hardware with a software
+   *     failover.)
+   */
+  public QatCompressorOutputStream(OutputStream out, int bufferSize, Mode mode) {
+    this(
+        out,
+        bufferSize,
+        Algorithm.DEFLATE,
+        QatZipper.DEFAULT_COMPRESS_LEVEL,
+        mode,
+        PollingMode.BUSY);
+  }
+
+  /**
+   * Creates a new output stream with given parameters, {@link Algorithm#DEFLATE}, {@link
+   * QatZipper#DEFAULT_COMPRESS_LEVEL}, and {@link PollingMode#BUSY}.
+   *
+   * @param out the output stream
+   * @param bufferSize the output buffer size
+   * @param pmode the polling mode
+   */
+  public QatCompressorOutputStream(OutputStream out, int bufferSize, PollingMode pmode) {
+    this(
+        out,
+        bufferSize,
+        Algorithm.DEFLATE,
+        QatZipper.DEFAULT_COMPRESS_LEVEL,
+        QatZipper.DEFAULT_MODE,
+        pmode);
+  }
+
+  /**
+   * Creates a new output stream with the given parameters, {@link QatZipper#DEFAULT_MODE}, and
+   * {@link PollingMode#BUSY}.
    *
    * @param out the output stream
    * @param bufferSize the output buffer size
@@ -76,12 +157,12 @@ public class QatCompressorOutputStream extends FilterOutputStream {
    */
   public QatCompressorOutputStream(
       OutputStream out, int bufferSize, Algorithm algorithm, int level) {
-    this(out, bufferSize, algorithm, level, Mode.HARDWARE);
+    this(out, bufferSize, algorithm, level, QatZipper.DEFAULT_MODE, PollingMode.BUSY);
   }
 
   /**
-   * Creates a new output stream with the given parameters and {@link
-   * QatZipper#DEFAULT_COMPRESS_LEVEL}.
+   * Creates a new output stream with the given parameters, {@link
+   * QatZipper#DEFAULT_COMPRESS_LEVEL}, and {@link PollingMode#BUSY}.
    *
    * @param out the output stream
    * @param bufferSize the output buffer size
@@ -91,11 +172,31 @@ public class QatCompressorOutputStream extends FilterOutputStream {
    */
   public QatCompressorOutputStream(
       OutputStream out, int bufferSize, Algorithm algorithm, Mode mode) {
-    this(out, bufferSize, algorithm, QatZipper.DEFAULT_COMPRESS_LEVEL, mode);
+    this(out, bufferSize, algorithm, QatZipper.DEFAULT_COMPRESS_LEVEL, mode, PollingMode.BUSY);
   }
 
   /**
-   * Creates a new output stream with the given paramters.
+   * Creates a new output stream with the given parameters, {@link
+   * QatZipper#DEFAULT_COMPRESS_LEVEL}, and {@link QatZipper#DEFAULT_MODE}.
+   *
+   * @param out the output stream
+   * @param bufferSize the output buffer size
+   * @param algorithm the compression algorithm (deflate or LZ4).
+   * @param pmode the polling mode
+   */
+  public QatCompressorOutputStream(
+      OutputStream out, int bufferSize, Algorithm algorithm, PollingMode pmode) {
+    this(
+        out,
+        bufferSize,
+        algorithm,
+        QatZipper.DEFAULT_COMPRESS_LEVEL,
+        QatZipper.DEFAULT_MODE,
+        pmode);
+  }
+
+  /**
+   * Creates a new output stream with the given parameters and {@link PollingMode#BUSY}.
    *
    * @param out the output stream
    * @param bufferSize the output buffer size
@@ -106,13 +207,21 @@ public class QatCompressorOutputStream extends FilterOutputStream {
    */
   public QatCompressorOutputStream(
       OutputStream out, int bufferSize, Algorithm algorithm, int level, Mode mode) {
-    super(out);
-    if (bufferSize <= 0) throw new IllegalArgumentException();
-    Objects.requireNonNull(out);
-    qzip = new QatZipper(algorithm, level, mode);
-    inputBuffer = ByteBuffer.allocate(bufferSize);
-    outputBuffer = ByteBuffer.allocate(qzip.maxCompressedLength(bufferSize));
-    closed = false;
+    this(out, bufferSize, algorithm, level, mode, PollingMode.BUSY);
+  }
+
+  /**
+   * Creates a new output stream with the given parameters and {@link QatZipper#DEFAULT_MODE}.
+   *
+   * @param out the output stream
+   * @param bufferSize the output buffer size
+   * @param algorithm the compression algorithm (deflate or LZ4).
+   * @param level the compression level.
+   * @param pmode the polling mode
+   */
+  public QatCompressorOutputStream(
+      OutputStream out, int bufferSize, Algorithm algorithm, int level, PollingMode pmode) {
+    this(out, bufferSize, algorithm, level, QatZipper.DEFAULT_MODE, pmode);
   }
 
   /**
@@ -124,10 +233,10 @@ public class QatCompressorOutputStream extends FilterOutputStream {
   @Override
   public void write(int b) throws IOException {
     if (closed) throw new IOException("Stream is closed");
-    if (!inputBuffer.hasRemaining()) {
+    if (inputPosition == inputBuffer.length) {
       flush();
     }
-    inputBuffer.put((byte) b);
+    inputBuffer[inputPosition++] = (byte) b;
   }
 
   /**
@@ -156,13 +265,15 @@ public class QatCompressorOutputStream extends FilterOutputStream {
     if (off < 0 || len < 0 || off + len > b.length) throw new IndexOutOfBoundsException();
 
     int bytesToWrite = 0;
-    while (len > (bytesToWrite = inputBuffer.remaining())) {
-      inputBuffer.put(b, off, bytesToWrite);
+    while (len > (bytesToWrite = (inputBuffer.length - inputPosition))) {
+      System.arraycopy(b, off, inputBuffer, inputPosition, bytesToWrite);
+      inputPosition += bytesToWrite;
       len -= bytesToWrite;
       off += bytesToWrite;
       flush();
     }
-    inputBuffer.put(b, off, len);
+    System.arraycopy(b, off, inputBuffer, inputPosition, len);
+    inputPosition += len;
   }
 
   /**
@@ -174,13 +285,20 @@ public class QatCompressorOutputStream extends FilterOutputStream {
   @Override
   public void flush() throws IOException {
     if (closed) throw new IOException("Stream is closed");
-    if (inputBuffer.position() == 0) return;
-    inputBuffer.flip();
-    int compressedBytes = qzip.compress(inputBuffer, outputBuffer);
-    out.write(outputBuffer.array(), 0, compressedBytes);
+    if (inputPosition == 0) return;
+    int currentPosition = inputPosition;
+    inputPosition = 0;
+    int compressedBytes =
+        qzip.compress(
+            inputBuffer,
+            inputPosition,
+            currentPosition,
+            outputBuffer,
+            outputPosition,
+            outputBuffer.length - outputPosition);
+    out.write(outputBuffer, 0, compressedBytes);
     out.flush();
-    inputBuffer.clear();
-    outputBuffer.clear();
+    outputPosition = 0;
   }
 
   /**
