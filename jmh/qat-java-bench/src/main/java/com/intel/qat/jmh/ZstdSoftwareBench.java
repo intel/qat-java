@@ -21,10 +21,10 @@ import org.openjdk.jmh.annotations.Warmup;
 @State(Scope.Benchmark)
 public class ZstdSoftwareBench {
   private byte[] src;
-  private byte[] compressed;
   private byte[][] srcChunks;
+  private int[] compressedLengths;
+  private byte[][] compressedChunks;
   private int chunkCompressBound;
-  private ZstdDecompressCtx dctx;
 
   @Param({""})
   static String file;
@@ -62,9 +62,12 @@ public class ZstdSoftwareBench {
     // Compress input
     try (ZstdCompressCtx cctx = newCctx(); ) {
       int compressedLength = 0;
-      compressed = new byte[chunkCompressBound];
-      for (int i = 0; i < srcChunks.length; i++)
-        compressedLength += cctx.compress(compressed, srcChunks[i]);
+      compressedLengths = new int[srcChunks.length];
+      compressedChunks = new byte[srcChunks.length][chunkCompressBound];
+      for (int i = 0; i < srcChunks.length; i++) {
+        compressedLengths[i] = cctx.compress(compressedChunks[i], srcChunks[i]);
+        compressedLength += compressedLengths[i];
+      }
 
       // Print compressed length and ratio
       System.out.println("\n-------------------------");
@@ -73,20 +76,22 @@ public class ZstdSoftwareBench {
           src.length, compressedLength, src.length * 1.0 / compressedLength);
       System.out.println("-------------------------");
     }
-
-    dctx = new ZstdDecompressCtx();
   }
 
   /** Thread-local state. Stores the thread-specific zstd compression context. */
   @State(Scope.Thread)
   public static class ThreadState {
-    private byte[] dst;
+    private byte[] cdst;
+    private byte[] ddst;
     ZstdCompressCtx cctx;
+    ZstdDecompressCtx dctx;
 
     @Setup
     public void prepare(ZstdSoftwareBench bench) {
-      dst = new byte[bench.chunkCompressBound];
+      cdst = new byte[bench.chunkCompressBound];
+      ddst = new byte[bench.src.length];
       cctx = bench.newCctx();
+      dctx = new ZstdDecompressCtx();
     }
 
     @TearDown
@@ -102,12 +107,18 @@ public class ZstdSoftwareBench {
   public void compress(ThreadState threadState) {
     // Compress all chunks
     for (int i = 0; i < srcChunks.length; i++)
-      threadState.cctx.compress(threadState.dst, srcChunks[i]);
+      threadState.cctx.compress(threadState.cdst, srcChunks[i]);
   }
 
   @Benchmark
   public void decompress(ThreadState threadState) {
-    dctx.decompress(compressed, src.length);
+    // Decompress all chunks
+    int pos = 0;
+    for (int i = 0; i < srcChunks.length; i++) {
+      threadState.dctx.decompressByteArray(
+          threadState.ddst, pos, srcChunks[i].length, compressedChunks[i], 0, compressedLengths[i]);
+      pos += srcChunks[i].length;
+    }
   }
 
   @TearDown

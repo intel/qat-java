@@ -28,14 +28,14 @@ public class QatZstdBench {
   static String file;
 
   @Param({"9"})
-  static int zstdLevel;
+  static int level;
 
   @Param({"16384"})
   static int chunkSize;
 
   protected ZstdCompressCtx newCctx() {
     ZstdCompressCtx cctx = new ZstdCompressCtx();
-    cctx.setLevel(zstdLevel);
+    cctx.setLevel(level);
     cctx.setWorkers(0);
     QatZstdSequenceProducer seqprod = new QatZstdSequenceProducer();
     cctx.registerSequenceProducer(seqprod);

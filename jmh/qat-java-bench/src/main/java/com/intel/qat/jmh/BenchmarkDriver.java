@@ -7,6 +7,7 @@
 package com.intel.qat.jmh;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.Collection;
 import org.openjdk.jmh.results.Result;
 import org.openjdk.jmh.results.RunResult;
@@ -20,6 +21,15 @@ public class BenchmarkDriver {
   public static void main(String[] args) {
     try {
       CommandLineOptions cmdOpts = new CommandLineOptions(args);
+
+      if (cmdOpts.shouldHelp()) {
+        // Show JMH help
+        try {
+          cmdOpts.showHelp();
+        } catch (IOException e) {
+        }
+        return;
+      }
 
       Optional<Collection<String>> col = cmdOpts.getParameter("file");
       if (!col.hasValue()) {
