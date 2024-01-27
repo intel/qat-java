@@ -2,8 +2,8 @@ package com.intel.qat.jmh;
 
 import com.github.luben.zstd.Zstd;
 import com.github.luben.zstd.ZstdCompressCtx;
-import com.github.luben.zstd.ZstdDecompressCtx;
 import com.intel.qat.QatZstdSequenceProducer;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Arrays;
@@ -46,7 +46,7 @@ public class QatZstdBench {
   }
 
   @Setup
-  public void prepare() {
+  public void prepare() throws IOException {
     try {
       // Read input
       src = Files.readAllBytes(Paths.get(file));
@@ -77,8 +77,6 @@ public class QatZstdBench {
             src.length, compressedLength, src.length * 1.0 / compressedLength);
         System.out.println("-------------------------");
       }
-    } catch (Exception e) {
-      e.printStackTrace();
     } finally {
       QatZstdSequenceProducer.stopDevice();
     }
@@ -89,14 +87,12 @@ public class QatZstdBench {
   public static class ThreadState {
     private byte[] dst;
     ZstdCompressCtx cctx;
-    ZstdDecompressCtx dctx;
 
     @Setup
     public void prepare(QatZstdBench bench) {
       QatZstdSequenceProducer.startDevice();
       dst = new byte[bench.chunkCompressBound];
       cctx = bench.newCctx();
-      dctx = new ZstdDecompressCtx();
     }
 
     @TearDown
@@ -113,11 +109,6 @@ public class QatZstdBench {
     // Compress all chunks
     for (int i = 0; i < srcChunks.length; i++)
       threadState.cctx.compress(threadState.dst, srcChunks[i]);
-  }
-
-  @Benchmark
-  public void decompress(ThreadState threadState) {
-    threadState.dctx.decompress(threadState.dst, src.length);
   }
 
   @TearDown

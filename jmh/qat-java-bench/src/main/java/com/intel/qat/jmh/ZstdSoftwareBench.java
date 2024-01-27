@@ -2,6 +2,8 @@ package com.intel.qat.jmh;
 
 import com.github.luben.zstd.Zstd;
 import com.github.luben.zstd.ZstdCompressCtx;
+import com.github.luben.zstd.ZstdDecompressCtx;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Arrays;
@@ -19,61 +21,60 @@ import org.openjdk.jmh.annotations.Warmup;
 @State(Scope.Benchmark)
 public class ZstdSoftwareBench {
   private byte[] src;
+  private byte[] compressed;
   private byte[][] srcChunks;
   private int chunkCompressBound;
+  private ZstdDecompressCtx dctx;
 
   @Param({""})
-  String fileName;
+  static String file;
 
   @Param({"5"})
-  String zstdLevel;
+  static int zstdLevel;
 
   @Param({"16384"})
-  String chunkSize;
+  static int chunkSize;
 
   protected ZstdCompressCtx newCctx() {
     ZstdCompressCtx cctx = new ZstdCompressCtx();
-    cctx.setLevel(Integer.parseInt(zstdLevel));
+    cctx.setLevel(zstdLevel);
     cctx.setWorkers(0);
     cctx.setSearchForExternalRepcodes(Zstd.ParamSwitch.DISABLE);
     return cctx;
   }
 
   @Setup
-  public void prepare() {
-    try {
-      // Read input
-      src = Files.readAllBytes(Paths.get(fileName));
+  public void prepare() throws IOException {
+    // Read input
+    src = Files.readAllBytes(Paths.get(file));
 
-      // Split into chunks
-      int intChunkSize = Integer.parseInt(chunkSize);
-      assert src.length > 0;
-      assert intChunkSize > 0;
-      assert intChunkSize <= (1 << 30);
-      int nChunks = (src.length + (intChunkSize - 1)) / intChunkSize;
-      srcChunks = new byte[nChunks][];
-      for (int i = 0; i < nChunks - 1; i++)
-        srcChunks[i] = Arrays.copyOfRange(src, i * intChunkSize, (i + 1) * intChunkSize);
-      srcChunks[nChunks - 1] = Arrays.copyOfRange(src, (nChunks - 1) * intChunkSize, src.length);
-      chunkCompressBound = (int) Zstd.compressBound(intChunkSize);
+    // Split into chunks
+    assert src.length > 0;
+    assert chunkSize > 0;
+    assert chunkSize <= (1 << 30);
+    int nChunks = (src.length + (chunkSize - 1)) / chunkSize;
+    srcChunks = new byte[nChunks][];
+    for (int i = 0; i < nChunks - 1; i++)
+      srcChunks[i] = Arrays.copyOfRange(src, i * chunkSize, (i + 1) * chunkSize);
+    srcChunks[nChunks - 1] = Arrays.copyOfRange(src, (nChunks - 1) * chunkSize, src.length);
+    chunkCompressBound = (int) Zstd.compressBound(chunkSize);
 
-      // Compress input
-      try (ZstdCompressCtx cctx = newCctx(); ) {
-        int compressedLength = 0;
-        byte[] dst = new byte[chunkCompressBound];
-        for (int i = 0; i < srcChunks.length; i++)
-          compressedLength += cctx.compress(dst, srcChunks[i]);
+    // Compress input
+    try (ZstdCompressCtx cctx = newCctx(); ) {
+      int compressedLength = 0;
+      compressed = new byte[chunkCompressBound];
+      for (int i = 0; i < srcChunks.length; i++)
+        compressedLength += cctx.compress(compressed, srcChunks[i]);
 
-        // Print compressed length and ratio
-        System.out.println("\n-------------------------");
-        System.out.printf(
-            "Input size: %d, Compressed size: %d, ratio: %.2f\n",
-            src.length, compressedLength, src.length * 1.0 / compressedLength);
-        System.out.println("-------------------------");
-      }
-    } catch (Exception e) {
-      e.printStackTrace();
+      // Print compressed length and ratio
+      System.out.println("\n-------------------------");
+      System.out.printf(
+          "Input size: %d, Compressed size: %d, ratio: %.2f\n",
+          src.length, compressedLength, src.length * 1.0 / compressedLength);
+      System.out.println("-------------------------");
     }
+
+    dctx = new ZstdDecompressCtx();
   }
 
   /** Thread-local state. Stores the thread-specific zstd compression context. */
@@ -102,6 +103,11 @@ public class ZstdSoftwareBench {
     // Compress all chunks
     for (int i = 0; i < srcChunks.length; i++)
       threadState.cctx.compress(threadState.dst, srcChunks[i]);
+  }
+
+  @Benchmark
+  public void decompress(ThreadState threadState) {
+    dctx.decompress(compressed, src.length);
   }
 
   @TearDown
