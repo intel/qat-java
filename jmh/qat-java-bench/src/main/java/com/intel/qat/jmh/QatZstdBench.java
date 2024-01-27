@@ -25,17 +25,17 @@ public class QatZstdBench {
   private int chunkCompressBound;
 
   @Param({""})
-  String fileName;
+  static String file;
 
   @Param({"9"})
-  String zstdLevel;
+  static int zstdLevel;
 
   @Param({"16384"})
-  String chunkSize;
+  static int chunkSize;
 
   protected ZstdCompressCtx newCctx() {
     ZstdCompressCtx cctx = new ZstdCompressCtx();
-    cctx.setLevel(Integer.parseInt(zstdLevel));
+    cctx.setLevel(zstdLevel);
     cctx.setWorkers(0);
     QatZstdSequenceProducer seqprod = new QatZstdSequenceProducer();
     cctx.registerSequenceProducer(seqprod);
@@ -49,19 +49,18 @@ public class QatZstdBench {
   public void prepare() {
     try {
       // Read input
-      src = Files.readAllBytes(Paths.get(fileName));
+      src = Files.readAllBytes(Paths.get(file));
 
       // Split into chunks
-      int intChunkSize = Integer.parseInt(chunkSize);
       assert src.length > 0;
-      assert intChunkSize > 0;
-      assert intChunkSize <= (1 << 30);
-      int nChunks = (src.length + (intChunkSize - 1)) / intChunkSize;
+      assert chunkSize > 0;
+      assert chunkSize <= (1 << 30);
+      int nChunks = (src.length + (chunkSize - 1)) / chunkSize;
       srcChunks = new byte[nChunks][];
       for (int i = 0; i < nChunks - 1; i++)
-        srcChunks[i] = Arrays.copyOfRange(src, i * intChunkSize, (i + 1) * intChunkSize);
-      srcChunks[nChunks - 1] = Arrays.copyOfRange(src, (nChunks - 1) * intChunkSize, src.length);
-      chunkCompressBound = (int) Zstd.compressBound(intChunkSize);
+        srcChunks[i] = Arrays.copyOfRange(src, i * chunkSize, (i + 1) * chunkSize);
+      srcChunks[nChunks - 1] = Arrays.copyOfRange(src, (nChunks - 1) * chunkSize, src.length);
+      chunkCompressBound = (int) Zstd.compressBound(chunkSize);
 
       // Compress input
       QatZstdSequenceProducer.startDevice();
