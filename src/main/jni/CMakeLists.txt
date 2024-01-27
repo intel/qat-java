@@ -22,6 +22,7 @@ INCLUDE_DIRECTORIES(${JAVA_INCLUDE_PATH2})
 add_library(${SHARED_LIBRARY_NAME} SHARED ${SOURCE_FILES})
 
 set(CMAKE_BUILD_TYPE Release)
+set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c11 -Wall -Wextra -Wpedantic -Werror -fstack-protector-strong")
 
 message("CMAKE_C_FLAGS: ${CMAKE_C_FLAGS}")
@@ -39,5 +40,5 @@ else()
 	   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_FORTIFY_SOURCE=2")
 endif()
 
-# Link against libqatzip
-target_link_libraries(${SHARED_LIBRARY_NAME} -lqatzip)
+# Link against libqatzip and QAT-ZSTD-Plugin
+target_link_libraries(${SHARED_LIBRARY_NAME} -lqatzip -lqatseqprod)

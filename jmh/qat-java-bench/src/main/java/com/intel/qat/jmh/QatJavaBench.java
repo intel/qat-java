@@ -8,7 +8,6 @@ package com.intel.qat.jmh;
 
 import com.intel.qat.QatZipper;
 import com.intel.qat.QatZipper.Algorithm;
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -52,31 +51,37 @@ public class QatJavaBench {
         compressed = new byte[compressedLength];
         System.arraycopy(dst, 0, compressed, 0, compressedLength);
 
-        // End session
-        qzip.end();
+        // Do decompression
+        decompressed = new byte[src.length];
+        int decompressedLength = qzip.decompress(compressed, decompressed);
+        assert decompressedLength == src.length;
 
-        if (flag.compareAndSet(false, true)) {
-          System.out.println("\n------------------------");
-          System.out.printf("Compression ratio: %.2f%n", (double) src.length / compressed.length);
-          System.out.println("------------------------");
-        }
-      } catch (IOException e) {
+        // Print compressed length and ratio
+        System.out.println("\n-------------------------");
+        System.out.printf(
+            "Input size: %d, Compressed size: %d, ratio: %.2f\n",
+            src.length, compressedLength, src.length * 1.0 / compressedLength);
+        System.out.println("-------------------------");
+
+        // Close QatZipper
+        qzip.end();
+      } catch (Exception e) {
         e.printStackTrace();
       }
     }
-  }
 
-  @Benchmark
-  public void compressWithDeflate(ThreadState state) {
-    QatZipper qzip = new QatZipper(Algorithm.DEFLATE, level);
-    qzip.compress(state.src, state.dst);
-    qzip.end();
-  }
+    @Benchmark
+    public void compressWithDeflate(ThreadState state) {
+      QatZipper qzip = new QatZipper(Algorithm.DEFLATE, level);
+      qzip.compress(state.src, state.dst);
+      qzip.end();
+    }
 
-  @Benchmark
-  public void decompressWithDeflate(ThreadState state) {
-    QatZipper qzip = new QatZipper(Algorithm.DEFLATE, level);
-    qzip.decompress(state.compressed, state.decompressed);
-    qzip.end();
+    @Benchmark
+    public void decompressWithDeflate(ThreadState state) {
+      QatZipper qzip = new QatZipper(Algorithm.DEFLATE, level);
+      qzip.decompress(state.compressed, state.decompressed);
+      qzip.end();
+    }
   }
 }

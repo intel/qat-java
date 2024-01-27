@@ -7,6 +7,7 @@
 package com.intel.qat.jmh;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.Collection;
 import org.openjdk.jmh.results.Result;
 import org.openjdk.jmh.results.RunResult;
@@ -21,6 +22,15 @@ public class BenchmarkDriver {
     try {
       CommandLineOptions cmdOpts = new CommandLineOptions(args);
 
+      if (cmdOpts.shouldHelp()) {
+        // Show JMH help
+        try {
+          cmdOpts.showHelp();
+        } catch (IOException e) {
+        }
+        return;
+      }
+
       Optional<Collection<String>> col = cmdOpts.getParameter("file");
       if (!col.hasValue()) {
         throw new IllegalArgumentException("A file parameter is required.");
@@ -34,7 +44,7 @@ public class BenchmarkDriver {
       System.out.println();
       long fileSize = new File(file).length();
       for (RunResult rr : results) {
-        Result r = rr.getPrimaryResult();
+        Result<?> r = rr.getPrimaryResult();
         if (r.getScoreUnit().equals("ops/s")) {
           double speed = r.getScore() * fileSize / (1024 * 1024);
           System.out.printf("%-54s%.2f MB/sec%n", rr.getParams().getBenchmark(), speed);
