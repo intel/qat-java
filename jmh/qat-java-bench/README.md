@@ -15,8 +15,6 @@ Parameters for all benchmarks:
 | `QatZstdBench`                               | Zstandard                | `zstdChunkSize`: break the input into chunks of the specified size |
 | `ZstdSoftwareBench`                          | Zstandard                | `zstdChunkSize`: break the input into chunks of the specified size<br>`zstdLevel`: sets the zstd software compression level; this is always used in place of `level` |
 
-Software benchmarks:
-
 ## Build
 To build the benchmark, execute the below command:
 ```
