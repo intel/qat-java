@@ -22,7 +22,7 @@ INCLUDE_DIRECTORIES(${JAVA_INCLUDE_PATH2})
 add_library(${SHARED_LIBRARY_NAME} SHARED ${SOURCE_FILES})
 
 set(CMAKE_BUILD_TYPE Release)
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c11 -Wall -Wextra -Wpedantic -Werror -fstack-protector-strong")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c11 -O2 -Wall -Wextra -Wpedantic -Werror -fstack-protector-strong")
 
 message("CMAKE_C_FLAGS: ${CMAKE_C_FLAGS}")
 
