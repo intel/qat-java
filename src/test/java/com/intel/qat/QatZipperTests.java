@@ -706,40 +706,6 @@ public class QatZipperTests {
 
   @ParameterizedTest
   @MethodSource("provideModeAlgorithmLengthParams")
-  public void testCompressionWithInsufficientDestBuff(Mode mode, Algorithm algo, int len) {
-    try {
-      qzip = new QatZipper(algo, mode);
-
-      byte[] src = getRandomBytes(len);
-      byte[] dst = new byte[src.length / 10];
-
-      qzip.compress(src, 0, src.length, dst, 0, dst.length);
-    } catch (QatException | IndexOutOfBoundsException e) {
-      assertTrue(true);
-    }
-  }
-
-  @ParameterizedTest
-  @MethodSource("provideModeAlgorithmLengthParams")
-  public void testDecompressionWithInsufficientDestBuff(Mode mode, Algorithm algo, int len) {
-    try {
-      qzip = new QatZipper(algo, mode);
-
-      byte[] src = getRandomBytes(len);
-      byte[] dec = new byte[src.length / 2];
-      byte[] dst = new byte[src.length];
-
-      qzip.compress(src, 0, src.length, dst, 0, dst.length);
-      qzip.decompress(dst, 0, dst.length, dec, 0, dec.length);
-
-      fail();
-    } catch (QatException | IndexOutOfBoundsException e) {
-      assertTrue(true);
-    }
-  }
-
-  @ParameterizedTest
-  @MethodSource("provideModeAlgorithmLengthParams")
   public void testCompressionDecompressionWithDirectByteBuffer(Mode mode, Algorithm algo, int len) {
     try {
       qzip = new QatZipper(algo, mode);

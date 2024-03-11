@@ -53,7 +53,7 @@ static int setup_deflate_session(QzSession_T *qz_session, int level,
   deflate_params.common_params.comp_lvl = level;
   deflate_params.common_params.sw_backup = sw_backup;
   deflate_params.common_params.polling_mode =
-      polling_mode ? QZ_BUSY_POLLING : QZ_PERIODICAL_POLLING;
+      polling_mode == 0 ? QZ_BUSY_POLLING : QZ_PERIODICAL_POLLING;
 
   return qzSetupSessionDeflate(qz_session, &deflate_params);
 }
@@ -75,7 +75,7 @@ static int setup_lz4_session(QzSession_T *qz_session, int level,
   lz4_params.common_params.comp_lvl = level;
   lz4_params.common_params.sw_backup = sw_backup;
   lz4_params.common_params.polling_mode =
-      polling_mode ? QZ_BUSY_POLLING : QZ_PERIODICAL_POLLING;
+      polling_mode == 0 ? QZ_BUSY_POLLING : QZ_PERIODICAL_POLLING;
 
   return qzSetupSessionLZ4(qz_session, &lz4_params);
 }
