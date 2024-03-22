@@ -35,9 +35,11 @@ public class BenchmarkDriver {
       long fileSize = new File(file).length();
       for (RunResult rr : results) {
         Result r = rr.getPrimaryResult();
+        String algo = rr.getParams().getParam("algorithm");
+        String name = rr.getParams().getBenchmark() + (algo != null ? " (" + algo + ")" : "");
         if (r.getScoreUnit().equals("ops/s")) {
           double speed = r.getScore() * fileSize / (1024 * 1024);
-          System.out.printf("%-54s%.2f MB/sec%n", rr.getParams().getBenchmark(), speed);
+          System.out.printf("%-54s%.2f MB/sec%n", name, speed);
         }
       }
     } catch (RunnerException e) {
