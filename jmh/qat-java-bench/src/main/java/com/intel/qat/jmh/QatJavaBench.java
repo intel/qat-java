@@ -30,7 +30,7 @@ public class QatJavaBench {
   @Param({"65536"})
   static int chunkSize;
 
-  @Param({"DEFLATE", "LZ4"})
+  @Param({"DEFLATE", "LZ4", "ZSTD"})
   static String algorithm;
 
   @State(Scope.Thread)
@@ -50,6 +50,9 @@ public class QatJavaBench {
             break;
           case "LZ4":
             algorithm = Algorithm.LZ4;
+            break;
+          case "ZSTD":
+            algorithm = Algorithm.ZSTD;
             break;
           default:
             throw new IllegalArgumentException("Invalid algo. Supported are DEFLATE and LZ4.");

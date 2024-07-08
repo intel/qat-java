@@ -40,4 +40,4 @@ else()
 endif()
 
 # Link against libqatzip
-target_link_libraries(${SHARED_LIBRARY_NAME} -lqatzip)
+target_link_libraries(${SHARED_LIBRARY_NAME} -lqatzip -lqatseqprod)
