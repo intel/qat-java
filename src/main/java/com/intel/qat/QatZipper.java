@@ -32,11 +32,11 @@ import java.nio.ReadOnlyBufferException;
  *   byte[] output = new byte[qzip.maxCompressedLength(input.length)];
  *
  *   // Compress the bytes
- *   qzip.compress(input, output);
+ *   int clen = qzip.compress(input, output);
  *
  *   // Decompress the bytes into a String
  *   byte[] result = new byte[input.length];
- *   qzip.decompress(output, result);
+ *   qzip.decompress(output, 0, clen, result, 0, result.length);
  *
  *   // Release resources
  *   qzip.end();
@@ -421,7 +421,7 @@ public class QatZipper {
       int compressedSize =
           zstdCompressCtx.compressByteArray(dst, dstOffset, dstLen, src, srcOffset, srcLen);
       bytesWritten = compressedSize;
-      bytesRead = srcLen - srcOffset;
+      bytesRead = srcLen;
       return compressedSize;
     }
   }
@@ -587,7 +587,7 @@ public class QatZipper {
       int decompressedSize =
           zstdDecompressCtx.decompressByteArray(dst, dstOffset, dstLen, src, srcOffset, srcLen);
       bytesWritten = decompressedSize;
-      bytesRead = srcLen - srcOffset;
+      bytesRead = srcLen;
       return decompressedSize;
     }
   }
@@ -631,6 +631,9 @@ public class QatZipper {
       return decompressByteBuffer(src, dst);
     } else {
       // ZSTD treats the first parameter as the destination and the second as the source.
+      if (!src.isDirect())
+        throw new IllegalArgumentException(
+            "Zstd-jni requires source buffers to be direct byte buffers.");
       return zstdDecompressCtx.decompress(dst, src);
     }
   }

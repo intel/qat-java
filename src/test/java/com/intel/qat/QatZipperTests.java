@@ -46,10 +46,14 @@ public class QatZipperTests {
         ? Stream.of(
             Arguments.of(Mode.AUTO, Algorithm.DEFLATE),
             Arguments.of(Mode.AUTO, Algorithm.LZ4),
+            Arguments.of(Mode.AUTO, Algorithm.ZSTD),
             Arguments.of(Mode.HARDWARE, Algorithm.DEFLATE),
-            Arguments.of(Mode.HARDWARE, Algorithm.LZ4))
+            Arguments.of(Mode.HARDWARE, Algorithm.LZ4),
+            Arguments.of(Mode.HARDWARE, Algorithm.ZSTD))
         : Stream.of(
-            Arguments.of(Mode.AUTO, Algorithm.DEFLATE), Arguments.of(Mode.AUTO, Algorithm.LZ4));
+            Arguments.of(Mode.AUTO, Algorithm.DEFLATE),
+            Arguments.of(Mode.AUTO, Algorithm.LZ4),
+            Arguments.of(Mode.AUTO, Algorithm.ZSTD));
   }
 
   public static Stream<Arguments> provideAlgorithmLevelParams() {
@@ -71,7 +75,16 @@ public class QatZipperTests {
         Arguments.of(Algorithm.LZ4, 6),
         Arguments.of(Algorithm.LZ4, 7),
         Arguments.of(Algorithm.LZ4, 8),
-        Arguments.of(Algorithm.LZ4, 9));
+        Arguments.of(Algorithm.LZ4, 9),
+        Arguments.of(Algorithm.ZSTD, 1),
+        Arguments.of(Algorithm.ZSTD, 2),
+        Arguments.of(Algorithm.ZSTD, 3),
+        Arguments.of(Algorithm.ZSTD, 4),
+        Arguments.of(Algorithm.ZSTD, 5),
+        Arguments.of(Algorithm.ZSTD, 6),
+        Arguments.of(Algorithm.ZSTD, 7),
+        Arguments.of(Algorithm.ZSTD, 8),
+        Arguments.of(Algorithm.ZSTD, 9));
   }
 
   public static Stream<Arguments> provideModeAlgorithmLengthParams() {
@@ -83,18 +96,28 @@ public class QatZipperTests {
             Arguments.of(Mode.AUTO, Algorithm.LZ4, 131072),
             Arguments.of(Mode.AUTO, Algorithm.LZ4, 524288),
             Arguments.of(Mode.AUTO, Algorithm.LZ4, 2097152),
+            Arguments.of(Mode.AUTO, Algorithm.ZSTD, 131072),
+            Arguments.of(Mode.AUTO, Algorithm.ZSTD, 524288),
+            Arguments.of(Mode.AUTO, Algorithm.ZSTD, 2097152),
             Arguments.of(Mode.HARDWARE, Algorithm.DEFLATE, 131072),
             Arguments.of(Mode.HARDWARE, Algorithm.DEFLATE, 524288),
             Arguments.of(Mode.HARDWARE, Algorithm.DEFLATE, 2097152),
             Arguments.of(Mode.HARDWARE, Algorithm.LZ4, 131072),
             Arguments.of(Mode.HARDWARE, Algorithm.LZ4, 524288),
-            Arguments.of(Mode.HARDWARE, Algorithm.LZ4, 2097152))
+            Arguments.of(Mode.HARDWARE, Algorithm.LZ4, 2097152),
+            Arguments.of(Mode.HARDWARE, Algorithm.ZSTD, 131072),
+            Arguments.of(Mode.HARDWARE, Algorithm.ZSTD, 524288),
+            Arguments.of(Mode.HARDWARE, Algorithm.ZSTD, 2097152))
         : Stream.of(
             Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 131072),
             Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 524288),
             Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 2097152),
             Arguments.of(Mode.AUTO, Algorithm.LZ4, 131072),
-            Arguments.of(Mode.AUTO, Algorithm.LZ4, 524288));
+            Arguments.of(Mode.AUTO, Algorithm.LZ4, 524288),
+            Arguments.of(Mode.AUTO, Algorithm.LZ4, 2097152),
+            Arguments.of(Mode.AUTO, Algorithm.ZSTD, 131072),
+            Arguments.of(Mode.AUTO, Algorithm.ZSTD, 524288),
+            Arguments.of(Mode.AUTO, Algorithm.ZSTD, 2097152));
   }
 
   private byte[] getRandomBytes(int len) {
@@ -267,16 +290,15 @@ public class QatZipperTests {
 
       // Compress the bytes
       int resultLen = qzip.compress(input, output);
-
       // Decompress the bytes into a String
-      byte[] result = new byte[input.length];
-      resultLen = qzip.decompress(output, result);
+      byte[] barr = new byte[input.length];
+      resultLen = qzip.decompress(output, 0, resultLen, barr, 0, barr.length);
 
       // Release resources
       qzip.end();
 
       // Convert the bytes into a String
-      String outputStr = new String(result, 0, resultLen, "UTF-8");
+      String outputStr = new String(barr, 0, resultLen, "UTF-8");
       assertEquals(inputStr, outputStr);
     } catch (java.io.UnsupportedEncodingException | QatException e) {
       fail(e.getMessage());
@@ -292,7 +314,7 @@ public class QatZipperTests {
 
       QatZipper qzip = new QatZipper(algo, level, Mode.AUTO);
       // Create a buffer with enough size for compression
-      byte[] output = new byte[qzip.maxCompressedLength(input.length)];
+      byte[] output = new byte[qzip.maxCompressedLength(input.length) * 2];
 
       // Compress the bytes
       int resultLen = qzip.compress(input, output);
@@ -300,8 +322,9 @@ public class QatZipperTests {
       assertEquals(qzip.getBytesWritten(), resultLen);
 
       // Decompress the bytes into a String
-      byte[] result = new byte[input.length];
-      int decompLen = qzip.decompress(output, result);
+
+      byte[] barr = new byte[input.length];
+      int decompLen = qzip.decompress(output, 0, resultLen, barr, 0, barr.length);
       assertEquals(qzip.getBytesRead(), resultLen);
       assertEquals(qzip.getBytesWritten(), input.length);
 
@@ -309,7 +332,7 @@ public class QatZipperTests {
       qzip.end();
 
       // Convert the bytes into a String
-      String outputStr = new String(result, 0, decompLen, "UTF-8");
+      String outputStr = new String(barr, 0, decompLen, "UTF-8");
       assertEquals(inputStr, outputStr);
     } catch (java.io.UnsupportedEncodingException | QatException e) {
       fail(e.getMessage());
@@ -423,9 +446,9 @@ public class QatZipperTests {
       byte[] src = readAllBytes(SAMPLE_TEXT_PATH);
       byte[] dec = new byte[src.length];
 
-      ByteBuffer srcBuf = ByteBuffer.allocate(src.length);
-      ByteBuffer comBuf = ByteBuffer.allocate(qzip.maxCompressedLength(src.length));
-      ByteBuffer decBuf = ByteBuffer.allocate(src.length);
+      ByteBuffer srcBuf = ByteBuffer.allocateDirect(src.length);
+      ByteBuffer comBuf = ByteBuffer.allocateDirect(qzip.maxCompressedLength(src.length));
+      ByteBuffer decBuf = ByteBuffer.allocateDirect(src.length);
 
       srcBuf.put(src);
       srcBuf.flip();
@@ -450,6 +473,9 @@ public class QatZipperTests {
   @MethodSource("provideModeAlgorithmLengthParams")
   public void testWrappedBuffers(Mode mode, Algorithm algo, int len) {
     try {
+      // ZSTD requires direct source byte buffers.
+      if (algo == Algorithm.ZSTD) return;
+
       qzip = new QatZipper(algo, mode);
 
       byte[] src = getRandomBytes(len);
@@ -484,6 +510,9 @@ public class QatZipperTests {
   @MethodSource("provideModeAlgorithmLengthParams")
   public void testArrayBackedBuffersWithAllocate(Mode mode, Algorithm algo, int len) {
     try {
+      // ZSTD requires direct source byte buffers.
+      if (algo == Algorithm.ZSTD) return;
+
       qzip = new QatZipper(algo, 9, mode, 0);
 
       byte[] src = getRandomBytes(len);
@@ -524,6 +553,9 @@ public class QatZipperTests {
   @MethodSource("provideModeAlgorithmLengthParams")
   public void testDirectByteBufferSrcCompression(Mode mode, Algorithm algo, int len) {
     try {
+      // ZSTD requires direct source byte buffers.
+      if (algo == Algorithm.ZSTD) return;
+
       qzip = new QatZipper(algo, 9, mode, 0);
 
       byte[] src = getRandomBytes(len);
@@ -564,6 +596,9 @@ public class QatZipperTests {
   @MethodSource("provideModeAlgorithmLengthParams")
   public void testDirectByteBufferDstCompression(Mode mode, Algorithm algo, int len) {
     try {
+      // ZSTD requires direct source byte buffers.
+      if (algo == Algorithm.ZSTD) return;
+
       qzip = new QatZipper(algo, 9, mode, 0);
 
       byte[] src = getRandomBytes(len);
@@ -610,8 +645,8 @@ public class QatZipperTests {
       byte[] dec = new byte[src.length];
       byte[] dst = new byte[qzip.maxCompressedLength(src.length)];
 
-      ByteBuffer srcBuf = ByteBuffer.allocate(src.length);
-      ByteBuffer dstBuf = ByteBuffer.allocate(dst.length);
+      ByteBuffer srcBuf = ByteBuffer.allocateDirect(src.length);
+      ByteBuffer dstBuf = ByteBuffer.allocateDirect(dst.length);
       ByteBuffer decBuf = ByteBuffer.allocateDirect(dec.length);
 
       srcBuf.put(src, 0, src.length);
@@ -644,6 +679,9 @@ public class QatZipperTests {
   @MethodSource("provideModeAlgorithmLengthParams")
   public void testIndirectBuffersReadOnly(Mode mode, Algorithm algo, int len) {
     try {
+      // ZSTD requires direct source byte buffers.
+      if (algo == Algorithm.ZSTD) return;
+
       qzip = new QatZipper(algo, 9, mode, 0);
 
       byte[] src = getRandomBytes(len);
@@ -951,6 +989,9 @@ public class QatZipperTests {
   @MethodSource("provideModeAlgorithmLengthParams")
   public void testCompressorText(Mode mode, Algorithm algo, int len) {
     try {
+      // ZSTD requires direct source byte buffers.
+      if (algo == Algorithm.ZSTD) return;
+
       qzip = new QatZipper(algo, mode);
 
       byte[] data = getRandomBytes(len);
@@ -996,14 +1037,14 @@ public class QatZipperTests {
       byte[] data = getRandomBytes(len);
 
       final int inOffset = 2;
-      ByteBuffer src = ByteBuffer.allocate(inOffset + len + inOffset);
+      ByteBuffer src = ByteBuffer.allocateDirect(inOffset + len + inOffset);
       src.position(inOffset);
       src.put(data, 0, len);
       src.flip().position(inOffset);
 
       int outOffset = 5;
       ByteBuffer compressed =
-          ByteBuffer.allocate(outOffset + qzip.maxCompressedLength(data.length) + outOffset);
+          ByteBuffer.allocateDirect(outOffset + qzip.maxCompressedLength(data.length) + outOffset);
       byte[] garbage = new byte[compressed.capacity()];
       RANDOM.nextBytes(garbage);
       compressed.put(garbage);
@@ -1016,7 +1057,7 @@ public class QatZipperTests {
       compressed.flip().position(outOffset);
       int remaining = compressed.remaining();
 
-      ByteBuffer result = ByteBuffer.allocate(inOffset + len + inOffset);
+      ByteBuffer result = ByteBuffer.allocateDirect(inOffset + len + inOffset);
       result.position(inOffset).limit(result.capacity() - inOffset);
       qzip.decompress(compressed, result);
       assertEquals(outOffset + remaining, compressed.position());
@@ -1042,7 +1083,7 @@ public class QatZipperTests {
       byte[] data = getRandomBytes(len);
 
       final int inOffset = 2;
-      ByteBuffer src = ByteBuffer.allocate(inOffset + len + inOffset);
+      ByteBuffer src = ByteBuffer.allocateDirect(inOffset + len + inOffset);
       src.position(inOffset);
       src.put(data, 0, len);
       src.flip().position(inOffset);
@@ -1050,7 +1091,7 @@ public class QatZipperTests {
 
       int outOffset = 5;
       ByteBuffer compressed =
-          ByteBuffer.allocate(outOffset + qzip.maxCompressedLength(data.length) + outOffset);
+          ByteBuffer.allocateDirect(outOffset + qzip.maxCompressedLength(data.length) + outOffset);
       byte[] garbage = new byte[compressed.capacity()];
       RANDOM.nextBytes(garbage);
       compressed.put(garbage);
@@ -1063,7 +1104,7 @@ public class QatZipperTests {
       compressed.flip().position(outOffset);
       int remaining = compressed.remaining();
 
-      ByteBuffer result = ByteBuffer.allocate(inOffset + len + inOffset);
+      ByteBuffer result = ByteBuffer.allocateDirect(inOffset + len + inOffset);
       result.position(inOffset).limit(result.capacity() - inOffset);
 
       ByteBuffer readOnlyCompressed = compressed.asReadOnlyBuffer();
