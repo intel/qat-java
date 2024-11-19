@@ -201,10 +201,15 @@ public class QatZipper {
 
     this.algorithm = algorithm;
     this.retryCount = retryCount;
-    InternalJNI.setup(this, algorithm.ordinal(), level, mode.ordinal(), pmode.ordinal());
+    int status =
+        InternalJNI.setup(this, algorithm.ordinal(), level, mode.ordinal(), pmode.ordinal());
 
     if (algorithm == Algorithm.ZSTD) {
-      zstdCompressCtx.registerSequenceProducer(new QatZstdSequenceProducer());
+      final int QZ_OK = 0; // indicates that ZSTD can start QAT device
+      if (mode == Mode.HARDWARE || (mode == Mode.AUTO && status == QZ_OK)) {
+        // Only if mode is HARDWARE or AUTO with QAT device started
+        zstdCompressCtx.registerSequenceProducer(new QatZstdSequenceProducer());
+      }
       zstdCompressCtx.setLevel(level);
     }
 
