@@ -33,6 +33,8 @@ public class QatDecompressorInputStream extends FilterInputStream {
   /** The default size in bytes of the input buffer (64KB). */
   public static final int DEFAULT_BUFFER_SIZE = 1 << 16;
 
+  public static final int MAX_BUFFER_SIZE = 512 * 1024;
+
   /**
    * Creates a new input stream with the given parameters.
    *
@@ -48,11 +50,17 @@ public class QatDecompressorInputStream extends FilterInputStream {
     super(in);
     if (bufferSize <= 0) throw new IllegalArgumentException();
     Objects.requireNonNull(in);
-    inputBuffer = new byte[bufferSize];
+    int inputBufferSize = 0;
+    try {
+      inputBufferSize = Math.min(MAX_BUFFER_SIZE, in.available());
+    } catch (IOException ioe) {
+      inputBufferSize = DEFAULT_BUFFER_SIZE;
+    }
+    inputBuffer = new byte[inputBufferSize];
     outputBuffer = new byte[bufferSize];
     outputPosition = outputBuffer.length;
-    inputBufferLimit = bufferSize;
-    outputBufferLimit = bufferSize;
+    inputBufferLimit = inputBuffer.length;
+    outputBufferLimit = outputBuffer.length;
     qzip = new QatZipper(algorithm, mode, pmode);
     closed = false;
     eof = false;
@@ -274,8 +282,19 @@ public class QatDecompressorInputStream extends FilterInputStream {
     return read(new byte[(int) n]);
   }
 
+  private void growOutputBuffer() {
+    int oldSize = outputBuffer.length;
+    if (oldSize == MAX_BUFFER_SIZE) throw new QatException("Error buffer limit exceeded");
+    int newSize = Math.min(outputBuffer.length * 2, MAX_BUFFER_SIZE);
+    outputBuffer = new byte[newSize];
+    outputPosition = 0;
+    outputBufferLimit = outputBuffer.length;
+  }
+
   private void fill() throws IOException {
     if (eof) return;
+
+    // Read from inputStream
     int bytesRead = in.read(inputBuffer, inputPosition, inputBuffer.length - inputPosition);
     inputBufferLimit = (inputPosition + Math.max(0, bytesRead));
     inputPosition = 0;
@@ -283,18 +302,23 @@ public class QatDecompressorInputStream extends FilterInputStream {
       eof = true;
       return;
     }
+
+    int decompressed = 0;
     outputPosition = 0;
     outputBufferLimit = outputBuffer.length;
-    int decompressed =
-        qzip.decompress(
-            inputBuffer,
-            inputPosition,
-            inputBufferLimit,
-            outputBuffer,
-            outputPosition,
-            outputBufferLimit - outputPosition);
-    inputPosition += qzip.getBytesRead();
-    outputPosition += decompressed;
+    for (; (decompressed == 0 && inputPosition == 0); ) {
+      decompressed =
+          qzip.decompress(
+              inputBuffer,
+              inputPosition,
+              inputBufferLimit,
+              outputBuffer,
+              outputPosition,
+              outputBufferLimit - outputPosition);
+      inputPosition += qzip.getBytesRead();
+      outputPosition += decompressed;
+      if (decompressed == 0 && inputPosition == 0) growOutputBuffer();
+    }
     outputBufferLimit = outputPosition;
     outputPosition = 0;
     if (inputPosition != inputBufferLimit) {
@@ -307,6 +331,8 @@ public class QatDecompressorInputStream extends FilterInputStream {
       inputPosition = 0;
       inputBufferLimit = inputBuffer.length;
     }
-    if (decompressed == 0) fill();
+    if (decompressed == 0) {
+      fill();
+    }
   }
 }
