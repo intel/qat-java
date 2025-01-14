@@ -16,7 +16,7 @@ public class ByteArrayExample {
       String inputStr = "The quick brown fox jumps over the lazy dog.";
       byte[] input = inputStr.getBytes("UTF-8");
 
-      QatZipper qzip = new QatZipper();
+      QatZipper qzip = new QatZipper.Builder().build();
 
       // Create a buffer with enough size for compression
       byte[] compressedData = new byte[qzip.maxCompressedLength(input.length)];

@@ -33,6 +33,7 @@ public class QatDecompressorInputStream extends FilterInputStream {
   /** The default size in bytes of the input buffer (64KB). */
   public static final int DEFAULT_BUFFER_SIZE = 1 << 16;
 
+  /** The maximum buffer size in bytes of the input buffer (512KB). */
   public static final int MAX_BUFFER_SIZE = 512 * 1024;
 
   /**
@@ -61,7 +62,8 @@ public class QatDecompressorInputStream extends FilterInputStream {
     outputPosition = outputBuffer.length;
     inputBufferLimit = inputBuffer.length;
     outputBufferLimit = outputBuffer.length;
-    qzip = new QatZipper(algorithm, mode, pmode);
+    qzip =
+        new QatZipper.Builder().setAlgorithm(algorithm).setMode(mode).setPollingMode(pmode).build();
     closed = false;
     eof = false;
   }

@@ -50,7 +50,13 @@ public class QatCompressorOutputStream extends FilterOutputStream {
     super(out);
     if (bufferSize <= 0) throw new IllegalArgumentException();
     Objects.requireNonNull(out);
-    qzip = new QatZipper(algorithm, level, mode, pmode);
+    qzip =
+        new QatZipper.Builder()
+            .setAlgorithm(algorithm)
+            .setLevel(level)
+            .setMode(mode)
+            .setPollingMode(pmode)
+            .build();
     inputBuffer = new byte[bufferSize];
     outputBuffer = new byte[qzip.maxCompressedLength(bufferSize)];
     closed = false;

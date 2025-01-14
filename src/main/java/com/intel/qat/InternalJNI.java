@@ -19,7 +19,8 @@ class InternalJNI {
 
   static native void initFieldIDs();
 
-  static native int setup(QatZipper qzip, int algo, int level, int mode, int pmode);
+  static native int setup(
+      QatZipper qzip, int algo, int level, int mode, int pmode, int dataFormat, int hwBufferSize);
 
   static native int maxCompressedSize(long session, long sourceSize);
 

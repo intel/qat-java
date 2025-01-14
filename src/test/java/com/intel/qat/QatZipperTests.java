@@ -139,7 +139,7 @@ public class QatZipperTests {
   public void testDefaultConstructor() {
     assumeTrue(QatTestSuite.FORCE_HARDWARE);
     try {
-      qzip = new QatZipper();
+      qzip = new QatZipper.Builder().build();
     } catch (IllegalArgumentException | QatException e) {
       fail(e.getMessage());
     }
@@ -148,7 +148,7 @@ public class QatZipperTests {
   @Test
   public void testEnd() {
     try {
-      QatZipper qzip = new QatZipper(Mode.AUTO);
+      QatZipper qzip = new QatZipper.Builder().setMode(Mode.HARDWARE).build();
       qzip.end();
     } catch (QatException e) {
       fail(e.getMessage());
@@ -159,7 +159,8 @@ public class QatZipperTests {
   public void duplicateEndHW() {
     assumeTrue(QatTestSuite.FORCE_HARDWARE);
     try {
-      QatZipper qzip = new QatZipper(Algorithm.LZ4, Mode.HARDWARE);
+      QatZipper qzip =
+          new QatZipper.Builder().setAlgorithm(Algorithm.LZ4).setMode(Mode.HARDWARE).build();
       qzip.end();
       qzip.end();
     } catch (IllegalStateException | IllegalArgumentException is) {
@@ -172,7 +173,7 @@ public class QatZipperTests {
   @Test
   public void testCompressWithNullByteBuffer() {
     try {
-      qzip = new QatZipper(Mode.AUTO);
+      qzip = new QatZipper.Builder().setMode(Mode.HARDWARE).build();
       ByteBuffer buf = null;
       qzip.compress(buf, buf);
       fail();
@@ -184,7 +185,7 @@ public class QatZipperTests {
   @Test
   public void testCompressWithNullByteArray() {
     try {
-      qzip = new QatZipper(Mode.AUTO);
+      qzip = new QatZipper.Builder().setMode(Mode.HARDWARE).build();
       qzip.compress(null, 0, 100, null, 0, 0);
     } catch (IllegalArgumentException e) {
       assertTrue(true);
@@ -194,7 +195,7 @@ public class QatZipperTests {
   @Test
   public void testDecompressWithNullByteBuffer() {
     try {
-      qzip = new QatZipper(Mode.AUTO);
+      qzip = new QatZipper.Builder().setMode(Mode.HARDWARE).build();
       ByteBuffer buf = null;
       qzip.decompress(buf, buf);
       fail();
@@ -206,7 +207,7 @@ public class QatZipperTests {
   @Test
   public void testDecompressWithNullByteArray() {
     try {
-      qzip = new QatZipper(Mode.AUTO);
+      qzip = new QatZipper.Builder().setMode(Mode.HARDWARE).build();
       int compressedSize = qzip.decompress(null, 0, 100, null, 0, 0);
       fail();
     } catch (IllegalArgumentException e) {
@@ -219,7 +220,7 @@ public class QatZipperTests {
   public void testSingleArgConstructorMode(Mode mode) {
     assumeFalse(mode.equals(Mode.HARDWARE) && !QatTestSuite.FORCE_HARDWARE);
     try {
-      qzip = new QatZipper(mode);
+      qzip = new QatZipper.Builder().setMode(mode).build();
     } catch (IllegalArgumentException | QatException e) {
       fail(e.getMessage());
     }
@@ -230,7 +231,7 @@ public class QatZipperTests {
   public void testSingleArgConstructorAlgo(Algorithm algo) {
     assumeTrue(QatTestSuite.FORCE_HARDWARE);
     try {
-      qzip = new QatZipper(algo);
+      qzip = new QatZipper.Builder().setAlgorithm(algo).build();
     } catch (IllegalArgumentException | QatException e) {
       fail(e.getMessage());
     }
@@ -240,7 +241,7 @@ public class QatZipperTests {
   @MethodSource("provideModeAlgorithmParams")
   public void testTwoArgConstructorAlgoAndMode(Mode mode, Algorithm algo) {
     try {
-      qzip = new QatZipper(algo, mode);
+      qzip = new QatZipper.Builder().setAlgorithm(algo).setMode(mode).build();
     } catch (IllegalArgumentException | QatException e) {
       fail(e.getMessage());
     }
@@ -251,7 +252,7 @@ public class QatZipperTests {
   public void testTwoArgConstructorAlgoAndLevel(Algorithm algo) {
     assumeTrue(QatTestSuite.FORCE_HARDWARE);
     try {
-      qzip = new QatZipper(algo, 9);
+      qzip = new QatZipper.Builder().setAlgorithm(algo).setLevel(9).build();
     } catch (IllegalArgumentException | QatException e) {
       fail(e.getMessage());
     }
@@ -261,7 +262,7 @@ public class QatZipperTests {
   @MethodSource("provideModeAlgorithmParams")
   public void testThreeArgConstructorAlgoLevelMode(Mode mode, Algorithm algo) {
     try {
-      qzip = new QatZipper(algo, 9, mode);
+      qzip = new QatZipper.Builder().setAlgorithm(algo).setLevel(9).setMode(mode).build();
     } catch (IllegalArgumentException | QatException e) {
       fail(e.getMessage());
     }
@@ -271,7 +272,7 @@ public class QatZipperTests {
   @MethodSource("provideModeAlgorithmParams")
   public void testFourArgConstructorAlgoLevelModeRetryCount(Mode mode, Algorithm algo) {
     try {
-      qzip = new QatZipper(algo, 9, mode, 10);
+      qzip = new QatZipper.Builder().setAlgorithm(algo).setMode(mode).setRetryCount(10).build();
     } catch (IllegalArgumentException | QatException e) {
       fail(e.getMessage());
     }
@@ -284,7 +285,7 @@ public class QatZipperTests {
       String inputStr = "Hello, world!";
       byte[] input = inputStr.getBytes("UTF-8");
 
-      QatZipper qzip = new QatZipper(algo, level, Mode.AUTO);
+      QatZipper qzip = new QatZipper.Builder().setAlgorithm(algo).setLevel(level).build();
       // Create a buffer with enough size for compression
       byte[] output = new byte[qzip.maxCompressedLength(input.length)];
 
@@ -312,7 +313,7 @@ public class QatZipperTests {
       String inputStr = "Hello, world!";
       byte[] input = inputStr.getBytes("UTF-8");
 
-      QatZipper qzip = new QatZipper(algo, level, Mode.AUTO);
+      QatZipper qzip = new QatZipper.Builder().setAlgorithm(algo).setLevel(level).build();
       // Create a buffer with enough size for compression
       byte[] output = new byte[qzip.maxCompressedLength(input.length) * 2];
 
@@ -343,7 +344,7 @@ public class QatZipperTests {
   @EnumSource(Algorithm.class)
   public void testInvalidCompressionLevel(Algorithm algo) {
     try {
-      qzip = new QatZipper(algo, 15);
+      qzip = new QatZipper.Builder().setAlgorithm(algo).setLevel(15).build();
       fail();
     } catch (QatException e) {
       assertTrue(true);
@@ -354,7 +355,7 @@ public class QatZipperTests {
   @MethodSource("provideModeAlgorithmParams")
   public void testChunkedCompressionWithByteArray(Mode mode, Algorithm algo) {
     try {
-      qzip = new QatZipper(algo, mode);
+      qzip = new QatZipper.Builder().setAlgorithm(algo).setMode(mode).build();
 
       byte[] src = readAllBytes(SAMPLE_TEXT_PATH);
       byte[] dst = new byte[qzip.maxCompressedLength(src.length)];
@@ -380,7 +381,7 @@ public class QatZipperTests {
   @MethodSource("provideModeAlgorithmParams")
   public void testChunkedCompressionWithByteArrayDiffOffset(Mode mode, Algorithm algo) {
     try {
-      qzip = new QatZipper(algo, mode);
+      qzip = new QatZipper.Builder().setAlgorithm(algo).setMode(mode).build();
 
       byte[] src = readAllBytes(SAMPLE_TEXT_PATH);
       byte[] dst = new byte[qzip.maxCompressedLength(src.length)];
@@ -410,7 +411,7 @@ public class QatZipperTests {
   @MethodSource("provideModeAlgorithmParams")
   public void testChunkedCompressionWithByteBuffer(Mode mode, Algorithm algo) {
     try {
-      qzip = new QatZipper(algo, mode);
+      qzip = new QatZipper.Builder().setAlgorithm(algo).setMode(mode).build();
 
       byte[] src = readAllBytes(SAMPLE_TEXT_PATH);
       byte[] dec = new byte[src.length];
@@ -441,7 +442,7 @@ public class QatZipperTests {
   @MethodSource("provideModeAlgorithmParams")
   public void testChunkedCompressionWithWrappedByteBuffer(Mode mode, Algorithm algo) {
     try {
-      qzip = new QatZipper(algo, mode);
+      qzip = new QatZipper.Builder().setAlgorithm(algo).setMode(mode).build();
 
       byte[] src = readAllBytes(SAMPLE_TEXT_PATH);
       byte[] dec = new byte[src.length];
@@ -476,7 +477,7 @@ public class QatZipperTests {
       // ZSTD requires direct source byte buffers.
       if (algo == Algorithm.ZSTD) return;
 
-      qzip = new QatZipper(algo, mode);
+      qzip = new QatZipper.Builder().setAlgorithm(algo).setMode(mode).build();
 
       byte[] src = getRandomBytes(len);
       byte[] dec = new byte[src.length];
@@ -513,7 +514,13 @@ public class QatZipperTests {
       // ZSTD requires direct source byte buffers.
       if (algo == Algorithm.ZSTD) return;
 
-      qzip = new QatZipper(algo, 9, mode, 0);
+      qzip =
+          new QatZipper.Builder()
+              .setAlgorithm(algo)
+              .setLevel(9)
+              .setMode(mode)
+              .setRetryCount(0)
+              .build();
 
       byte[] src = getRandomBytes(len);
       byte[] dec = new byte[src.length];
@@ -556,7 +563,13 @@ public class QatZipperTests {
       // ZSTD requires direct source byte buffers.
       if (algo == Algorithm.ZSTD) return;
 
-      qzip = new QatZipper(algo, 9, mode, 0);
+      qzip =
+          new QatZipper.Builder()
+              .setAlgorithm(algo)
+              .setLevel(9)
+              .setMode(mode)
+              .setRetryCount(0)
+              .build();
 
       byte[] src = getRandomBytes(len);
       byte[] dec = new byte[src.length];
@@ -599,7 +612,13 @@ public class QatZipperTests {
       // ZSTD requires direct source byte buffers.
       if (algo == Algorithm.ZSTD) return;
 
-      qzip = new QatZipper(algo, 9, mode, 0);
+      qzip =
+          new QatZipper.Builder()
+              .setAlgorithm(algo)
+              .setLevel(9)
+              .setMode(mode)
+              .setRetryCount(0)
+              .build();
 
       byte[] src = getRandomBytes(len);
       byte[] dec = new byte[src.length];
@@ -639,7 +658,13 @@ public class QatZipperTests {
   @MethodSource("provideModeAlgorithmLengthParams")
   public void testDirectByteBufferDstDecompression(Mode mode, Algorithm algo, int len) {
     try {
-      qzip = new QatZipper(algo, 9, mode, 0);
+      qzip =
+          new QatZipper.Builder()
+              .setAlgorithm(algo)
+              .setLevel(9)
+              .setMode(mode)
+              .setRetryCount(0)
+              .build();
 
       byte[] src = getRandomBytes(len);
       byte[] dec = new byte[src.length];
@@ -682,7 +707,13 @@ public class QatZipperTests {
       // ZSTD requires direct source byte buffers.
       if (algo == Algorithm.ZSTD) return;
 
-      qzip = new QatZipper(algo, 9, mode, 0);
+      qzip =
+          new QatZipper.Builder()
+              .setAlgorithm(algo)
+              .setLevel(9)
+              .setMode(mode)
+              .setRetryCount(0)
+              .build();
 
       byte[] src = getRandomBytes(len);
       byte[] dec = new byte[src.length];
@@ -722,7 +753,13 @@ public class QatZipperTests {
   @MethodSource("provideModeAlgorithmLengthParams")
   public void testCompressionDecompressionWithByteArray(Mode mode, Algorithm algo, int len) {
     try {
-      qzip = new QatZipper(algo, 9, mode, 0);
+      qzip =
+          new QatZipper.Builder()
+              .setAlgorithm(algo)
+              .setLevel(9)
+              .setMode(mode)
+              .setRetryCount(0)
+              .build();
 
       byte[] src = getRandomBytes(len);
       byte[] dec = new byte[src.length];
@@ -746,7 +783,7 @@ public class QatZipperTests {
   @MethodSource("provideModeAlgorithmLengthParams")
   public void testCompressionDecompressionWithDirectByteBuffer(Mode mode, Algorithm algo, int len) {
     try {
-      qzip = new QatZipper(algo, mode);
+      qzip = new QatZipper.Builder().setAlgorithm(algo).setMode(mode).build();
 
       byte[] src = getRandomBytes(len);
       byte[] dec = new byte[src.length];
@@ -779,7 +816,13 @@ public class QatZipperTests {
   public void testCompressionDecompressionWithDirectByteBufferNoPinnedMem(
       Mode mode, Algorithm algo, int len) {
     try {
-      qzip = new QatZipper(algo, 9, mode, 0);
+      qzip =
+          new QatZipper.Builder()
+              .setAlgorithm(algo)
+              .setLevel(9)
+              .setMode(mode)
+              .setRetryCount(0)
+              .build();
 
       byte[] src = getRandomBytes(len);
       byte[] dec = new byte[src.length];
@@ -811,7 +854,7 @@ public class QatZipperTests {
   @MethodSource("provideModeAlgorithmLengthParams")
   public void testCompressionReadOnlyDestination(Mode mode, Algorithm algo, int len) {
     try {
-      qzip = new QatZipper(algo, mode);
+      qzip = new QatZipper.Builder().setAlgorithm(algo).setMode(mode).build();
 
       byte[] src = getRandomBytes(len);
       ByteBuffer srcBuf = ByteBuffer.allocateDirect(src.length);
@@ -831,7 +874,7 @@ public class QatZipperTests {
   @MethodSource("provideModeAlgorithmLengthParams")
   public void testDecompressionReadOnlyDestination(Mode mode, Algorithm algo, int len) {
     try {
-      qzip = new QatZipper(algo, mode);
+      qzip = new QatZipper.Builder().setAlgorithm(algo).setMode(mode).build();
 
       byte[] src = getRandomBytes(len);
       ByteBuffer srcBuf = ByteBuffer.allocateDirect(src.length);
@@ -855,7 +898,7 @@ public class QatZipperTests {
   @MethodSource("provideModeAlgorithmLengthParams")
   public void testCompressionDecompressionReadOnlyByteBuffer(Mode mode, Algorithm algo, int len) {
     try {
-      qzip = new QatZipper(algo, mode);
+      qzip = new QatZipper.Builder().setAlgorithm(algo).setMode(mode).build();
 
       byte[] src = getRandomBytes(len);
       byte[] dec = new byte[src.length];
@@ -886,7 +929,7 @@ public class QatZipperTests {
   @MethodSource("provideModeAlgorithmLengthParams")
   public void testIllegalStateException(Mode mode, Algorithm algo, int len) {
     try {
-      QatZipper qzip = new QatZipper(algo, mode);
+      QatZipper qzip = new QatZipper.Builder().setAlgorithm(algo).setMode(mode).build();
 
       byte[] src = getRandomBytes(len);
       byte[] dst = new byte[2 * src.length];
@@ -902,7 +945,7 @@ public class QatZipperTests {
   @MethodSource("provideModeAlgorithmLengthParams")
   public void compressByteArrayPostTearDown(Mode mode, Algorithm algo, int len) {
     try {
-      QatZipper qzip = new QatZipper(algo, mode);
+      QatZipper qzip = new QatZipper.Builder().setAlgorithm(algo).setMode(mode).build();
 
       byte[] src = getRandomBytes(len);
       byte[] dst = new byte[2 * src.length];
@@ -920,7 +963,7 @@ public class QatZipperTests {
   @MethodSource("provideModeAlgorithmLengthParams")
   public void compressByteBufferPostTearDown(Mode mode, Algorithm algo, int len) {
     try {
-      QatZipper qzip = new QatZipper(algo, mode);
+      QatZipper qzip = new QatZipper.Builder().setAlgorithm(algo).setMode(mode).build();
 
       byte[] src = getRandomBytes(len);
 
@@ -943,7 +986,7 @@ public class QatZipperTests {
   @MethodSource("provideModeAlgorithmLengthParams")
   public void decompressByteArrayPostTearDown(Mode mode, Algorithm algo, int len) {
     try {
-      QatZipper qzip = new QatZipper(algo, mode);
+      QatZipper qzip = new QatZipper.Builder().setAlgorithm(algo).setMode(mode).build();
 
       byte[] src = getRandomBytes(len);
       byte[] dst = new byte[2 * src.length];
@@ -962,7 +1005,7 @@ public class QatZipperTests {
   @MethodSource("provideModeAlgorithmLengthParams")
   public void decompressByteBufferPostTearDown(Mode mode, Algorithm algo, int len) {
     try {
-      QatZipper qzip = new QatZipper(algo, mode);
+      QatZipper qzip = new QatZipper.Builder().setAlgorithm(algo).setMode(mode).build();
 
       byte[] src = getRandomBytes(len);
 
@@ -992,7 +1035,7 @@ public class QatZipperTests {
       // ZSTD requires direct source byte buffers.
       if (algo == Algorithm.ZSTD) return;
 
-      qzip = new QatZipper(algo, mode);
+      qzip = new QatZipper.Builder().setAlgorithm(algo).setMode(mode).build();
 
       byte[] data = getRandomBytes(len);
       ByteBuffer src = ByteBuffer.allocate(data.length);
@@ -1033,7 +1076,7 @@ public class QatZipperTests {
   @MethodSource("provideModeAlgorithmLengthParams")
   public void testVaryingOffset(QatZipper.Mode mode, QatZipper.Algorithm algo, int len) {
     try {
-      qzip = new QatZipper(algo, mode);
+      qzip = new QatZipper.Builder().setAlgorithm(algo).setMode(mode).build();
       byte[] data = getRandomBytes(len);
 
       final int inOffset = 2;
@@ -1079,7 +1122,7 @@ public class QatZipperTests {
   public void testVaryingOffsetWithReadOnlyBuffer(
       QatZipper.Mode mode, QatZipper.Algorithm algo, int len) {
     try {
-      qzip = new QatZipper(algo, mode);
+      qzip = new QatZipper.Builder().setAlgorithm(algo).setMode(mode).build();
       byte[] data = getRandomBytes(len);
 
       final int inOffset = 2;
@@ -1127,7 +1170,13 @@ public class QatZipperTests {
   @MethodSource("provideModeAlgorithmLengthParams")
   public void testInvalidCompressionOffsets(Mode mode, Algorithm algo, int len) {
     try {
-      qzip = new QatZipper(algo, 9, mode, 0);
+      qzip =
+          new QatZipper.Builder()
+              .setAlgorithm(algo)
+              .setLevel(9)
+              .setMode(mode)
+              .setRetryCount(0)
+              .build();
 
       byte[] src = getRandomBytes(len);
       byte[] dst = new byte[qzip.maxCompressedLength(src.length)];
@@ -1146,7 +1195,13 @@ public class QatZipperTests {
   @MethodSource("provideModeAlgorithmLengthParams")
   public void testInvalidCompressionLargeOffsets(Mode mode, Algorithm algo, int len) {
     try {
-      qzip = new QatZipper(algo, 9, mode, 0);
+      qzip =
+          new QatZipper.Builder()
+              .setAlgorithm(algo)
+              .setLevel(9)
+              .setMode(mode)
+              .setRetryCount(0)
+              .build();
 
       byte[] src = getRandomBytes(len);
       byte[] dst = new byte[qzip.maxCompressedLength(src.length)];
@@ -1165,7 +1220,13 @@ public class QatZipperTests {
   @MethodSource("provideModeAlgorithmLengthParams")
   public void testInvaliDecompressionOffsets(Mode mode, Algorithm algo, int len) {
     try {
-      qzip = new QatZipper(algo, 9, mode, 0);
+      qzip =
+          new QatZipper.Builder()
+              .setAlgorithm(algo)
+              .setLevel(9)
+              .setMode(mode)
+              .setRetryCount(0)
+              .build();
 
       byte[] src = getRandomBytes(len);
       byte[] dst = new byte[qzip.maxCompressedLength(src.length)];
@@ -1184,7 +1245,13 @@ public class QatZipperTests {
   @MethodSource("provideModeAlgorithmLengthParams")
   public void testInvaliDecompressionLargeOffsets(Mode mode, Algorithm algo, int len) {
     try {
-      qzip = new QatZipper(algo, 9, mode, 0);
+      qzip =
+          new QatZipper.Builder()
+              .setAlgorithm(algo)
+              .setLevel(9)
+              .setMode(mode)
+              .setRetryCount(0)
+              .build();
 
       byte[] src = getRandomBytes(len);
       byte[] dst = new byte[qzip.maxCompressedLength(src.length)];

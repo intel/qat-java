@@ -59,7 +59,7 @@ public class FuzzerTest {
   }
 
   static void testByteArray(byte[] src) {
-    QatZipper qzip = new QatZipper();
+    QatZipper qzip = new QatZipper.Builder().build();
     byte[] dst = new byte[qzip.maxCompressedLength(src.length)];
     byte[] dec = new byte[src.length];
 
@@ -71,7 +71,7 @@ public class FuzzerTest {
   }
 
   static void testByteArrayLZ4(byte[] src) {
-    QatZipper qzip = new QatZipper(QatZipper.Algorithm.LZ4);
+    QatZipper qzip = new QatZipper.Builder().setAlgorithm(QatZipper.Algorithm.LZ4).build();
     byte[] dst = new byte[qzip.maxCompressedLength(src.length)];
     byte[] dec = new byte[src.length];
 
@@ -83,7 +83,7 @@ public class FuzzerTest {
   }
 
   static void testByteArrayWithParams(byte[] src) {
-    QatZipper qzip = new QatZipper();
+    QatZipper qzip = new QatZipper.Builder().build();
 
     int srcOffset = RANDOM.nextInt(src.length);
 
@@ -102,7 +102,7 @@ public class FuzzerTest {
   }
 
   static void testByteArrayWithParamsLZ4(byte[] src) {
-    QatZipper qzip = new QatZipper(QatZipper.Algorithm.LZ4);
+    QatZipper qzip = new QatZipper.Builder().setAlgorithm(QatZipper.Algorithm.LZ4).build();
 
     int srcOffset = RANDOM.nextInt(src.length);
 
@@ -125,7 +125,7 @@ public class FuzzerTest {
     srcBuf.put(src, 0, src.length);
     srcBuf.flip();
 
-    QatZipper qzip = new QatZipper();
+    QatZipper qzip = new QatZipper.Builder().build();
     int compressedSize = qzip.maxCompressedLength(src.length);
 
     assert compressedSize > 0;
@@ -147,7 +147,7 @@ public class FuzzerTest {
     srcBuf.put(src, 0, src.length);
     srcBuf.flip();
 
-    QatZipper qzip = new QatZipper(QatZipper.Algorithm.LZ4);
+    QatZipper qzip = new QatZipper.Builder().setAlgorithm(QatZipper.Algorithm.LZ4).build();
     int compressedSize = qzip.maxCompressedLength(src.length);
 
     assert compressedSize > 0;
@@ -169,7 +169,7 @@ public class FuzzerTest {
     srcBuf.put(src, 0, src.length);
     srcBuf.flip();
 
-    QatZipper qzip = new QatZipper();
+    QatZipper qzip = new QatZipper.Builder().build();
     int compressedSize = qzip.maxCompressedLength(src.length);
 
     assert compressedSize > 0;
@@ -191,7 +191,7 @@ public class FuzzerTest {
     srcBuf.put(src, 0, src.length);
     srcBuf.flip();
 
-    QatZipper qzip = new QatZipper();
+    QatZipper qzip = new QatZipper.Builder().build();
     int compressedSize = qzip.maxCompressedLength(src.length);
 
     assert compressedSize > 0;
@@ -213,7 +213,7 @@ public class FuzzerTest {
     srcBuf.put(src, 0, src.length);
     srcBuf.flip();
 
-    QatZipper qzip = new QatZipper(QatZipper.Algorithm.LZ4);
+    QatZipper qzip = new QatZipper.Builder().setAlgorithm(QatZipper.Algorithm.LZ4).build();
     int compressedSize = qzip.maxCompressedLength(src.length);
 
     assert compressedSize > 0;
@@ -235,7 +235,7 @@ public class FuzzerTest {
     srcBuf.put(src, 0, src.length);
     srcBuf.flip();
 
-    QatZipper qzip = new QatZipper();
+    QatZipper qzip = new QatZipper.Builder().build();
     int compressedSize = qzip.maxCompressedLength(src.length);
 
     assert compressedSize > 0;
@@ -257,7 +257,7 @@ public class FuzzerTest {
     srcBuf.put(src, 0, src.length);
     srcBuf.flip();
 
-    QatZipper qzip = new QatZipper();
+    QatZipper qzip = new QatZipper.Builder().build();
     int compressedSize = qzip.maxCompressedLength(src.length);
 
     assert compressedSize > 0;
@@ -279,7 +279,7 @@ public class FuzzerTest {
     srcBuf.put(src, 0, src.length);
     srcBuf.flip();
 
-    QatZipper qzip = new QatZipper();
+    QatZipper qzip = new QatZipper.Builder().build();
     int compressedSize = qzip.maxCompressedLength(src.length);
 
     assert compressedSize > 0;
@@ -302,7 +302,7 @@ public class FuzzerTest {
     srcBuf.put(src, 0, src.length);
     srcBuf.flip();
 
-    QatZipper qzip = new QatZipper();
+    QatZipper qzip = new QatZipper.Builder().build();
     int compressedSize = qzip.maxCompressedLength(src.length);
 
     assert compressedSize > 0;
@@ -325,7 +325,7 @@ public class FuzzerTest {
     srcBuf.put(src, 0, src.length);
     srcBuf.flip();
 
-    QatZipper qzip = new QatZipper(QatZipper.Algorithm.LZ4);
+    QatZipper qzip = new QatZipper.Builder().setAlgorithm(QatZipper.Algorithm.LZ4).build();
     int compressedSize = qzip.maxCompressedLength(src.length);
 
     assert compressedSize > 0;
@@ -347,7 +347,7 @@ public class FuzzerTest {
     srcBuf.put(src, 0, src.length);
     srcBuf.flip();
 
-    QatZipper qzip = new QatZipper();
+    QatZipper qzip = new QatZipper.Builder().build();
     int compressedSize = qzip.maxCompressedLength(src.length);
 
     assert compressedSize > 0;
@@ -369,7 +369,7 @@ public class FuzzerTest {
     srcBuf.put(src, 0, src.length);
     srcBuf.flip();
 
-    QatZipper qzip = new QatZipper(QatZipper.Algorithm.LZ4);
+    QatZipper qzip = new QatZipper.Builder().setAlgorithm(QatZipper.Algorithm.LZ4).build();
     int compressedSize = qzip.maxCompressedLength(src.length);
 
     assert compressedSize > 0;
@@ -391,7 +391,7 @@ public class FuzzerTest {
     srcBuf.put(src, 0, src.length);
     srcBuf.flip();
 
-    QatZipper qzip = new QatZipper();
+    QatZipper qzip = new QatZipper.Builder().build();
     int compressedSize = qzip.maxCompressedLength(src.length);
 
     assert compressedSize > 0;
@@ -413,7 +413,7 @@ public class FuzzerTest {
     srcBuf.put(src, 0, src.length);
     srcBuf.flip();
 
-    QatZipper qzip = new QatZipper(QatZipper.Algorithm.LZ4);
+    QatZipper qzip = new QatZipper.Builder().setAlgorithm(QatZipper.Algorithm.LZ4).build();
     int compressedSize = qzip.maxCompressedLength(src.length);
 
     assert compressedSize > 0;
@@ -435,7 +435,7 @@ public class FuzzerTest {
     srcBuf.put(src, 0, src.length);
     srcBuf.flip();
 
-    QatZipper qzip = new QatZipper();
+    QatZipper qzip = new QatZipper.Builder().build();
     int compressedSize = qzip.maxCompressedLength(src.length);
 
     assert compressedSize > 0;
@@ -459,7 +459,7 @@ public class FuzzerTest {
     srcBuf.put(src, 0, src.length);
     srcBuf.flip();
 
-    QatZipper qzip = new QatZipper(QatZipper.Algorithm.LZ4);
+    QatZipper qzip = new QatZipper.Builder().setAlgorithm(QatZipper.Algorithm.LZ4).build();
     int compressedSize = qzip.maxCompressedLength(src.length);
 
     assert compressedSize > 0;
@@ -482,8 +482,7 @@ public class FuzzerTest {
     int comLevel = RANDOM.nextInt(9) + 1;
     int retryCount = RANDOM.nextInt(20);
 
-    QatZipper qzip =
-        new QatZipper(QatZipper.Algorithm.DEFLATE, comLevel, QatZipper.Mode.AUTO, retryCount);
+    QatZipper qzip = new QatZipper.Builder().setLevel(comLevel).setRetryCount(retryCount).build();
 
     byte[] dst = new byte[qzip.maxCompressedLength(src.length)];
     byte[] dec = new byte[src.length];
@@ -500,8 +499,7 @@ public class FuzzerTest {
     int comLevel = RANDOM.nextInt(9) + 1;
     int retryCount = RANDOM.nextInt(20);
 
-    QatZipper qzip =
-        new QatZipper(QatZipper.Algorithm.LZ4, comLevel, QatZipper.Mode.AUTO, retryCount);
+    QatZipper qzip = new QatZipper.Builder().setLevel(comLevel).setRetryCount(retryCount).build();
 
     byte[] dst = new byte[qzip.maxCompressedLength(src.length)];
     byte[] dec = new byte[src.length];
