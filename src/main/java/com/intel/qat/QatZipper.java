@@ -66,7 +66,7 @@ public class QatZipper {
   public static final int DEFAULT_RETRY_COUNT = 0;
 
   /** The default execution mode. */
-  public static final Mode DEFAULT_MODE = Mode.HARDWARE;
+  public static final Mode DEFAULT_MODE = Mode.AUTO;
 
   /** The default polling mode. */
   public static final PollingMode DEFAULT_POLLING_MODE = PollingMode.BUSY;
