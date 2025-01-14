@@ -116,12 +116,9 @@ public class QatZipper {
     if (sm == null) {
       cleaner = Cleaner.create();
     } else {
-      java.security.PrivilegedAction<Void> pa =
-          () -> {
-            cleaner = Cleaner.create();
-            return null;
-          };
-      java.security.AccessController.doPrivileged(pa);
+      cleaner =
+          java.security.AccessController.doPrivileged(
+              (java.security.PrivilegedAction<Cleaner>) Cleaner::create);
     }
   }
 
