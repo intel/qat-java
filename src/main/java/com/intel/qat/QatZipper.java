@@ -410,7 +410,9 @@ public class QatZipper {
     }
 
     // Create and register a QAT session cleaner for this object
-    cleaner = Cleaner.create();
+    cleaner =
+        java.security.AccessController.doPrivileged(
+            (java.security.PrivilegedAction<Cleaner>) Cleaner::create);
     cleanable = cleaner.register(this, new QatCleaner(session));
     isValid = true;
   }
