@@ -135,16 +135,6 @@ public class QatZipper {
 
   static {
     InternalJNI.initFieldIDs();
-
-    // Needed for applications where a Java security manager is in place -- e.g. OpenSearch.
-    SecurityManager sm = System.getSecurityManager();
-    if (sm == null) {
-      cleaner = Cleaner.create();
-    } else {
-      cleaner =
-          java.security.AccessController.doPrivileged(
-              (java.security.PrivilegedAction<Cleaner>) Cleaner::create);
-    }
   }
 
   /** The compression algorithm to use. DEFLATE and LZ4 are supported. */
@@ -427,7 +417,10 @@ public class QatZipper {
       zstdCompressCtx.setLevel(level);
     }
 
-    // Register a QAT session cleaner for this object
+    // Create and register a QAT session cleaner for this object
+    cleaner =
+        java.security.AccessController.doPrivileged(
+            (java.security.PrivilegedAction<Cleaner>) Cleaner::create);
     cleanable = cleaner.register(this, new QatCleaner(session));
     isValid = true;
   }
