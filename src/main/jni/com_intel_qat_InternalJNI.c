@@ -76,7 +76,6 @@ static int setup_deflate_session(QzSession_T *qz_session, int level,
   deflate_params.common_params.polling_mode =
       polling_mode == 0 ? QZ_BUSY_POLLING : QZ_PERIODICAL_POLLING;
 
-//    qzSetLogLevel(LOG_DEBUG1);
   return qzSetupSessionDeflate(qz_session, &deflate_params);
 }
 

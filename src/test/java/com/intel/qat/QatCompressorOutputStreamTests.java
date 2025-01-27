@@ -30,8 +30,7 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
 public class QatCompressorOutputStreamTests {
-  // private static final String SAMPLE_TEXT_PATH = "src/test/resources/sample.txt";
-  private static final String SAMPLE_TEXT_PATH = "src/test/resources/dickens";
+  private static final String SAMPLE_TEXT_PATH = "src/test/resources/sample.txt";
 
   private QatZipper qzip;
   private static byte[] src;

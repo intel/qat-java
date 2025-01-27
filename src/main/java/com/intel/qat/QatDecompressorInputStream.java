@@ -12,7 +12,6 @@ import static com.intel.qat.QatZipper.Mode;
 import static com.intel.qat.QatZipper.PollingMode;
 
 import com.github.luben.zstd.ZstdException;
-import com.github.luben.zstd.ZstdInputStream;
 import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -34,60 +33,11 @@ public class QatDecompressorInputStream extends FilterInputStream {
   private boolean closed;
   private boolean eof;
 
-  // private QatDecompressorInputStream.Cache cache;
-
   /** The default size in bytes of the input buffer (64KB). */
   public static final int DEFAULT_BUFFER_SIZE = 1 << 16;
 
   /** The maximum buffer size in bytes of the input buffer (512KB). */
   public static int MAX_BUFFER_SIZE = 512 * 1024;
-
-  /**
-   * Creates a new input stream with the given parameters.
-   *
-   * @param in the input stream
-   * @param bufferSize the input buffer size
-   * @param algorithm the compression algorithm (deflate or LZ4).
-   * @param mode the mode of operation (HARDWARE - only hardware, AUTO - hardware with a software
-   *     failover.)
-   * @param pmode the polling mode
-   */
-  public QatDecompressorInputStream(
-      InputStream in, int bufferSize, Algorithm algorithm, Mode mode, PollingMode pmode)
-      throws IOException {
-    /*super(in);
-    if (bufferSize <= 0) throw new IllegalArgumentException();
-    Objects.requireNonNull(in);
-    int inputBufferSize = 0;
-    try {
-      inputBufferSize = Math.min(MAX_BUFFER_SIZE, in.available());
-    } catch (IOException ioe) {
-      inputBufferSize = DEFAULT_BUFFER_SIZE;
-    }
-    inputBuffer = new byte[inputBufferSize];
-    outputBuffer = new byte[bufferSize];
-    outputPosition = outputBuffer.length;
-    inputBufferLimit = inputBuffer.length;
-    outputBufferLimit = outputBuffer.length;
-    qzip =
-        new QatZipper.Builder()
-            .setAlgorithm(algorithm)
-            .setMode(mode)
-            .setPollingMode(pmode)
-            .setDataFormat(DataFormat.DEFLATE_GZIP)
-            .build();
-    closed = false;
-    eof = false;
-    */
-    this(
-        algorithm.equals(Algorithm.ZSTD) ? new ZstdInputStream(in) : in,
-        bufferSize,
-        new QatZipper.Builder()
-            .setAlgorithm(algorithm)
-            .setMode(mode)
-            .setPollingMode(pmode)
-            .setHardwareBufferSize(HardwareBufferSize.MAX_BUFFER_SIZE));
-  }
 
   /**
    * Creates a new input stream with the given parameters.
@@ -129,11 +79,9 @@ public class QatDecompressorInputStream extends FilterInputStream {
   public QatDecompressorInputStream(InputStream in, int bufferSize, QatZipper.Builder builder)
       throws IOException {
     super(in);
-    // this.cache = Cache.getInstance();
     if (bufferSize <= 0) throw new IllegalArgumentException();
     Objects.requireNonNull(in);
     if (builder.getAlgorithm().equals(Algorithm.ZSTD)) MAX_BUFFER_SIZE = Integer.MAX_VALUE - 1;
-    // Objects.requireNonNull(this.cache);
     int inputBufferSize = 0;
     try {
       inputBufferSize = Math.max(bufferSize, in.available());
@@ -148,98 +96,7 @@ public class QatDecompressorInputStream extends FilterInputStream {
     outputBufferLimit = outputBuffer.length;
     closed = false;
     eof = false;
-    // qzip = this.cache.get();
-    if (qzip == null) {
-      this.qzip = builder.build();
-    } else if (!builder.equals(qzip)) {
-      // this.cache.add(qzip);
-      this.qzip = builder.build();
-    }
-  }
-
-  /**
-   * Creates a new input stream with {@link DEFAULT_BUFFER_SIZE}, {@link Algorithm#DEFLATE}, {@link
-   * QatZipper#DEFAULT_MODE}, and {@link PollingMode#BUSY}.
-   *
-   * @param in the input stream
-   */
-  /*public QatDecompressorInputStream(InputStream in) {
-    this(in, DEFAULT_BUFFER_SIZE, Algorithm.DEFLATE, QatZipper.DEFAULT_MODE, PollingMode.BUSY);
-  }*/
-
-  /**
-   * Creates a new input stream with {@link Algorithm#DEFLATE}, {@link QatZipper#DEFAULT_MODE}, and
-   * {@link PollingMode#BUSY}.
-   *
-   * @param in the input stream
-   * @param bufferSize the input buffer size
-   */
-  /*public QatDecompressorInputStream(InputStream in, int bufferSize) {
-    this(in, bufferSize, Algorithm.DEFLATE, QatZipper.DEFAULT_MODE, PollingMode.BUSY);
-  }
-
-  /**
-   * Creates a new input stream with the given parameters, {@link QatZipper#DEFAULT_MODE}, and
-   * {@link PollingMode#BUSY}.
-   *
-   * @param in the input stream
-   * @param bufferSize the input buffer size
-   * @param algorithm the compression algorithm (deflate or LZ4).
-   */
-  /*public QatDecompressorInputStream(InputStream in, int bufferSize, Algorithm algorithm) {
-    this(in, bufferSize, algorithm, QatZipper.DEFAULT_MODE, PollingMode.BUSY);
-  }
-
-  /**
-   * Creates a new input stream with the given mode, {@link Algorithm#DEFLATE}, and {@link
-   * PollingMode#BUSY}.
-   *
-   * @param in the input stream
-   * @param bufferSize the input buffer size
-   * @param mode the mode of operation (HARDWARE - only hardware, AUTO - hardware with a software
-   *     failover.)
-   */
-  /*public QatDecompressorInputStream(InputStream in, int bufferSize, Mode mode) {
-    this(in, bufferSize, Algorithm.DEFLATE, mode, PollingMode.BUSY);
-  }
-
-  /**
-   * Creates a new input stream with the given polling mode, {@link Algorithm#DEFLATE} and {@link
-   * QatZipper#DEFAULT_MODE}.
-   *
-   * @param in the input stream
-   * @param bufferSize the input buffer size
-   * @param pmode the polling mode
-   */
-  /*public QatDecompressorInputStream(InputStream in, int bufferSize, PollingMode pmode) {
-    this(in, bufferSize, Algorithm.DEFLATE, QatZipper.DEFAULT_MODE, pmode);
-  }
-
-  /**
-   * Creates a new input stream with the given parameters and {@link PollingMode#BUSY}.
-   *
-   * @param in the input stream
-   * @param bufferSize the input buffer size
-   * @param algorithm the compression algorithm (deflate or LZ4).
-   * @param mode the mode of operation (HARDWARE - only hardware, AUTO - hardware with a software
-   *     failover.)
-   */
-  /*public QatDecompressorInputStream(
-      InputStream in, int bufferSize, Algorithm algorithm, Mode mode) {
-    this(in, bufferSize, algorithm, mode, PollingMode.BUSY);
-  }
-
-  /**
-   * Creates a new input stream with the given parameters and {@link QatZipper#DEFAULT_MODE}.
-   *
-   * @param in the input stream
-   * @param bufferSize the input buffer size
-   * @param algorithm the compression algorithm (deflate or LZ4).
-   * @param pmode the polling mode
-   */
-  /*public QatDecompressorInputStream(
-      InputStream in, int bufferSize, Algorithm algorithm, PollingMode pmode) {
-    this(in, bufferSize, algorithm, QatZipper.DEFAULT_MODE, pmode);
+    this.qzip = builder.build();
   }
 
   /**
@@ -329,7 +186,6 @@ public class QatDecompressorInputStream extends FilterInputStream {
   public void close() throws IOException {
     if (closed) return;
     qzip.end();
-    // cache.add(qzip);
     in.close();
     inputBuffer = null;
     outputBuffer = null;
@@ -375,39 +231,20 @@ public class QatDecompressorInputStream extends FilterInputStream {
   }
 
   private void growOutputBuffer() {
-    /*System.out.println(
-    "PreGrow: outPos:  "
-        + outputPosition
-        + " outLimit: "
-        + outputBufferLimit
-        + " inPos: "
-        + inputPosition
-        + " inLimit "
-        + inputBufferLimit);*/
-
     int oldSize = outputBuffer.length;
     if (oldSize == MAX_BUFFER_SIZE) throw new QatException("Error buffer limit exceeded");
     int newSize = (oldSize > Integer.MAX_VALUE / 2) ? MAX_BUFFER_SIZE : oldSize * 2;
     outputBuffer = new byte[newSize];
     outputPosition = 0;
     outputBufferLimit = outputBuffer.length;
-    // System.out.println("PostGrow: outPos:  " + outputPosition + " outLimit: " +
-    // outputBufferLimit);
   }
 
   private void fill() throws IOException {
     if (eof) return;
 
     // Read from inputStream
-    int bytesRead = 0; // = in.read(inputBuffer, inputPosition, inputBuffer.length - inputPosition);
+    int bytesRead = 0;
     while (inputPosition < inputBufferLimit && bytesRead >= 0) {
-      /*System.out.println(
-      "inWhile: bytesRead:  "
-          + bytesRead
-          + " inPos: "
-          + inputPosition
-          + " inLimit "
-          + inputBufferLimit);*/
       bytesRead = in.read(inputBuffer, inputPosition, inputBufferLimit - inputPosition);
       inputPosition += Math.max(0, bytesRead);
       if (bytesRead < 0 && inputPosition == 0) {
@@ -422,21 +259,6 @@ public class QatDecompressorInputStream extends FilterInputStream {
     int decompressed = 0;
     outputPosition = 0;
     outputBufferLimit = outputBuffer.length;
-    if (inputBufferLimit - inputPosition < 1024) {
-      /*System.out.println(
-      "Pre: outPos:  "
-          + outputPosition
-          + " outLimit: "
-          + outputBufferLimit
-          + " inPos: "
-          + inputPosition
-          + " inLimit "
-          + inputBufferLimit
-          + " bytesRead "
-          + bytesRead
-          + " eof: "
-          + eof);*/
-    }
     for (; (decompressed == 0 && inputPosition == 0); ) {
       try {
         decompressed =
@@ -449,16 +271,6 @@ public class QatDecompressorInputStream extends FilterInputStream {
                 outputBufferLimit - outputPosition);
         inputPosition += qzip.getBytesRead();
         outputPosition += decompressed;
-        /*System.out.println(
-        "Post: outPos:  "
-            + outputPosition
-            + " outLimit: "
-            + outputBufferLimit
-            + " inPos: "
-            + inputPosition
-            + " inLimit "
-            + inputBufferLimit);*/
-
       } catch (ZstdException zstde) {
         growOutputBuffer();
       }
@@ -477,48 +289,7 @@ public class QatDecompressorInputStream extends FilterInputStream {
       inputBufferLimit = inputBuffer.length;
     }
     if (decompressed == 0) {
-      /*System.out.println(
-            "PreFill: outPos:  "
-                + outputPosition
-                + " outLimit: "
-                + outputBufferLimit
-                + " inPos: "
-                + inputPosition
-                + " inLimit "
-                + inputBufferLimit);
-      */
       fill();
-    }
-  }
-
-  public static class Cache {
-    private static Cache instance;
-    // private final ConcurrentSkipListMap<Date, QatZipper> map;
-    private final ArrayBlockingQueue<QatZipper> queue;
-
-    private Cache() {
-      // map = new ConcurrentSkipListMap<Date, QatZipper>();
-      queue = new ArrayBlockingQueue<QatZipper>(20);
-    }
-
-    public static Cache getInstance() {
-      if (instance == null) {
-        synchronized (Cache.class) {
-          if (instance == null) instance = new Cache();
-        }
-      }
-      return instance;
-    }
-
-    public void add(QatZipper qzip) {
-      // map.put(new Date(), qzip);
-      queue.offer(qzip);
-    }
-
-    public QatZipper get() {
-      // Map.Entry<Date, QatZipper> entry = map.pollFirstEntry();
-      // return entry == null ? null : entry.getValue();
-      return queue.poll();
     }
   }
 }

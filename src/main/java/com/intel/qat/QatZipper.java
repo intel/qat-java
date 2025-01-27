@@ -390,29 +390,6 @@ public class QatZipper {
           + "}";
     }
 
-    @Override
-    public boolean equals(Object obj) {
-      // if (!(obj instanceof QatZipper)) return false;
-      if ((obj instanceof QatZipper)) {
-        QatZipper other = (QatZipper) obj;
-        return algorithm.equals(other.algorithm)
-            && mode.equals(other.mode)
-            && dataFormat.equals(other.dataFormat)
-            && pollingMode.equals(other.pollingMode)
-            && hwBufferSize == other.hwBufferSize
-            && level == other.level;
-      } else if ((obj instanceof Builder)) {
-        Builder other = (Builder) obj;
-        return algorithm.equals(other.algorithm)
-            && mode.equals(other.mode)
-            && dataFormat.equals(other.dataFormat)
-            && pollingMode.equals(other.pollingMode)
-            && hwBufferSize == other.hwBufferSize
-            && level == other.level;
-      } else return false;
-    }
-  }
-
   private QatZipper(Builder builder) throws QatException {
     algorithm = builder.algorithm;
     level = builder.level;
