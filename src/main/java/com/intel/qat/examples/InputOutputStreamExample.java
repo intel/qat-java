@@ -6,6 +6,8 @@
 
 package com.intel.qat.examples;
 
+import static com.intel.qat.QatZipper.Algorithm;
+
 import com.intel.qat.QatCompressorOutputStream;
 import com.intel.qat.QatDecompressorInputStream;
 import java.io.ByteArrayInputStream;
@@ -26,7 +28,8 @@ public class InputOutputStreamExample {
       byte[] compressedData = compressedOutput.toByteArray();
 
       ByteArrayInputStream compressedInput = new ByteArrayInputStream(compressedData);
-      QatDecompressorInputStream qatInputStream = new QatDecompressorInputStream(compressedInput);
+      QatDecompressorInputStream qatInputStream =
+          new QatDecompressorInputStream(compressedInput, Algorithm.DEFLATE);
       ByteArrayOutputStream decompressedOutput = new ByteArrayOutputStream();
 
       byte[] buffer = new byte[1024];

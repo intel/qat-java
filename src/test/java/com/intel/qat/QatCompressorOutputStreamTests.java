@@ -30,7 +30,8 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
 public class QatCompressorOutputStreamTests {
-  private static final String SAMPLE_TEXT_PATH = "src/test/resources/sample.txt";
+  // private static final String SAMPLE_TEXT_PATH = "src/test/resources/sample.txt";
+  private static final String SAMPLE_TEXT_PATH = "src/test/resources/dickens";
 
   private QatZipper qzip;
   private static byte[] src;
@@ -52,7 +53,9 @@ public class QatCompressorOutputStreamTests {
         ? Stream.of(
             Arguments.of(Mode.AUTO, Algorithm.DEFLATE),
             Arguments.of(Mode.AUTO, Algorithm.LZ4),
+            Arguments.of(Mode.AUTO, Algorithm.ZSTD),
             Arguments.of(Mode.HARDWARE, Algorithm.DEFLATE),
+            Arguments.of(Mode.HARDWARE, Algorithm.ZSTD),
             Arguments.of(Mode.HARDWARE, Algorithm.LZ4))
         : Stream.of(
             Arguments.of(Mode.AUTO, Algorithm.DEFLATE), Arguments.of(Mode.AUTO, Algorithm.LZ4));
@@ -69,6 +72,10 @@ public class QatCompressorOutputStreamTests {
             Arguments.of(Mode.AUTO, Algorithm.LZ4, 65536),
             Arguments.of(Mode.AUTO, Algorithm.LZ4, 524288),
             Arguments.of(Mode.AUTO, Algorithm.LZ4, 1048576),
+            Arguments.of(Mode.AUTO, Algorithm.ZSTD, 16384),
+            Arguments.of(Mode.AUTO, Algorithm.ZSTD, 65536),
+            Arguments.of(Mode.AUTO, Algorithm.ZSTD, 524288),
+            Arguments.of(Mode.AUTO, Algorithm.ZSTD, 1048576),
             Arguments.of(Mode.HARDWARE, Algorithm.DEFLATE, 16384),
             Arguments.of(Mode.HARDWARE, Algorithm.DEFLATE, 65536),
             Arguments.of(Mode.HARDWARE, Algorithm.DEFLATE, 524288),
@@ -76,7 +83,11 @@ public class QatCompressorOutputStreamTests {
             Arguments.of(Mode.HARDWARE, Algorithm.LZ4, 16384),
             Arguments.of(Mode.HARDWARE, Algorithm.LZ4, 65536),
             Arguments.of(Mode.HARDWARE, Algorithm.LZ4, 524288),
-            Arguments.of(Mode.HARDWARE, Algorithm.LZ4, 1048576))
+            Arguments.of(Mode.HARDWARE, Algorithm.LZ4, 1048576),
+            Arguments.of(Mode.HARDWARE, Algorithm.ZSTD, 16384),
+            Arguments.of(Mode.HARDWARE, Algorithm.ZSTD, 65536),
+            Arguments.of(Mode.HARDWARE, Algorithm.ZSTD, 524288),
+            Arguments.of(Mode.HARDWARE, Algorithm.ZSTD, 1048576))
         : Stream.of(
             Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 16384),
             Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 65536),
@@ -85,7 +96,11 @@ public class QatCompressorOutputStreamTests {
             Arguments.of(Mode.AUTO, Algorithm.LZ4, 16384),
             Arguments.of(Mode.AUTO, Algorithm.LZ4, 65536),
             Arguments.of(Mode.AUTO, Algorithm.LZ4, 524288),
-            Arguments.of(Mode.AUTO, Algorithm.LZ4, 1048576));
+            Arguments.of(Mode.AUTO, Algorithm.LZ4, 1048576),
+            Arguments.of(Mode.AUTO, Algorithm.ZSTD, 16384),
+            Arguments.of(Mode.AUTO, Algorithm.ZSTD, 65536),
+            Arguments.of(Mode.AUTO, Algorithm.ZSTD, 524288),
+            Arguments.of(Mode.AUTO, Algorithm.ZSTD, 1048576));
   }
 
   public static Stream<Arguments> provideAlgorithmLevelParams() {
@@ -99,6 +114,17 @@ public class QatCompressorOutputStreamTests {
         Arguments.of(Algorithm.DEFLATE, 7),
         Arguments.of(Algorithm.DEFLATE, 8),
         Arguments.of(Algorithm.DEFLATE, 9),
+        Arguments.of(Algorithm.ZSTD, -7),
+        Arguments.of(Algorithm.ZSTD, 1),
+        Arguments.of(Algorithm.ZSTD, 2),
+        Arguments.of(Algorithm.ZSTD, 3),
+        Arguments.of(Algorithm.ZSTD, 4),
+        Arguments.of(Algorithm.ZSTD, 5),
+        Arguments.of(Algorithm.ZSTD, 6),
+        Arguments.of(Algorithm.ZSTD, 7),
+        Arguments.of(Algorithm.ZSTD, 8),
+        Arguments.of(Algorithm.ZSTD, 9),
+        Arguments.of(Algorithm.ZSTD, 22),
         Arguments.of(Algorithm.LZ4, 1),
         Arguments.of(Algorithm.LZ4, 2),
         Arguments.of(Algorithm.LZ4, 3),

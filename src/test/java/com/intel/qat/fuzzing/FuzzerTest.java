@@ -529,8 +529,7 @@ public class FuzzerTest {
     ByteArrayOutputStream resultStream = new ByteArrayOutputStream();
     ByteArrayInputStream inputStream = new ByteArrayInputStream(outputStreamBuf);
     try (QatDecompressorInputStream decompressedStream =
-        new QatDecompressorInputStream(
-            inputStream, decompressBufferSize, algo, QatZipper.Mode.AUTO)) {
+        new QatDecompressorInputStream(inputStream, decompressBufferSize, algo)) {
       int bytesRead;
       while ((bytesRead = decompressedStream.read(buffer)) != -1) {
         resultStream.write(buffer, 0, bytesRead);
@@ -564,8 +563,7 @@ public class FuzzerTest {
     ByteArrayOutputStream resultStream = new ByteArrayOutputStream();
     ByteArrayInputStream inputStream = new ByteArrayInputStream(outputStreamBuf);
     try (QatDecompressorInputStream decompressedStream =
-        new QatDecompressorInputStream(
-            inputStream, decompressBufferSize, algo, QatZipper.Mode.AUTO)) {
+        new QatDecompressorInputStream(inputStream, decompressBufferSize, algo)) {
       int bytesRead;
       while ((bytesRead = decompressedStream.read(buffer)) != -1) {
         resultStream.write(buffer, 0, bytesRead);
@@ -597,8 +595,7 @@ public class FuzzerTest {
     ByteArrayOutputStream resultStream = new ByteArrayOutputStream();
     ByteArrayInputStream inputStream = new ByteArrayInputStream(outputStreamBuf);
     try (QatDecompressorInputStream decompressedStream =
-        new QatDecompressorInputStream(
-            inputStream, decompressBufferSize, algo, QatZipper.Mode.AUTO)) {
+        new QatDecompressorInputStream(inputStream, decompressBufferSize, algo)) {
       int bytesRead;
       while ((bytesRead = decompressedStream.read()) != -1) {
         resultStream.write(bytesRead);
@@ -631,8 +628,7 @@ public class FuzzerTest {
     ByteArrayOutputStream resultStream = new ByteArrayOutputStream();
     ByteArrayInputStream inputStream = new ByteArrayInputStream(outputStreamBuf);
     try (QatDecompressorInputStream decompressedStream =
-        new QatDecompressorInputStream(
-            inputStream, decompressBufferSize, algo, QatZipper.Mode.AUTO)) {
+        new QatDecompressorInputStream(inputStream, decompressBufferSize, algo)) {
       int bytesRead;
       while ((bytesRead = decompressedStream.read()) != -1) {
         resultStream.write(bytesRead);

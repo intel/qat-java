@@ -288,6 +288,15 @@ public class QatZipper {
     }
 
     /**
+     * Gets the compression {@link Algorithm}.
+     *
+     * @return The Algorithm.
+     */
+    Algorithm getAlgorithm() {
+      return this.algorithm;
+    }
+
+    /**
      * Sets the compression level.
      *
      * @param level the compression level.
@@ -379,6 +388,28 @@ public class QatZipper {
           + "', hardwareBufferSize="
           + hwBufferSize
           + "}";
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      // if (!(obj instanceof QatZipper)) return false;
+      if ((obj instanceof QatZipper)) {
+        QatZipper other = (QatZipper) obj;
+        return algorithm.equals(other.algorithm)
+            && mode.equals(other.mode)
+            && dataFormat.equals(other.dataFormat)
+            && pollingMode.equals(other.pollingMode)
+            && hwBufferSize == other.hwBufferSize
+            && level == other.level;
+      } else if ((obj instanceof Builder)) {
+        Builder other = (Builder) obj;
+        return algorithm.equals(other.algorithm)
+            && mode.equals(other.mode)
+            && dataFormat.equals(other.dataFormat)
+            && pollingMode.equals(other.pollingMode)
+            && hwBufferSize == other.hwBufferSize
+            && level == other.level;
+      } else return false;
     }
   }
 
