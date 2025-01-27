@@ -248,6 +248,32 @@ public class QatZipper {
   }
 
   /**
+   * Checks if QAT hardware is available.
+   *
+   * <p>return true if QAT is available, false otherwise.
+   */
+  public boolean isQatAvailable() {
+    return QatAvailableHolder.IS_QAT_AVAILABLE;
+  }
+
+  /** Defers static initialization until {@link #isQatAvailable()} is invoked. */
+  private static class QatAvailableHolder {
+    static final boolean IS_QAT_AVAILABLE;
+
+    static {
+      boolean isQatAvailable;
+      try {
+        final QatZipper qzip = new QatZipper();
+        qzip.end();
+        isQatAvailable = true;
+      } catch (UnsatisfiedLinkError | ExceptionInInitializerError | NoClassDefFoundError e) {
+        isQatAvailable = false;
+      }
+      IS_QAT_AVAILABLE = isQatAvailable;
+    }
+  }
+
+  /**
    * Builder is used to build instances of {@link QatZipper} from values configured by the setters.
    */
   public static class Builder {
@@ -424,6 +450,35 @@ public class QatZipper {
             (java.security.PrivilegedAction<Cleaner>) Cleaner::create);
     cleanable = cleaner.register(this, new QatCleaner(session));
     isValid = true;
+  }
+
+  /**
+   * Returns an instance of {@link QatZipper} that uses default values for all parameters.
+   *
+   * <p>return A QatZipper.
+   */
+  public QatZipper() {
+    this(new Builder());
+  }
+
+  /**
+   * Returns an instance of {@link QatZipper} that uses the provided algorithm. Default values are
+   * used for all the other parameters.
+   *
+   * <p>return A QatZipper.
+   */
+  public QatZipper(Algorithm algorithm) {
+    this(new Builder().setAlgorithm(algorithm));
+  }
+
+  /**
+   * Returns an instance of {@link QatZipper} that uses the provided algorithm and compression
+   * level. Default values are used for all the other parameters.
+   *
+   * <p>return A QatZipper.
+   */
+  public QatZipper(Algorithm algorithm, int level) {
+    this(new Builder().setAlgorithm(algorithm).setLevel(level));
   }
 
   /**
