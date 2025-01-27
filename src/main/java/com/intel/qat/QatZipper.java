@@ -379,6 +379,7 @@ public class QatZipper {
           + hwBufferSize
           + "}";
     }
+  }
 
   private QatZipper(Builder builder) throws QatException {
     algorithm = builder.algorithm;

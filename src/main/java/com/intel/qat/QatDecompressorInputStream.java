@@ -8,15 +8,12 @@ package com.intel.qat;
 
 import static com.intel.qat.QatZipper.Algorithm;
 import static com.intel.qat.QatZipper.HardwareBufferSize;
-import static com.intel.qat.QatZipper.Mode;
-import static com.intel.qat.QatZipper.PollingMode;
 
 import com.github.luben.zstd.ZstdException;
 import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Objects;
-import java.util.concurrent.ArrayBlockingQueue;
 
 /**
  * This class implements an InputStream filter that decompresses data using Intel &reg; QuickAssist

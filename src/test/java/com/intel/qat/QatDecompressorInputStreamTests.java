@@ -30,8 +30,7 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
 public class QatDecompressorInputStreamTests {
-  // private static final String SAMPLE_TEXT_PATH = "src/test/resources/sample.txt";
-  private static final String SAMPLE_TEXT_PATH = "src/test/resources/dickens";
+  private static final String SAMPLE_TEXT_PATH = "src/test/resources/sample.txt";
   private static byte[] src;
   private static byte[] deflateBytes;
   private static byte[] lz4Bytes;
