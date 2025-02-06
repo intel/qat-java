@@ -7,7 +7,6 @@
 package com.intel.qat;
 
 import static com.intel.qat.QatZipper.Algorithm;
-import static com.intel.qat.QatZipper.HardwareBufferSize;
 
 import com.github.luben.zstd.ZstdException;
 import java.io.FilterInputStream;
@@ -48,12 +47,7 @@ public class QatDecompressorInputStream extends FilterInputStream {
    */
   public QatDecompressorInputStream(InputStream in, int bufferSize, Algorithm algorithm)
       throws IOException {
-    this(
-        in,
-        bufferSize,
-        new QatZipper.Builder()
-            .setAlgorithm(algorithm)
-            .setHardwareBufferSize(HardwareBufferSize.MAX_BUFFER_SIZE));
+    this(in, bufferSize, new QatZipper.Builder().setAlgorithm(algorithm));
   }
 
   /**
