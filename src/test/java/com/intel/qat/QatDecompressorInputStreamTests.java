@@ -299,7 +299,7 @@ public class QatDecompressorInputStreamTests {
   @MethodSource("provideModeAlgorithmLengthParams")
   public void testInputStreamReadShort2(Mode mode, Algorithm algo, int bufferSize)
       throws IOException {
-    byte[] newSrc = Arrays.copyOf(src, 33);
+    byte[] newSrc = Arrays.copyOf(src, 1024);
     ByteArrayOutputStream outStream = new ByteArrayOutputStream();
     try (QatCompressorOutputStream outputStream =
         new QatCompressorOutputStream(outStream, bufferSize, algo, mode)) {
