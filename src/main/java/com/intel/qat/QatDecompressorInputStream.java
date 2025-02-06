@@ -15,7 +15,7 @@ import java.io.InputStream;
 import java.util.Objects;
 
 /**
- * This class implements an InputStream filter that decompresses data using Intel &reg; QuickAssist
+ * This class implements an InputStream that decompresses data using Intel &reg; QuickAssist
  * Technology (QAT).
  */
 public class QatDecompressorInputStream extends FilterInputStream {
@@ -40,7 +40,7 @@ public class QatDecompressorInputStream extends FilterInputStream {
    *
    * @param in the input stream
    * @param bufferSize the input buffer size
-   * @param algorithm the compression algorithm (deflate or LZ4).
+   * @param algorithm the compression algorithm.
    */
   public QatDecompressorInputStream(InputStream in, int bufferSize, Algorithm algorithm) {
     this(in, bufferSize, new QatZipper.Builder().setAlgorithm(algorithm));
@@ -50,7 +50,7 @@ public class QatDecompressorInputStream extends FilterInputStream {
    * Creates a new input stream with the given parameters.
    *
    * @param in the input stream
-   * @param algorithm the compression algorithm (deflate or LZ4).
+   * @param algorithm the compression algorithm.
    */
   public QatDecompressorInputStream(InputStream in, Algorithm algorithm) {
     this(in, DEFAULT_BUFFER_SIZE, algorithm);

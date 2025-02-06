@@ -520,8 +520,7 @@ public class FuzzerTest {
     QatZipper.Algorithm algo = QatZipper.Algorithm.DEFLATE;
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     try (QatCompressorOutputStream compressedStream =
-        new QatCompressorOutputStream(
-            outputStream, compressBufferSize, algo, QatZipper.Mode.AUTO)) {
+        new QatCompressorOutputStream(outputStream, compressBufferSize, algo)) {
       compressedStream.write(src);
     }
     byte[] outputStreamBuf = outputStream.toByteArray();
@@ -554,8 +553,7 @@ public class FuzzerTest {
     QatZipper.Algorithm algo = QatZipper.Algorithm.LZ4;
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     try (QatCompressorOutputStream compressedStream =
-        new QatCompressorOutputStream(
-            outputStream, compressBufferSize, algo, QatZipper.Mode.AUTO)) {
+        new QatCompressorOutputStream(outputStream, compressBufferSize, algo)) {
       compressedStream.write(src);
     }
     byte[] outputStreamBuf = outputStream.toByteArray();
@@ -587,8 +585,7 @@ public class FuzzerTest {
     QatZipper.Algorithm algo = QatZipper.Algorithm.DEFLATE;
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     try (QatCompressorOutputStream compressedStream =
-        new QatCompressorOutputStream(
-            outputStream, compressBufferSize, algo, QatZipper.Mode.AUTO)) {
+        new QatCompressorOutputStream(outputStream, compressBufferSize, algo)) {
       compressedStream.write(src);
     }
     byte[] outputStreamBuf = outputStream.toByteArray();
@@ -620,8 +617,7 @@ public class FuzzerTest {
     QatZipper.Algorithm algo = QatZipper.Algorithm.LZ4;
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     try (QatCompressorOutputStream compressedStream =
-        new QatCompressorOutputStream(
-            outputStream, compressBufferSize, algo, QatZipper.Mode.AUTO)) {
+        new QatCompressorOutputStream(outputStream, compressBufferSize, algo)) {
       compressedStream.write(src);
     }
     byte[] outputStreamBuf = outputStream.toByteArray();

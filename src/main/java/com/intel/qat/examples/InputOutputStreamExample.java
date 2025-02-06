@@ -21,7 +21,8 @@ public class InputOutputStreamExample {
       byte[] dataToCompress = "The quick brown fox jumps over the lazy dog.".getBytes("UTF-8");
 
       ByteArrayOutputStream compressedOutput = new ByteArrayOutputStream();
-      QatCompressorOutputStream qatOutputStream = new QatCompressorOutputStream(compressedOutput);
+      QatCompressorOutputStream qatOutputStream =
+          new QatCompressorOutputStream(compressedOutput, Algorithm.DEFLATE);
       qatOutputStream.write(dataToCompress);
       qatOutputStream.close();
 

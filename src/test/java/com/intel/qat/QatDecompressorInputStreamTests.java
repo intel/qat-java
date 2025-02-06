@@ -42,19 +42,19 @@ public class QatDecompressorInputStreamTests {
     src = Files.readAllBytes(Paths.get(SAMPLE_TEXT_PATH));
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     try (QatCompressorOutputStream compressedStream =
-        new QatCompressorOutputStream(outputStream, 16 * 1024, Algorithm.LZ4, Mode.AUTO)) {
+        new QatCompressorOutputStream(outputStream, 16 * 1024, Algorithm.LZ4)) {
       compressedStream.write(src);
     }
     lz4Bytes = outputStream.toByteArray();
     ByteArrayOutputStream outputStream2 = new ByteArrayOutputStream();
     try (QatCompressorOutputStream compressedStream =
-        new QatCompressorOutputStream(outputStream2, 16 * 1024, Algorithm.DEFLATE, Mode.AUTO)) {
+        new QatCompressorOutputStream(outputStream2, 16 * 1024, Algorithm.DEFLATE)) {
       compressedStream.write(src);
     }
     deflateBytes = outputStream2.toByteArray();
     ByteArrayOutputStream outputStream3 = new ByteArrayOutputStream();
     try (QatCompressorOutputStream compressedStream =
-        new QatCompressorOutputStream(outputStream3, 16 * 1024, Algorithm.ZSTD, Mode.AUTO)) {
+        new QatCompressorOutputStream(outputStream3, 16 * 1024, Algorithm.ZSTD)) {
       compressedStream.write(src);
     }
     zstdBytes = outputStream3.toByteArray();
@@ -278,7 +278,8 @@ public class QatDecompressorInputStreamTests {
     byte[] newSrc = Arrays.copyOf(src, bufferSize / 2);
     ByteArrayOutputStream outStream = new ByteArrayOutputStream();
     try (QatCompressorOutputStream outputStream =
-        new QatCompressorOutputStream(outStream, bufferSize, algo, mode)) {
+        new QatCompressorOutputStream(
+            outStream, bufferSize, new QatZipper.Builder().setAlgorithm(algo).setMode(mode))) {
       outputStream.write(newSrc);
     }
     byte[] compressedBytes = outStream.toByteArray();
@@ -302,7 +303,8 @@ public class QatDecompressorInputStreamTests {
     byte[] newSrc = Arrays.copyOf(src, 1024);
     ByteArrayOutputStream outStream = new ByteArrayOutputStream();
     try (QatCompressorOutputStream outputStream =
-        new QatCompressorOutputStream(outStream, bufferSize, algo, mode)) {
+        new QatCompressorOutputStream(
+            outStream, bufferSize, new QatZipper.Builder().setAlgorithm(algo).setMode(mode))) {
       outputStream.write(newSrc);
     }
     byte[] compressedBytes = outStream.toByteArray();
@@ -438,7 +440,8 @@ public class QatDecompressorInputStreamTests {
   public void testInputStreamSkip(Mode mode, Algorithm algo, int bytesToSkip) throws IOException {
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     try (QatCompressorOutputStream compressedStream =
-        new QatCompressorOutputStream(outputStream, 16 * 1024, algo, mode)) {
+        new QatCompressorOutputStream(
+            outputStream, 16 * 1024, new QatZipper.Builder().setAlgorithm(algo).setMode(mode))) {
       compressedStream.write(src);
       compressedStream.write(new byte[bytesToSkip]);
       compressedStream.write(src);

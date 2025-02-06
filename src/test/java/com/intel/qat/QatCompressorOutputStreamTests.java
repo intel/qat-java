@@ -138,32 +138,21 @@ public class QatCompressorOutputStreamTests {
     ByteArrayOutputStream outputStream = null;
     try {
       try (QatCompressorOutputStream compressedStream =
-          new QatCompressorOutputStream(outputStream, 16 * 1024)) {}
+          new QatCompressorOutputStream(outputStream, Algorithm.DEFLATE)) {}
       fail("Failed to catch NullPointerException");
     } catch (NullPointerException | IOException e) {
       assertTrue(true);
     }
   }
 
-  @Test
-  public void testOutputStreamConstructor() throws IOException {
+  @ParameterizedTest
+  @EnumSource(Algorithm.class)
+  public void testOutputStreamOneArgConstructor(Algorithm algo) throws IOException {
     assumeTrue(QatTestSuite.FORCE_HARDWARE);
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     try {
       try (QatCompressorOutputStream compressedStream =
-          new QatCompressorOutputStream(outputStream, 16 * 1024)) {}
-    } catch (IOException | IllegalArgumentException | QatException e) {
-      fail(e.getMessage());
-    }
-  }
-
-  @Test
-  public void testOutputStreamOneArgConstructor() throws IOException {
-    assumeTrue(QatTestSuite.FORCE_HARDWARE);
-    ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-    try {
-      try (QatCompressorOutputStream compressedStream =
-          new QatCompressorOutputStream(outputStream)) {}
+          new QatCompressorOutputStream(outputStream, algo)) {}
     } catch (IOException | IllegalArgumentException | QatException e) {
       fail(e.getMessage());
     }
@@ -189,7 +178,10 @@ public class QatCompressorOutputStreamTests {
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     try {
       try (QatCompressorOutputStream compressedStream =
-          new QatCompressorOutputStream(outputStream, 16 * 1024, algo, level)) {}
+          new QatCompressorOutputStream(
+              outputStream,
+              16 * 1024,
+              new QatZipper.Builder().setAlgorithm(algo).setLevel(level))) {}
     } catch (IOException | IllegalArgumentException | QatException e) {
       fail(e.getMessage());
     }
@@ -201,7 +193,8 @@ public class QatCompressorOutputStreamTests {
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     try {
       try (QatCompressorOutputStream compressedStream =
-          new QatCompressorOutputStream(outputStream, 16 * 1024, algo, mode)) {}
+          new QatCompressorOutputStream(
+              outputStream, 16 * 1024, new QatZipper.Builder().setAlgorithm(algo).setMode(mode))) {}
     } catch (IOException | IllegalArgumentException | QatException e) {
       fail(e.getMessage());
     }
@@ -212,7 +205,7 @@ public class QatCompressorOutputStreamTests {
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     try {
       try (QatCompressorOutputStream compressedStream =
-          new QatCompressorOutputStream(outputStream, 0)) {
+          new QatCompressorOutputStream(outputStream, 0, Algorithm.LZ4)) {
         fail("Failed to catch IllegalArgumentException");
       }
     } catch (IllegalArgumentException e) {
@@ -226,7 +219,8 @@ public class QatCompressorOutputStreamTests {
     qzip = new QatZipper.Builder().setAlgorithm(algo).setMode(mode).build();
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     try (QatCompressorOutputStream compressedStream =
-        new QatCompressorOutputStream(outputStream, size, algo, mode)) {
+        new QatCompressorOutputStream(
+            outputStream, size, new QatZipper.Builder().setAlgorithm(algo).setMode(mode))) {
       compressedStream.write(src);
     }
     byte[] outputStreamBuf = outputStream.toByteArray();
@@ -243,7 +237,8 @@ public class QatCompressorOutputStreamTests {
     byte[] src = Files.readAllBytes(Paths.get(SAMPLE_TEXT_PATH));
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     try (QatCompressorOutputStream compressedStream =
-        new QatCompressorOutputStream(outputStream, size, algo, mode)) {
+        new QatCompressorOutputStream(
+            outputStream, size, new QatZipper.Builder().setAlgorithm(algo).setMode(mode))) {
       int i;
       int len = 0;
       for (i = 0; i < src.length; i += len) {
@@ -266,7 +261,8 @@ public class QatCompressorOutputStreamTests {
     byte[] src = Files.readAllBytes(Paths.get(SAMPLE_TEXT_PATH));
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     try (QatCompressorOutputStream compressedStream =
-        new QatCompressorOutputStream(outputStream, size, algo, mode)) {
+        new QatCompressorOutputStream(
+            outputStream, size, new QatZipper.Builder().setAlgorithm(algo).setMode(mode))) {
       int i;
       int len = 0;
       for (i = 0; i < src.length; i += len) {
@@ -294,7 +290,8 @@ public class QatCompressorOutputStreamTests {
     byte[] src = Files.readAllBytes(Paths.get(SAMPLE_TEXT_PATH));
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     try (QatCompressorOutputStream compressedStream =
-        new QatCompressorOutputStream(outputStream, size, algo, mode)) {
+        new QatCompressorOutputStream(
+            outputStream, size, new QatZipper.Builder().setAlgorithm(algo).setMode(mode))) {
       int i;
       int len = 0;
       for (i = 0; i < src.length; i += len) {
@@ -319,7 +316,8 @@ public class QatCompressorOutputStreamTests {
     byte[] src = Files.readAllBytes(Paths.get(SAMPLE_TEXT_PATH));
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     QatCompressorOutputStream compressedStream =
-        new QatCompressorOutputStream(outputStream, size, algo, mode);
+        new QatCompressorOutputStream(
+            outputStream, size, new QatZipper.Builder().setAlgorithm(algo).setMode(mode));
     compressedStream.close();
     try {
       compressedStream.write(src);
@@ -336,7 +334,8 @@ public class QatCompressorOutputStreamTests {
     byte[] src = Files.readAllBytes(Paths.get(SAMPLE_TEXT_PATH));
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     QatCompressorOutputStream compressedStream =
-        new QatCompressorOutputStream(outputStream, size, algo, mode);
+        new QatCompressorOutputStream(
+            outputStream, size, new QatZipper.Builder().setAlgorithm(algo).setMode(mode));
     compressedStream.close();
     try {
       compressedStream.write(src[0]);
@@ -352,7 +351,8 @@ public class QatCompressorOutputStreamTests {
       throws IOException {
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     QatCompressorOutputStream compressedStream =
-        new QatCompressorOutputStream(outputStream, size, algo, mode);
+        new QatCompressorOutputStream(
+            outputStream, size, new QatZipper.Builder().setAlgorithm(algo).setMode(mode));
     compressedStream.close();
     try {
       compressedStream.flush();
@@ -367,7 +367,8 @@ public class QatCompressorOutputStreamTests {
   public void testOutputStreamDoubleClose(Mode mode, Algorithm algo, int size) throws IOException {
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     QatCompressorOutputStream compressedStream =
-        new QatCompressorOutputStream(outputStream, size, algo, mode);
+        new QatCompressorOutputStream(
+            outputStream, size, new QatZipper.Builder().setAlgorithm(algo).setMode(mode));
     compressedStream.close();
     compressedStream.close();
     assertTrue(true);
@@ -380,7 +381,8 @@ public class QatCompressorOutputStreamTests {
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     final byte[] preResult;
     try (QatCompressorOutputStream compressedStream =
-        new QatCompressorOutputStream(outputStream, size, algo, mode)) {
+        new QatCompressorOutputStream(
+            outputStream, size, new QatZipper.Builder().setAlgorithm(algo).setMode(mode))) {
       compressedStream.write(src);
       preResult = outputStream.toByteArray();
     }
@@ -399,7 +401,8 @@ public class QatCompressorOutputStreamTests {
     qzip = new QatZipper.Builder().setAlgorithm(algo).setMode(mode).build();
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     try (QatCompressorOutputStream compressedStream =
-        new QatCompressorOutputStream(outputStream, 16 * 1024, algo, mode)) {
+        new QatCompressorOutputStream(
+            outputStream, 16 * 1024, new QatZipper.Builder().setAlgorithm(algo).setMode(mode))) {
       try {
         compressedStream.write(null, 33, 100);
         fail("Failed to catch NullPointerException");
@@ -416,7 +419,8 @@ public class QatCompressorOutputStreamTests {
     byte[] src = Files.readAllBytes(Paths.get(SAMPLE_TEXT_PATH));
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     try (QatCompressorOutputStream compressedStream =
-        new QatCompressorOutputStream(outputStream, 16 * 1024, algo, mode)) {
+        new QatCompressorOutputStream(
+            outputStream, 16 * 1024, new QatZipper.Builder().setAlgorithm(algo).setMode(mode))) {
       try {
         compressedStream.write(src, -33, 100);
         fail("Failed to catch IndexOutOfBoundsException");
@@ -433,7 +437,8 @@ public class QatCompressorOutputStreamTests {
     byte[] src = Files.readAllBytes(Paths.get(SAMPLE_TEXT_PATH));
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     try (QatCompressorOutputStream compressedStream =
-        new QatCompressorOutputStream(outputStream, 16 * 1024, algo, mode)) {
+        new QatCompressorOutputStream(
+            outputStream, 16 * 1024, new QatZipper.Builder().setAlgorithm(algo).setMode(mode))) {
       try {
         compressedStream.write(src, src.length - 1, -100);
         fail("Failed to catch IndexOutOfBoundsException");
@@ -451,7 +456,8 @@ public class QatCompressorOutputStreamTests {
     byte[] src = Files.readAllBytes(Paths.get(SAMPLE_TEXT_PATH));
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     try (QatCompressorOutputStream compressedStream =
-        new QatCompressorOutputStream(outputStream, 16 * 1024, algo, mode)) {
+        new QatCompressorOutputStream(
+            outputStream, 16 * 1024, new QatZipper.Builder().setAlgorithm(algo).setMode(mode))) {
       try {
         compressedStream.write(src, src.length - 1, 100);
         fail("Failed to catch IndexOutOfBoundsException");
