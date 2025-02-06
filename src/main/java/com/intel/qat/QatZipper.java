@@ -250,7 +250,7 @@ public class QatZipper {
   /**
    * Checks if QAT hardware is available.
    *
-   * <p>return true if QAT is available, false otherwise.
+   * @return true if QAT is available, false otherwise.
    */
   public boolean isQatAvailable() {
     return QatAvailableHolder.IS_QAT_AVAILABLE;
@@ -465,7 +465,8 @@ public class QatZipper {
    * Returns an instance of {@link QatZipper} that uses the provided algorithm. Default values are
    * used for all the other parameters.
    *
-   * <p>return A QatZipper.
+   * @param algorithm the {@link Algorithm}.
+   *     <p>return A QatZipper.
    */
   public QatZipper(Algorithm algorithm) {
     this(new Builder().setAlgorithm(algorithm));
@@ -475,7 +476,9 @@ public class QatZipper {
    * Returns an instance of {@link QatZipper} that uses the provided algorithm and compression
    * level. Default values are used for all the other parameters.
    *
-   * <p>return A QatZipper.
+   * @param algorithm the {@link Algorithm}.
+   * @param level the compression level.
+   *     <p>return A QatZipper.
    */
   public QatZipper(Algorithm algorithm, int level) {
     this(new Builder().setAlgorithm(algorithm).setLevel(level));

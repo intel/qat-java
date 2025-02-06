@@ -41,12 +41,8 @@ public class QatDecompressorInputStream extends FilterInputStream {
    * @param in the input stream
    * @param bufferSize the input buffer size
    * @param algorithm the compression algorithm (deflate or LZ4).
-   * @param mode the mode of operation (HARDWARE - only hardware, AUTO - hardware with a software
-   *     failover.)
-   * @param pmode the polling mode
    */
-  public QatDecompressorInputStream(InputStream in, int bufferSize, Algorithm algorithm)
-      throws IOException {
+  public QatDecompressorInputStream(InputStream in, int bufferSize, Algorithm algorithm) {
     this(in, bufferSize, new QatZipper.Builder().setAlgorithm(algorithm));
   }
 
@@ -56,7 +52,7 @@ public class QatDecompressorInputStream extends FilterInputStream {
    * @param in the input stream
    * @param algorithm the compression algorithm (deflate or LZ4).
    */
-  public QatDecompressorInputStream(InputStream in, Algorithm algorithm) throws IOException {
+  public QatDecompressorInputStream(InputStream in, Algorithm algorithm) {
     this(in, DEFAULT_BUFFER_SIZE, algorithm);
   }
 
@@ -67,8 +63,7 @@ public class QatDecompressorInputStream extends FilterInputStream {
    * @param bufferSize the input buffer size
    * @param builder pre configured QatZipper builder
    */
-  public QatDecompressorInputStream(InputStream in, int bufferSize, QatZipper.Builder builder)
-      throws IOException {
+  public QatDecompressorInputStream(InputStream in, int bufferSize, QatZipper.Builder builder) {
     super(in);
     if (bufferSize <= 0) throw new IllegalArgumentException();
     Objects.requireNonNull(in);
