@@ -18,9 +18,21 @@ FIND_PACKAGE(JNI REQUIRED)
 INCLUDE_DIRECTORIES(${JAVA_INCLUDE_PATH})
 INCLUDE_DIRECTORIES(${JAVA_INCLUDE_PATH2})
 
+execute_process(
+  COMMAND git submodule update --init --recursive
+  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+  RESULT_VARIABLE GIT_RESULT
+  OUTPUT_VARIABLE GIT_OUTPUT
+  ERROR_VARIABLE GIT_ERROR
+)
+
+if(NOT GIT_RESULT EQUAL 0)
+  message(FATAL_ERROR "Failed to update git submodules: ${GIT_ERROR}")
+endif()
+
 # Add custom target
 add_custom_target(build_submodule ALL
-    COMMAND ${CMAKE_MAKE_PROGRAM} -C ${CMAKE_CURRENT_SOURCE_DIR}/external/qat-zstd-plugin
+    COMMAND ${CMAKE_MAKE_PROGRAM} -C ${CMAKE_SOURCE_DIR}/external/qat-zstd-plugin
     COMMENT "Building submodule qat-zstd-plugin via its Makefile"
     VERBATIM
 )
