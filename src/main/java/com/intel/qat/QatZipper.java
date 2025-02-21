@@ -252,21 +252,24 @@ public class QatZipper {
    *
    * @return true if QAT is available, false otherwise.
    */
-  public boolean isQatAvailable() {
+  public static boolean isQatAvailable() {
     return QatAvailableHolder.IS_QAT_AVAILABLE;
   }
 
   /** Defers static initialization until {@link #isQatAvailable()} is invoked. */
-  private static class QatAvailableHolder {
+  static class QatAvailableHolder {
     static final boolean IS_QAT_AVAILABLE;
 
     static {
       boolean isQatAvailable;
       try {
-        final QatZipper qzip = new QatZipper();
+        final QatZipper qzip = new QatZipper.Builder().setMode(Mode.HARDWARE).build();
         qzip.end();
         isQatAvailable = true;
-      } catch (UnsatisfiedLinkError | ExceptionInInitializerError | NoClassDefFoundError e) {
+      } catch (UnsatisfiedLinkError
+          | ExceptionInInitializerError
+          | NoClassDefFoundError
+          | QatException e) {
         isQatAvailable = false;
       }
       IS_QAT_AVAILABLE = isQatAvailable;
@@ -389,9 +392,9 @@ public class QatZipper {
 
     @Override
     public String toString() {
-      return "QatZipper{algorithm='"
+      return "QatZipper{algorithm="
           + algorithm
-          + "', level="
+          + ", level="
           + level
           + ", mode="
           + mode
@@ -399,9 +402,9 @@ public class QatZipper {
           + retryCount
           + ", pollingMode="
           + pollingMode
-          + ", dataFormat='"
+          + ", dataFormat="
           + dataFormat
-          + "', hardwareBufferSize="
+          + ", hardwareBufferSize="
           + hwBufferSize
           + "}";
     }

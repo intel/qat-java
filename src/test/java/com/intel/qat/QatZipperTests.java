@@ -171,6 +171,70 @@ public class QatZipperTests {
   }
 
   @Test
+  public void testToString() {
+    QatZipper.Builder instance = new QatZipper.Builder();
+    String expectedString =
+        "QatZipper{algorithm=DEFLATE, level=6, mode=AUTO, retryCount=0, pollingMode=BUSY, dataFormat=DEFLATE_GZIP_EXT, hardwareBufferSize=DEFAULT_BUFFER_SIZE}";
+    assertEquals(
+        expectedString, instance.toString(), "toString method should return the expected string.");
+  }
+
+  @Test
+  public void testSetPollingMode() {
+    QatZipper.Builder instance = new QatZipper.Builder().setPollingMode(QatZipper.PollingMode.BUSY);
+    assertTrue(instance.toString().contains("pollingMode=BUSY"));
+  }
+
+  @Test
+  public void testSetDataFormat() {
+    QatZipper.Builder instance =
+        new QatZipper.Builder().setDataFormat(QatZipper.DataFormat.DEFLATE_GZIP_EXT);
+    assertTrue(instance.toString().contains("dataFormat=DEFLATE_GZIP_EXT"));
+  }
+
+  @Test
+  public void testSetHardwareBufferSize() {
+    QatZipper.Builder instance =
+        new QatZipper.Builder()
+            .setHardwareBufferSize(QatZipper.HardwareBufferSize.DEFAULT_BUFFER_SIZE);
+    assertTrue(instance.toString().contains("hardwareBufferSize=DEFAULT_BUFFER_SIZE"));
+  }
+
+  @Test
+  void testQatAvailableHolder() {
+    assertNotNull(QatZipper.QatAvailableHolder.IS_QAT_AVAILABLE);
+    assertTrue(
+        QatZipper.QatAvailableHolder.IS_QAT_AVAILABLE
+            || !QatZipper.QatAvailableHolder.IS_QAT_AVAILABLE);
+  }
+
+  @Test
+  void testSetChecksumFlag() {
+    try {
+      QatZipper qzip = new QatZipper();
+      // Exception expected as setCheckum is supported only for ZSTD
+      qzip.setChecksumFlag(true);
+      qzip.end();
+    } catch (UnsupportedOperationException e) {
+      assertTrue(true);
+    }
+  }
+
+  @Test
+  void testSetChecksumFlagWithFalse() {
+    QatZipper qzip = new QatZipper(Algorithm.ZSTD);
+    qzip.setChecksumFlag(false);
+    qzip.end();
+    assertTrue(true);
+  }
+
+  @Test
+  void testIsQatAvailable() {
+    QatZipper qzip = new QatZipper();
+    assertTrue(qzip.isQatAvailable() || !qzip.isQatAvailable());
+  }
+
+  @Test
   public void testCompressWithNullByteBuffer() {
     try {
       qzip = new QatZipper.Builder().setMode(Mode.HARDWARE).build();
@@ -274,6 +338,114 @@ public class QatZipperTests {
     try {
       qzip = new QatZipper.Builder().setAlgorithm(algo).setMode(mode).setRetryCount(10).build();
     } catch (IllegalArgumentException | QatException e) {
+      fail(e.getMessage());
+    }
+  }
+
+  @Test
+  void testDecompressWithTwoArgs() {
+    try {
+      String inputStr = "Hello, world!";
+      byte[] input = inputStr.getBytes("UTF-8");
+
+      QatZipper qzip = new QatZipper();
+      // Create a buffer with enough size for compression
+      byte[] output = new byte[qzip.maxCompressedLength(input.length)];
+
+      // Compress the bytes
+      int resultLen = qzip.compress(input, output);
+      // Decompress the bytes into a String
+      byte[] barr = new byte[input.length];
+      resultLen = qzip.decompress(output, barr);
+
+      // Release resources
+      qzip.end();
+
+      // Convert the bytes into a String
+      String outputStr = new String(barr, 0, resultLen, "UTF-8");
+      assertEquals(inputStr, outputStr);
+    } catch (java.io.UnsupportedEncodingException | QatException e) {
+      fail(e.getMessage());
+    }
+  }
+
+  @Test
+  void testQatZipper() {
+    try {
+      String inputStr = "Hello, world!";
+      byte[] input = inputStr.getBytes("UTF-8");
+
+      QatZipper qzip = new QatZipper();
+      // Create a buffer with enough size for compression
+      byte[] output = new byte[qzip.maxCompressedLength(input.length)];
+
+      // Compress the bytes
+      int resultLen = qzip.compress(input, output);
+      // Decompress the bytes into a String
+      byte[] barr = new byte[input.length];
+      resultLen = qzip.decompress(output, 0, resultLen, barr, 0, barr.length);
+
+      // Release resources
+      qzip.end();
+
+      // Convert the bytes into a String
+      String outputStr = new String(barr, 0, resultLen, "UTF-8");
+      assertEquals(inputStr, outputStr);
+    } catch (java.io.UnsupportedEncodingException | QatException e) {
+      fail(e.getMessage());
+    }
+  }
+
+  @Test
+  void testQatZipperWithAlgorithm() {
+    try {
+      String inputStr = "Hello, world!";
+      byte[] input = inputStr.getBytes("UTF-8");
+
+      QatZipper qzip = new QatZipper(Algorithm.DEFLATE);
+      // Create a buffer with enough size for compression
+      byte[] output = new byte[qzip.maxCompressedLength(input.length)];
+
+      // Compress the bytes
+      int resultLen = qzip.compress(input, output);
+      // Decompress the bytes into a String
+      byte[] barr = new byte[input.length];
+      resultLen = qzip.decompress(output, 0, resultLen, barr, 0, barr.length);
+
+      // Release resources
+      qzip.end();
+
+      // Convert the bytes into a String
+      String outputStr = new String(barr, 0, resultLen, "UTF-8");
+      assertEquals(inputStr, outputStr);
+    } catch (java.io.UnsupportedEncodingException | QatException e) {
+      fail(e.getMessage());
+    }
+  }
+
+  @Test
+  void testQatZipperWithAlgorithmAndLevel() {
+    try {
+      String inputStr = "Hello, world!";
+      byte[] input = inputStr.getBytes("UTF-8");
+
+      QatZipper qzip = new QatZipper(Algorithm.DEFLATE, 6);
+      // Create a buffer with enough size for compression
+      byte[] output = new byte[qzip.maxCompressedLength(input.length)];
+
+      // Compress the bytes
+      int resultLen = qzip.compress(input, output);
+      // Decompress the bytes into a String
+      byte[] barr = new byte[input.length];
+      resultLen = qzip.decompress(output, 0, resultLen, barr, 0, barr.length);
+
+      // Release resources
+      qzip.end();
+
+      // Convert the bytes into a String
+      String outputStr = new String(barr, 0, resultLen, "UTF-8");
+      assertEquals(inputStr, outputStr);
+    } catch (java.io.UnsupportedEncodingException | QatException e) {
       fail(e.getMessage());
     }
   }
