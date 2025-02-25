@@ -420,6 +420,8 @@ public class QatZipper {
     hwBufferSize = builder.hwBufferSize;
 
     if (retryCount < 0) throw new IllegalArgumentException("Invalid value for retry count.");
+    if (!NativeLoader.isLoaded())
+      throw new RuntimeException("Unable to load qat-java native library.");
 
     if (algorithm == Algorithm.ZSTD) {
       zstdCompressCtx = new ZstdCompressCtx();
@@ -452,6 +454,7 @@ public class QatZipper {
         java.security.AccessController.doPrivileged(
             (java.security.PrivilegedAction<Cleaner>) Cleaner::create);
     cleanable = cleaner.register(this, new QatCleaner(session));
+
     isValid = true;
   }
 

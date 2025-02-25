@@ -13,34 +13,41 @@ import java.io.InputStream;
 import java.nio.file.Files;
 
 /** Class for loading system library - libqat-java.so */
-class Native {
-  private static boolean loaded = false;
-  private static String extension = "";
+class NativeLoader {
+  private static String libName = "libqat-java";
+  private static boolean isLoaded = false;
+  private static String extension;
 
   @SuppressWarnings({"deprecation", "removal"})
   static boolean isLoaded() {
-    if (loaded) return true;
+    if (isLoaded) return true;
     try {
       SecurityManager sm = System.getSecurityManager();
       if (sm == null) {
-        System.loadLibrary("qat-java");
+        System.loadLibrary(libName);
       } else {
         java.security.PrivilegedAction<Void> pa =
             () -> {
-              System.loadLibrary("qat-java");
+              System.loadLibrary(libName);
               return null;
             };
         java.security.AccessController.doPrivileged(pa);
       }
-      loaded = true;
+      isLoaded = true;
     } catch (UnsatisfiedLinkError e) {
-      loaded = false;
+      isLoaded = false;
     }
-    return loaded;
+    return isLoaded;
   }
 
-  static String getLibName() {
-    return "/com/intel/qat/" + getOSName() + "/" + getOSArch() + "/" + "libqat-java" + extension;
+  static synchronized String getLibName() {
+    return "/com/intel/qat/"
+        + getOSName()
+        + "/"
+        + System.getProperty("os.arch")
+        + "/"
+        + libName
+        + extension;
   }
 
   static String getOSName() {
@@ -53,17 +60,13 @@ class Native {
     return ret;
   }
 
-  static String getOSArch() {
-    return System.getProperty("os.arch");
-  }
-
   @SuppressWarnings({"deprecation", "removal"})
   static synchronized void loadLibrary() {
     if (isLoaded()) return;
     String libName = getLibName();
     File tempNativeLib = null;
     File tempNativeLibLock = null;
-    try (InputStream in = Native.class.getResourceAsStream(libName)) {
+    try (InputStream in = NativeLoader.class.getResourceAsStream(libName)) {
       if (in == null) {
         throw new UnsupportedOperationException(
             "Unsupported OS/arch, cannot find " + libName + ". Please try building from source.");
@@ -101,10 +104,12 @@ class Native {
             };
         java.security.AccessController.doPrivileged(pa);
       }
-      loaded = true;
+      isLoaded = true;
     } catch (IOException e) {
       throw new ExceptionInInitializerError(
           "Failed to load native qat-java library.\n" + e.getMessage());
+    } catch (RuntimeException e) {
+      throw e;
     } finally {
       if (tempNativeLib != null) tempNativeLib.deleteOnExit();
       if (tempNativeLibLock != null) tempNativeLibLock.deleteOnExit();

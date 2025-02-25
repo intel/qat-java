@@ -14,7 +14,7 @@ class InternalJNI {
 
   /** loads libqatzip.so while loading through static block */
   static {
-    Native.loadLibrary();
+    NativeLoader.loadLibrary();
   }
 
   static native void initFieldIDs();
