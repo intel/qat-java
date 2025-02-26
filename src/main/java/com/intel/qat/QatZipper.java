@@ -428,8 +428,6 @@ public class QatZipper {
       zstdDecompressCtx = new ZstdDecompressCtx();
     }
 
-    this.algorithm = algorithm;
-    this.retryCount = retryCount;
     int status =
         InternalJNI.setup(
             this,
