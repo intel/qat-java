@@ -1,23 +1,21 @@
 ## Java* Native Interface binding for Intel® QuickAssist Technology
-Qat-Java library provides accelerated compression and decompression using Intel® QuickAssist Technology (QAT) [QATzip](https://github.com/intel/QATzip) library. For more information about Intel® QAT, refer to the [QAT Programmer's Guide](https://www.intel.com/content/www/us/en/content-details/743912/intel-quickassist-technology-intel-qat-software-for-linux-programmers-guide-hardware-version-2-0.html). Additionally, the online [QAT Hardware User Guide](https://intel.github.io/quickassist/index.html) is a valuable resource that provides guidance on setting up and optimizing Intel® QAT.
+Qat-Java is a library for accelerating compression and decompression using Intel® [QuickAssist Technology](https://www.intel.com/content/www/us/en/architecture-and-technology/intel-quick-assist-technology-overview.html). For more information about Intel® QAT, refer to the [QAT Programmer's Guide](https://www.intel.com/content/www/us/en/content-details/743912/intel-quickassist-technology-intel-qat-software-for-linux-programmers-guide-hardware-version-2-0.html).
 
-Qat-Java currently supports DEFLATE and LZ4 compression algorithms.
+Qat-Java currently supports DEFLATE, LZ4, and ZStandard compression algorithms.
 
-## Prerequisite
-To use Intel® QAT for compression and decompression, Qat-Java requires the following dependencies to be met.
+## Prerequisites
+This release was validated on the following:
 
-1. **QAT driver** &mdash; download the Intel® QAT driver for Linux from [here](https://www.intel.com/content/www/us/en/download/765501/intel-quickassist-technology-driver-for-linux-hw-version-2-0.html) and then follow these [installation instructions](https://intel.github.io/quickassist/GSG/2.X/index.html).
-
-2. **QATZip** &mdash; the installation instructions for the QATZip library are available at [github.com/intel/QATZip#installation-instructions](https://github.com/intel/QATzip#installation-instructions).
-
-In cases where a QAT hardware is not available, Qat-Java can use a software-only execution mode. The instructions for installing and configuring the dependencies for a software-only execution mode are documented [here](SOFTWARE_ONLY_CONFIG.md).
-
-## Build
-In addition to the prerequisites listed above, building Qat-Java requires the following to be installed:
-
-* Java 11 or above.
+* Intel&reg; QuickAssist Acceleration Driver version [QAT20.L.1.2.30-00078](https://www.intel.com/content/www/us/en/download/765501/intel-quickassist-technology-driver-for-linux-hw-version-2-0.html). 
+* QATzip version [1.2.0](https://github.com/intel/QATzip/releases).
+* Zlib\* library of version 1.2.7 or higher
+* Suggest GCC\* of version 4.8.5 or higher
+* lz4\* library of version 1.8.3 or higher
+* zstd\* library of version 1.5.0 or higher 
+* JDK 11 or above.
 * gcc, CMake , Maven, and clang (for fuzz testing).
 
+## Build
 To build qat-java, run the below command:
 ```
 mvn clean package
@@ -56,6 +54,14 @@ Or using this command:
 ```
 java --module-path target/classes  -m com.intel.qat/com.intel.qat.examples.<example-class>
 ```
+
+## Authors
+* Mulugeta Mammo (mulugeta.mammo@intel.com)
+* Olasoji Denloye (olasoji.denloye@intel.com)
+* Praveen Nishchal (praveen.nishchal@intel.com)
+
+with contributions by
+* the Lehigh Universty team (Jacob Greenfield, Matthew West, and Tommy Parisi).
 
 ## Contributing
 Thanks for your interest! Please see the [CONTRIBUTING.md](CONTRIBUTING.md) document for information on how to contribute.
