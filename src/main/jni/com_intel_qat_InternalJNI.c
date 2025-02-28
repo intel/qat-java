@@ -70,6 +70,10 @@ static int setup_deflate_session(QzSession_T *qz_session, int level,
   if (status != QZ_OK) return status;
 
   deflate_params.data_fmt = data_format;
+  deflate_params.common_params.direction = QZ_DIR_BOTH;
+  deflate_params.common_params.strm_buff_sz = QZ_STRM_BUFF_SZ_DEFAULT;
+  deflate_params.common_params.input_sz_thrshold = QZ_COMP_THRESHOLD_DEFAULT;
+  deflate_params.common_params.comp_algorithm = QZ_DEFLATE;
   deflate_params.common_params.hw_buff_sz = hw_buff_sz;
   deflate_params.common_params.comp_lvl = level;
   deflate_params.common_params.sw_backup = sw_backup;
@@ -93,6 +97,10 @@ static int setup_lz4_session(QzSession_T *qz_session, int level,
   int status = qzGetDefaultsLZ4(&lz4_params);
   if (status != QZ_OK) return status;
 
+  lz4_params.common_params.direction = QZ_DIR_BOTH;
+  lz4_params.common_params.strm_buff_sz = QZ_STRM_BUFF_SZ_DEFAULT;
+  lz4_params.common_params.input_sz_thrshold = QZ_COMP_THRESHOLD_DEFAULT;
+  lz4_params.common_params.comp_algorithm = QZ_LZ4;
   lz4_params.common_params.comp_lvl = level;
   lz4_params.common_params.sw_backup = sw_backup;
   lz4_params.common_params.polling_mode =
