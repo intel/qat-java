@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.intel.qat</groupId>
     <artifactId>qat-java</artifactId>
-    <version>1.1.1</version>
+    <version>2.0.0</version>
     <packaging>jar</packaging>
     <name>qat-java</name>
     <description>Qat-Java is a compression library that uses Intel® QAT to accelerate compression and decompression.</description>
@@ -264,6 +264,11 @@
         </plugins>
     </reporting>
     <dependencies>
+        <dependency>
+            <groupId>com.github.luben</groupId>
+            <artifactId>zstd-jni</artifactId>
+            <version>1.5.6-1</version>
+        </dependency>
         <dependency>
             <groupId>org.junit.platform</groupId>
             <artifactId>junit-platform-suite</artifactId>

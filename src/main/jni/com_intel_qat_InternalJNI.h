@@ -18,11 +18,12 @@ JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_initFieldIDs(JNIEnv *,
 /*
  * Class:     com_intel_qat_InternalJNI
  * Method:    setup
- * Signature: (Lcom/intel/qat/QatZipper;IIII)V
+ * Signature: (Lcom/intel/qat/QatZipper;IIIIII)I
  */
-JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_setup(JNIEnv *, jclass,
+JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_setup(JNIEnv *, jclass,
                                                             jobject, jint, jint,
-                                                            jint, jint);
+                                                            jint, jint, jint,
+                                                            jint);
 
 /*
  * Class:     com_intel_qat_InternalJNI
@@ -130,6 +131,30 @@ Java_com_intel_qat_InternalJNI_decompressDirectByteBufferDst(JNIEnv *, jclass,
                                                              jbyteArray, jint,
                                                              jint, jobject,
                                                              jint, jint, jint);
+
+/*
+ * Class:     com_intel_qat_InternalJNI
+ * Method:    zstdGetSeqProdFunction
+ * Signature: ()J
+ */
+JNIEXPORT jlong JNICALL
+Java_com_intel_qat_InternalJNI_zstdGetSeqProdFunction(JNIEnv *, jclass);
+
+/*
+ * Class:     com_intel_qat_InternalJNI
+ * Method:    zstdCreateSeqProdState
+ * Signature: ()J
+ */
+JNIEXPORT jlong JNICALL
+Java_com_intel_qat_InternalJNI_zstdCreateSeqProdState(JNIEnv *, jclass);
+
+/*
+ * Class:     com_intel_qat_InternalJNI
+ * Method:    zstdFreeSeqProdState
+ * Signature: (J)V
+ */
+JNIEXPORT void JNICALL
+Java_com_intel_qat_InternalJNI_zstdFreeSeqProdState(JNIEnv *, jclass, jlong);
 
 /*
  * Class:     com_intel_qat_InternalJNI

@@ -1,0 +1,3 @@
+[submodule "src/main/jni/external/qat-zstd-plugin"]
+	path = src/main/jni/external/qat-zstd-plugin
+	url = https://github.com/intel/QAT-ZSTD-Plugin.git

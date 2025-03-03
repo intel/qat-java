@@ -16,17 +16,18 @@ public class ByteArrayExample {
       String inputStr = "The quick brown fox jumps over the lazy dog.";
       byte[] input = inputStr.getBytes("UTF-8");
 
-      QatZipper qzip = new QatZipper();
+      QatZipper qzip = new QatZipper.Builder().build();
 
       // Create a buffer with enough size for compression
       byte[] compressedData = new byte[qzip.maxCompressedLength(input.length)];
 
       // Compress the bytes
-      qzip.compress(input, compressedData);
+      int clen = qzip.compress(input, compressedData);
 
       // Decompress the bytes into a String
       byte[] decompressedData = new byte[input.length];
-      int decompressedLength = qzip.decompress(compressedData, decompressedData);
+      int decompressedLength =
+          qzip.decompress(compressedData, 0, clen, decompressedData, 0, decompressedData.length);
 
       // Release resources
       qzip.end();

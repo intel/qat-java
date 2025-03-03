@@ -14,12 +14,13 @@ class InternalJNI {
 
   /** loads libqatzip.so while loading through static block */
   static {
-    Native.loadLibrary();
+    NativeLoader.loadLibrary();
   }
 
   static native void initFieldIDs();
 
-  static native void setup(QatZipper qzip, int algo, int level, int mode, int pmode);
+  static native int setup(
+      QatZipper qzip, int algo, int level, int mode, int pmode, int dataFormat, int hwBufferSize);
 
   static native int maxCompressedSize(long session, long sourceSize);
 
@@ -128,6 +129,12 @@ class InternalJNI {
       int dstOff,
       int dstLen,
       int retryCount);
+
+  static native long zstdGetSeqProdFunction();
+
+  static native long zstdCreateSeqProdState();
+
+  static native void zstdFreeSeqProdState(long sequenceProdState);
 
   static native int teardown(long session);
 }

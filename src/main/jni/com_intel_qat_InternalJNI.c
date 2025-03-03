@@ -6,9 +6,11 @@
 
 #include "com_intel_qat_InternalJNI.h"
 
+#include <qatseqprod.h>
+#include <qatzip.h>
 #include <stdlib.h>
+#include <zstd.h>
 
-#include "qatzip.h"
 #include "util.h"
 
 #ifndef CPA_DC_API_VERSION_AT_LEAST
@@ -25,6 +27,8 @@
 #endif
 
 #define DEFLATE_ALGORITHM 0
+#define LZ4_ALGORITHM 1
+#define ZSTD_ALGORITHM 2
 
 /**
  * The fieldID for java.nio.ByteBuffer/position
@@ -37,19 +41,40 @@ static jfieldID nio_bytebuffer_position_id;
 static jfieldID qzip_bytes_read_id;
 
 /**
+ * Flag to indicate that Zstandard algorithm is set.
+ */
+static _Thread_local int g_algorithm_is_zstd;
+
+/**
+ * Refers to the current sequence producer state.
+ */
+static _Thread_local void *g_zstd_seqprod_state;
+
+/**
+ * Holds the return value from QZSTD_startQatDevice().
+ */
+static _Thread_local int g_zstd_is_device_available;
+
+/**
  * Sets up a QAT session for DEFLATE.
  *
  * @param qz_session a pointer to the QzSession_T.
  * @param level the compression level to use.
  */
 static int setup_deflate_session(QzSession_T *qz_session, int level,
-                                 unsigned char sw_backup, int polling_mode) {
+                                 unsigned char sw_backup, int polling_mode,
+                                 int data_format, int hw_buff_sz) {
   QzSessionParamsDeflate_T deflate_params;
 
   int status = qzGetDefaultsDeflate(&deflate_params);
   if (status != QZ_OK) return status;
 
-  deflate_params.data_fmt = QZ_DEFLATE_GZIP_EXT;
+  deflate_params.data_fmt = data_format;
+  deflate_params.common_params.direction = QZ_DIR_BOTH;
+  deflate_params.common_params.strm_buff_sz = QZ_STRM_BUFF_SZ_DEFAULT;
+  deflate_params.common_params.input_sz_thrshold = QZ_COMP_THRESHOLD_DEFAULT;
+  deflate_params.common_params.comp_algorithm = QZ_DEFLATE;
+  deflate_params.common_params.hw_buff_sz = hw_buff_sz;
   deflate_params.common_params.comp_lvl = level;
   deflate_params.common_params.sw_backup = sw_backup;
   deflate_params.common_params.polling_mode =
@@ -72,6 +97,10 @@ static int setup_lz4_session(QzSession_T *qz_session, int level,
   int status = qzGetDefaultsLZ4(&lz4_params);
   if (status != QZ_OK) return status;
 
+  lz4_params.common_params.direction = QZ_DIR_BOTH;
+  lz4_params.common_params.strm_buff_sz = QZ_STRM_BUFF_SZ_DEFAULT;
+  lz4_params.common_params.input_sz_thrshold = QZ_COMP_THRESHOLD_DEFAULT;
+  lz4_params.common_params.comp_algorithm = QZ_LZ4;
   lz4_params.common_params.comp_lvl = level;
   lz4_params.common_params.sw_backup = sw_backup;
   lz4_params.common_params.polling_mode =
@@ -198,16 +227,33 @@ JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_initFieldIDs(JNIEnv *env,
  *
  * Class:     com_intel_qat_InternalJNI
  * Method:    setup
- * Signature: (Lcom/intel/qat/QatZipper;IIII)V
+ * Signature: (Lcom/intel/qat/QatZipper;IIIIII)I
  */
-JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_setup(
+JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_setup(
     JNIEnv *env, jclass clz, jobject qat_zipper, jint comp_algorithm,
-    jint level, jint sw_backup, jint polling_mode) {
+    jint level, jint sw_backup, jint polling_mode, jint data_format,
+    jint hw_buff_sz) {
   (void)clz;
   // Check if compression level is valid
   if (level < 1 || level > COMP_LVL_MAXIMUM) {
     throw_exception(env, QZ_PARAMS, "Invalid compression level given.");
-    return;
+    return QZ_FAIL;
+  }
+
+  // If the algorithm is ZSTD, initialize device and return
+  if (comp_algorithm == ZSTD_ALGORITHM) {
+    g_zstd_is_device_available = QZSTD_startQatDevice();
+    if (g_zstd_is_device_available == -1) {
+      if (sw_backup == 0) {
+        throw_exception(env, g_zstd_is_device_available,
+                        "Initializing QAT HW failed.");
+        return QZ_FAIL;
+      }
+      // NO HW but sw_backup is on, use software!
+      return QZ_NO_HW;
+    }
+    g_algorithm_is_zstd = 1;
+    return QZ_OK;
   }
 
   QzSession_T *qz_session = (QzSession_T *)calloc(1, sizeof(QzSession_T));
@@ -215,12 +261,12 @@ JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_setup(
   int status = qzInit(qz_session, (unsigned char)sw_backup);
   if (status != QZ_OK && status != QZ_DUPLICATE) {
     throw_exception(env, status, "Initializing QAT HW failed.");
-    return;
+    return status;
   }
 
   if (comp_algorithm == DEFLATE_ALGORITHM)
     status = setup_deflate_session(qz_session, level, (unsigned char)sw_backup,
-                                   polling_mode);
+                                   polling_mode, data_format, hw_buff_sz);
   else
     status = setup_lz4_session(qz_session, level, (unsigned char)sw_backup,
                                polling_mode);
@@ -228,12 +274,14 @@ JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_setup(
   if (status != QZ_OK) {
     qzClose(qz_session);
     throw_exception(env, status, "Error occurred while setting up a session.");
-    return;
+    return status;
   }
 
   jclass qz_clz = (*env)->FindClass(env, "com/intel/qat/QatZipper");
   jfieldID qz_session_field = (*env)->GetFieldID(env, qz_clz, "session", "J");
   (*env)->SetLongField(env, qat_zipper, qz_session_field, (jlong)qz_session);
+
+  return QZ_OK;
 }
 
 /*
@@ -591,6 +639,51 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_maxCompressedSize(
 }
 
 /*
+ * Class:     com_intel_qat_InternalJNI
+ * Method:    zstdGetSeqProdFunction
+ * Signature: ()J
+ */
+JNIEXPORT jlong JNICALL
+Java_com_intel_qat_InternalJNI_zstdGetSeqProdFunction(JNIEnv *env, jclass clz) {
+  (void)env;
+  (void)clz;
+
+  return (jlong)qatSequenceProducer;
+}
+
+/*
+ * Class:     com_intel_qat_InternalJNI
+ * Method:    zstdCreateSeqProdState
+ * Signature: ()J
+ */
+JNIEXPORT jlong JNICALL
+Java_com_intel_qat_InternalJNI_zstdCreateSeqProdState(JNIEnv *env, jclass clz) {
+  (void)env;
+  (void)clz;
+  if (g_zstd_is_device_available != -1) {
+    g_zstd_seqprod_state = QZSTD_createSeqProdState();
+    return (jlong)g_zstd_seqprod_state;
+  }
+  return 0;
+}
+
+/*
+ * Class:     com_intel_qat_InternalJNI
+ * Method:    zstdFreeSeqProdState
+ * Signature: (J)V
+ */
+JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_zstdFreeSeqProdState(
+    JNIEnv *env, jclass clz, jlong seqprod_state) {
+  (void)env;
+  (void)clz;
+  if (g_zstd_is_device_available != -1) {
+    // Note: seqprod_state == g_zstd_seqprod_state
+    QZSTD_freeSeqProdState((void *)(seqprod_state));
+  }
+  g_zstd_seqprod_state = NULL;
+}
+
+/*
  * Tear downs the given QAT session.
  *
  * Class:     com_intel_qat_InternalJNI
@@ -601,6 +694,14 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_teardown(JNIEnv *env,
                                                                jclass clz,
                                                                jlong sess) {
   (void)clz;
+
+  // If Zstd is enabled, clear it and return
+  if (g_algorithm_is_zstd && g_zstd_is_device_available != -1) {
+    if (g_zstd_seqprod_state) QZSTD_freeSeqProdState(g_zstd_seqprod_state);
+    g_zstd_seqprod_state = NULL;
+    QZSTD_stopQatDevice();
+    return QZ_OK;
+  }
 
   QzSession_T *qz_session = (QzSession_T *)sess;
   if (!qz_session) return QZ_OK;
