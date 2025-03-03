@@ -443,6 +443,7 @@ public class QatZipper {
       if (mode == Mode.HARDWARE || (mode == Mode.AUTO && status == QZ_OK)) {
         // Only if mode is HARDWARE or AUTO with QAT device started
         zstdCompressCtx.registerSequenceProducer(new QatZstdSequenceProducer());
+        zstdCompressCtx.setSequenceProducerFallback(true);
       }
       zstdCompressCtx.setLevel(level);
     }
