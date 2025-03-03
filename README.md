@@ -60,8 +60,8 @@ java --module-path target/classes  -m com.intel.qat/com.intel.qat.examples.<exam
 * Olasoji Denloye (olasoji.denloye@intel.com)
 * Praveen Nishchal (praveen.nishchal@intel.com)
 
-with contributions by
-* the Lehigh Universty team (Jacob Greenfield, Matthew West, and Tommy Parisi).
+with contributions by:
+* Jacob Greenfield, Matthew West, and Tommy Parisi
 
 ## Contributing
 Thanks for your interest! Please see the [CONTRIBUTING.md](CONTRIBUTING.md) document for information on how to contribute.
@@ -71,4 +71,4 @@ For more information on this library, contact Mammo, Mulugeta (mulugeta.mammo@in
 
 &nbsp;
 
-><b id="f1">*</b> Java is a registered trademark of Oracle and/or its affiliates.
+<b id="f1">*</b> Java is a registered trademark of Oracle and/or its affiliates.
