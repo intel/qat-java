@@ -1,5 +1,5 @@
 ## Java* Native Interface binding for Intel® QuickAssist Technology
-Qat-Java is a library for accelerating compression and decompression using Intel® [QuickAssist Technology](https://www.intel.com/content/www/us/en/architecture-and-technology/intel-quick-assist-technology-overview.html). For more information about Intel® QAT and how to install it, refer to the [QAT Programmer's Guide](https://intel.github.io/quickassist/index.html).
+Qat-Java is a library that accelerates data compression using Intel® [QuickAssist Technology](https://www.intel.com/content/www/us/en/architecture-and-technology/intel-quick-assist-technology-overview.html). For more information about Intel® QAT and installation instructions, refer to the [QAT Documentation](https://intel.github.io/quickassist/index.html).
 
 Qat-Java currently supports DEFLATE, LZ4, and ZStandard compression algorithms.
 
