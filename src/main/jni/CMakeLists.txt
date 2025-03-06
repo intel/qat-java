@@ -61,6 +61,8 @@ else()
 	   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_FORTIFY_SOURCE=2")
 endif()
 
-target_link_directories(${SHARED_LIBRARY_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/external/qat-zstd-plugin/src/)
-target_link_libraries(${SHARED_LIBRARY_NAME} qatzip qatseqprod)
+target_link_libraries(${SHARED_LIBRARY_NAME} PRIVATE 
+    qatzip
+    ${CMAKE_CURRENT_SOURCE_DIR}/external/qat-zstd-plugin/src/libqatseqprod.so
+)
 

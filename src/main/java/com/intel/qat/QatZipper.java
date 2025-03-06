@@ -441,9 +441,11 @@ public class QatZipper {
     if (algorithm == Algorithm.ZSTD) {
       final int QZ_OK = 0; // indicates that ZSTD can start QAT device
       if (mode == Mode.HARDWARE || (mode == Mode.AUTO && status == QZ_OK)) {
-        // Only if mode is HARDWARE or AUTO with QAT device started
-        zstdCompressCtx.registerSequenceProducer(new QatZstdSequenceProducer());
+        // Important! Order matters here!
+        // 1. first, set sequence producer fallback
         zstdCompressCtx.setSequenceProducerFallback(true);
+        // 2. then, register the sequence producer.
+        zstdCompressCtx.registerSequenceProducer(new QatZstdSequenceProducer());
       }
       zstdCompressCtx.setLevel(level);
     }
