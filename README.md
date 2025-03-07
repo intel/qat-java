@@ -72,4 +72,4 @@ For more information on this library, contact Mammo, Mulugeta (mulugeta.mammo@in
 
 &nbsp;
 
-<b id="f1">*</b> Java is a registered trademark of Oracle and/or its affiliates.
+> <b id="f1">*</b> Java is a registered trademark of Oracle and/or its affiliates.

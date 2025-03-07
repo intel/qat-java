@@ -315,7 +315,7 @@
                                     <arguments>
                                         <argument>-ea</argument>
                                         <argument>-cp</argument>
-                                        <argument>${project.build.directory}/qat-java-1.0.0.jar</argument>
+                                        <argument>${project.build.directory}/qat-java-2.0.0.jar</argument>
                                         <argument>-cp</argument>
                                         <classpath/>
                                         <argument>com.code_intelligence.jazzer.Jazzer</argument>
