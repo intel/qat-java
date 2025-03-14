@@ -16,7 +16,6 @@ import static org.junit.jupiter.api.Assumptions.assumeFalse;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.io.IOException;
-import java.lang.ref.Cleaner;
 import java.nio.ByteBuffer;
 import java.nio.ReadOnlyBufferException;
 import java.nio.charset.StandardCharsets;
@@ -36,8 +35,6 @@ public class QatZipperTests {
   private final String SAMPLE_TEXT_PATH = "src/test/resources/sample.txt";
 
   private QatZipper qzip;
-  private static final Cleaner cleaner = Cleaner.create();
-  private Cleaner.Cleanable cleanable;
 
   private static final Random RANDOM = new Random();
 
