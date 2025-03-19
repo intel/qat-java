@@ -10,7 +10,7 @@ JavaUtilZipBench  | DEFLATE, zlib format
 ## Build
 To build the benchmark, execute the below command:
 ```
-mvn clean install
+mvn clean package
 ```
 
 ## Run
