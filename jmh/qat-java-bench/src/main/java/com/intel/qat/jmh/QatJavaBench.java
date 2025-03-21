@@ -51,15 +51,12 @@ public class QatJavaBench {
           case "LZ4":
             algorithm = Algorithm.LZ4;
             break;
-          case "ZSTD":
-            algorithm = Algorithm.ZSTD;
-            break;
           default:
-            throw new IllegalArgumentException("Invalid algo. Supported are DEFLATE and LZ4.");
+            throw new IllegalArgumentException("Invalid algorithm. Supported are DEFLATE and LZ4.");
         }
 
         // Create compressor/decompressor object
-        QatZipper qzip = new QatZipper.Builder().setAlgorithm(algorithm).setLevel(level).build()
+        QatZipper qzip = new QatZipper.Builder().setAlgorithm(algorithm).setLevel(level).build();
 
         // Read input
         src = Files.readAllBytes(Paths.get(file));
@@ -141,7 +138,7 @@ public class QatJavaBench {
 
   @Benchmark
   public void decompress(ThreadState state) {
-    QatZipper qzip = new QatZipper.Builder().setAlgorithm(state.algorithm).build()
+    QatZipper qzip = new QatZipper.Builder().setAlgorithm(state.algorithm).build();
     int off = 0;
     int pos = 0;
     int clen = state.compressed.length;
