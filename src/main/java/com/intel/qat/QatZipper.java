@@ -9,7 +9,8 @@ package com.intel.qat;
 import com.github.luben.zstd.Zstd;
 import com.github.luben.zstd.ZstdCompressCtx;
 import com.github.luben.zstd.ZstdDecompressCtx;
-import java.lang.ref.Cleaner;
+import java.lang.ref.PhantomReference;
+import java.lang.ref.ReferenceQueue;
 import java.nio.ByteBuffer;
 import java.nio.ReadOnlyBufferException;
 
@@ -118,11 +119,8 @@ public class QatZipper {
   /** A reference to a QAT session in C. */
   private long session;
 
-  /** Cleaner instance associated with this object. */
-  private static Cleaner cleaner;
-
-  /** Cleaner.Cleanable instance representing QAT cleanup action. */
-  private final Cleaner.Cleanable cleanable;
+  /** A phantom reference to QatZipper. */
+  private static QatZipperPhantomReference qzipPhantomReference;
 
   /** Zstd compress context. */
   private ZstdCompressCtx zstdCompressCtx;
@@ -447,11 +445,7 @@ public class QatZipper {
       zstdCompressCtx.setLevel(level);
     }
 
-    // Create and register a QAT session cleaner for this object
-    cleaner =
-        java.security.AccessController.doPrivileged(
-            (java.security.PrivilegedAction<Cleaner>) Cleaner::create);
-    cleanable = cleaner.register(this, new QatCleaner(session));
+    qzipPhantomReference = new QatZipperPhantomReference(this, QatZipperCleaner.queue, session);
 
     isValid = true;
   }
@@ -890,17 +884,40 @@ public class QatZipper {
     isValid = false;
   }
 
-  /** A class that represents a cleaner action for a QAT session. */
-  static class QatCleaner implements Runnable {
+  private static class QatZipperCleaner {
+    private static final ReferenceQueue<QatZipper> queue = new ReferenceQueue<>();
+
+    static {
+      Thread cleanerThread =
+          new Thread(
+              () -> {
+                while (true) {
+                  try {
+                    QatZipperPhantomReference ref = (QatZipperPhantomReference) queue.remove();
+                    ref.cleanUp();
+                  } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                  }
+                }
+              },
+              "QatZipper-Cleaner");
+      cleanerThread.setDaemon(true);
+      cleanerThread.start();
+    }
+  }
+
+  /** A PhantomReference for QatZipper. */
+  private static class QatZipperPhantomReference extends PhantomReference<QatZipper> {
     private long qzSession;
 
-    /** Creates a new cleaner object that cleans up the specified session. */
-    public QatCleaner(long session) {
-      this.qzSession = session;
+    public QatZipperPhantomReference(
+        QatZipper referent, ReferenceQueue<? super QatZipper> q, long qzSession) {
+      super(referent, q);
+      this.qzSession = qzSession;
     }
 
-    @Override
-    public void run() {
+    public void cleanUp() {
       if (qzSession != 0) {
         InternalJNI.teardown(qzSession);
       }
