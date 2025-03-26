@@ -31,7 +31,7 @@ public class QatJavaBench {
   static int level;
 
   @Param({"65536"})
-  static int chunkSize;
+  static int blockSize;
 
   @Param({"DEFLATE", "LZ4", "ZSTD"})
   static String algorithm;
@@ -70,39 +70,33 @@ public class QatJavaBench {
         // Read input
         src = Files.readAllBytes(Paths.get(file));
 
-        int maxCompressedSize = qzip.maxCompressedLength(chunkSize);
-        byte[] compressedChunk = new byte[maxCompressedSize];
+        int maxCompressedSize = qzip.maxCompressedLength(blockSize);
+        byte[] compressedBlock = new byte[maxCompressedSize];
         ByteArrayOutputStream compressedOut = new ByteArrayOutputStream();
-        for (int offset = 0; offset < src.length; offset += chunkSize) {
-          int length = Math.min(chunkSize, src.length - offset);
+        for (int offset = 0; offset < src.length; offset += blockSize) {
+          int length = Math.min(blockSize, src.length - offset);
 
           int compressedSize =
-              qzip.compress(src, offset, length, compressedChunk, 0, maxCompressedSize);
+              qzip.compress(src, offset, length, compressedBlock, 0, maxCompressedSize);
 
-          // Write simple header for each chunk.
-          compressedOut.write(intToBytes(length));
+          // Write the size of the compressed block and then the block itself.
           compressedOut.write(intToBytes(compressedSize));
-
-          // Write only valid compressed bytes.
-          compressedOut.write(compressedChunk, 0, compressedSize);
+          compressedOut.write(compressedBlock, 0, compressedSize);
         }
         compressed = compressedOut.toByteArray();
 
         ByteArrayOutputStream decompressedOut = new ByteArrayOutputStream();
-        int compressedChunkSize = 0;
-        for (int offset = 0; offset < compressed.length; offset += compressedChunkSize) {
-          int uncompressedChunkSize = bytesToInt(compressed, offset);
-          compressedChunkSize = bytesToInt(compressed, offset + 4);
-          offset += 8;
+        int compressedBlockSize = 0;
+        for (int offset = 0; offset < compressed.length; offset += compressedBlockSize) {
+          compressedBlockSize = bytesToInt(compressed, offset);
+          offset += 4;
 
-          byte[] decompressedChunk = new byte[uncompressedChunkSize];
-          qzip.decompress(
-              compressed, offset, compressedChunkSize, decompressedChunk, 0, uncompressedChunkSize);
-          decompressedOut.write(decompressedChunk);
+          byte[] decompressedBlock = new byte[blockSize];
+          qzip.decompress(compressed, offset, compressedBlockSize, decompressedBlock, 0, blockSize);
+          decompressedOut.write(decompressedBlock);
         }
         decompressed = decompressedOut.toByteArray();
 
-        // End session
         qzip.end();
 
         if (flag.compareAndSet(false, true)) {
@@ -124,22 +118,18 @@ public class QatJavaBench {
             .setAlgorithm(state.algorithm)
             .setLevel(level)
             .build();
-    int maxCompressedSize = qzip.maxCompressedLength(chunkSize);
-    byte[] compressedChunk = new byte[maxCompressedSize];
+    int maxCompressedSize = qzip.maxCompressedLength(blockSize);
+    byte[] compressedBlock = new byte[maxCompressedSize];
     ByteArrayOutputStream compressedOut = new ByteArrayOutputStream();
-    for (int offset = 0; offset < state.src.length; offset += chunkSize) {
-      int length = Math.min(chunkSize, state.src.length - offset);
+    for (int offset = 0; offset < state.src.length; offset += blockSize) {
+      int length = Math.min(blockSize, state.src.length - offset);
 
-      // Compress the chunk.
       int compressedSize =
-          qzip.compress(state.src, offset, length, compressedChunk, 0, maxCompressedSize);
+          qzip.compress(state.src, offset, length, compressedBlock, 0, maxCompressedSize);
 
-      // Write simple header for each chunk.
-      compressedOut.write(intToBytes(length));
+      // Write the size of the compressed block and then the block itself.
       compressedOut.write(intToBytes(compressedSize));
-
-      // Write only valid compressed bytes.
-      compressedOut.write(compressedChunk, 0, compressedSize);
+      compressedOut.write(compressedBlock, 0, compressedSize);
     }
     state.compressed = compressedOut.toByteArray();
     qzip.end();
@@ -154,23 +144,16 @@ public class QatJavaBench {
             .setLevel(level)
             .build();
     ByteArrayOutputStream decompressedOut = new ByteArrayOutputStream();
-    int uncompressedChunkSize = 0;
-    int compressedChunkSize = 0;
-    for (int offset = 0; offset < state.compressed.length; offset += compressedChunkSize) {
-      uncompressedChunkSize = bytesToInt(state.compressed, offset);
-      compressedChunkSize = bytesToInt(state.compressed, offset + 4);
-      offset += 8;
+    int compressedBlockSize = 0;
+    for (int offset = 0; offset < state.compressed.length; offset += compressedBlockSize) {
+      compressedBlockSize = bytesToInt(state.compressed, offset);
+      offset += 4;
 
-      byte[] decompressedChunk = new byte[uncompressedChunkSize];
+      byte[] decompressedBlock = new byte[blockSize];
       qzip.decompress(
-          state.compressed,
-          offset,
-          compressedChunkSize,
-          decompressedChunk,
-          0,
-          uncompressedChunkSize);
+          state.compressed, offset, compressedBlockSize, decompressedBlock, 0, blockSize);
 
-      decompressedOut.write(decompressedChunk);
+      decompressedOut.write(decompressedBlock);
     }
     state.decompressed = decompressedOut.toByteArray();
     qzip.end();
