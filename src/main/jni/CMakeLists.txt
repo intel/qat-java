@@ -7,14 +7,13 @@
 cmake_minimum_required(VERSION 3.10.0)
 project(qat-java)
 
-# Set the source files and shared library name
-file(GLOB SOURCE_FILES "*.c")
+set(SOURCE_FILES 
+    com_intel_qat_InternalJNI.c
+    util.c
+)
 set(SHARED_LIBRARY_NAME qat-java)
 
-# Include Java packages
 FIND_PACKAGE(JNI REQUIRED)
-
-# Include java 
 INCLUDE_DIRECTORIES(${JAVA_INCLUDE_PATH})
 INCLUDE_DIRECTORIES(${JAVA_INCLUDE_PATH2})
 
@@ -63,6 +62,6 @@ endif()
 
 target_link_libraries(${SHARED_LIBRARY_NAME} PRIVATE 
     qatzip
-    ${CMAKE_CURRENT_SOURCE_DIR}/external/qat-zstd-plugin/src/libqatseqprod.so
+    ${CMAKE_CURRENT_SOURCE_DIR}/external/qat-zstd-plugin/src/libqatseqprod.a
 )
 

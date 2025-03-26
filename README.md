@@ -8,7 +8,6 @@ This release was validated on the following:
 
 * Intel&reg; QuickAssist Acceleration Driver version [QAT20.L.1.2.30-00078](https://www.intel.com/content/www/us/en/download/765501/intel-quickassist-technology-driver-for-linux-hw-version-2-0.html). 
 * QATzip version [1.2.0](https://github.com/intel/QATzip/releases).
-* QAT-ZSTD version [0.2.0](https://github.com/intel/QAT-ZSTD-Plugin)
 * Zlib\* library of version 1.2.7 or higher
 * Suggest GCC\* of version 4.8.5 or higher
 * lz4\* library of version 1.8.3 or higher
@@ -48,7 +47,7 @@ mvn clean test -Dfuzzing=true
 ## Examples
 You can run the examples in the `com.intel.qat.examples`, use the below command:
 ```
-java -cp .:./target/classes/ com.intel.qat.examples.<example-class>
+java -cp .:./target/classes/:path/to/zstd-jni-1.5.6-1.jar com.intel.qat.examples.<example-class>
 ```
 
 Or using this command:
