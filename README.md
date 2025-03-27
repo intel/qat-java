@@ -50,11 +50,6 @@ You can run the examples in the `com.intel.qat.examples`, use the below command:
 java -cp .:./target/classes/:path/to/zstd-jni-1.5.6-1.jar com.intel.qat.examples.<example-class>
 ```
 
-Or using this command:
-```
-java --module-path target/classes  -m com.intel.qat/com.intel.qat.examples.<example-class>
-```
-
 ## Authors
 * Mulugeta Mammo (mulugeta.mammo@intel.com)
 * Olasoji Denloye (olasoji.denloye@intel.com)
