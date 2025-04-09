@@ -286,11 +286,7 @@ public class QatZipper {
     private DataFormat dataFormat = DEFAULT_DATA_FORMAT;
     private HardwareBufferSize hwBufferSize = DEFAULT_HW_BUFFER_SIZE;
 
-    /**
-     * Constructs a builder that has default values for QatZipper -- {@link DEFAULT_ALGORITHM},
-     * {@link DEFAULT_COMPRESS_LEVEL}, {@link DEFAULT_MODE}, {@link DEFAULT_RETRY_COUNT}, {@link
-     * DEFAULT_POLLING_MODE}, {@link DEFAULT_DATA_FORMAT}, and {@link DEFAULT_HW_BUFFER_SIZE}.
-     */
+    /** Constructs a builder that has default values for QatZipper. */
     public Builder() {}
 
     /**
