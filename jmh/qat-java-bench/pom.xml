@@ -67,11 +67,6 @@ THE POSSIBILITY OF SUCH DAMAGE.
             <artifactId>zstd-jni</artifactId>
             <version>1.5.6-1</version>
         </dependency>
-        <dependency>
-            <groupId>org.lz4</groupId>
-            <artifactId>lz4-java</artifactId>
-            <version>1.8.0</version>
-        </dependency>
     </dependencies>
 
     <properties>
@@ -132,6 +127,13 @@ THE POSSIBILITY OF SUCH DAMAGE.
                     <compilerVersion>${javac.target}</compilerVersion>
                     <source>${javac.target}</source>
                     <target>${javac.target}</target>
+                    <annotationProcessorPaths>
+                      <path>
+                        <groupId>org.openjdk.jmh</groupId>
+                        <artifactId>jmh-generator-annprocess</artifactId>
+                        <version>${jmh.version}</version>
+                      </path>
+                    </annotationProcessorPaths>
                 </configuration>
             </plugin>
             <plugin>
@@ -163,6 +165,7 @@ THE POSSIBILITY OF SUCH DAMAGE.
                                         <exclude>META-INF/*.SF</exclude>
                                         <exclude>META-INF/*.DSA</exclude>
                                         <exclude>META-INF/*.RSA</exclude>
+                                        <exclude>META-INF/MANIFEST.MF</exclude>
                                     </excludes>
                                 </filter>
                             </filters>

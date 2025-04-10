@@ -43,7 +43,7 @@ add_library(${SHARED_LIBRARY_NAME} SHARED ${SOURCE_FILES})
 add_dependencies(${SHARED_LIBRARY_NAME} build_submodule)
 
 set(CMAKE_BUILD_TYPE Release)
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c11 -O2 -Wall -Wextra -Wpedantic -Werror -fstack-protector-strong")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c11 -O2 -Wall -Wextra -Wpedantic -Werror -fstack-protector-strong -lpthread")
 
 message("CMAKE_C_FLAGS: ${CMAKE_C_FLAGS}")
 

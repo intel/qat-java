@@ -8,7 +8,9 @@
 
 #include <qatseqprod.h>
 #include <qatzip.h>
+#include <stdint.h>
 #include <stdlib.h>
+#include <threads.h>
 #include <zstd.h>
 
 #include "util.h"
@@ -31,6 +33,11 @@
 #define ZSTD_ALGORITHM 2
 
 /**
+ * ZLIB data_format ordinal QatZipper.DataFormat.
+ */
+#define ZLIB_DATA_FORMAT 4
+
+/**
  * The fieldID for java.nio.ByteBuffer/position
  */
 static jfieldID nio_bytebuffer_position_id;
@@ -51,9 +58,53 @@ static _Thread_local int g_algorithm_is_zstd;
 static _Thread_local void *g_zstd_seqprod_state;
 
 /**
- * Holds the return value from QZSTD_startQatDevice().
+ * QZSTD_startQatDevice() must be called only once!
  */
-static _Thread_local int g_zstd_is_device_available;
+static once_flag init_qzstd_flag = ONCE_FLAG_INIT;
+static int g_zstd_is_device_available;
+static void initialize_qzstd_once(void) {
+  g_zstd_is_device_available = QZSTD_startQatDevice();
+}
+
+/**
+ * A type representing a unique QAT session for specific compression params.
+ */
+typedef struct {
+  int key;
+  int reference_count;
+  QzSession_T *qz_session;
+} Session_T;
+
+#define MAX_SESSIONS_PER_THREAD 32
+static _Thread_local Session_T session_cache[MAX_SESSIONS_PER_THREAD];
+static _Thread_local int session_cache_counter;
+
+static Session_T *get_session(int key) {
+  for (int i = 0; i < session_cache_counter; ++i) {
+    if (session_cache[i].key == key) {
+      return &session_cache[i];
+    }
+  }
+  return NULL;
+}
+
+/**
+ * Constructs a unique key for a session from the compression params.
+ */
+static int hash_params(int algorithm, int level, int sw_backup,
+                       int polling_mode, int data_format, int hw_buff_sz) {
+  int key = 0;
+
+  // 4 bits for all except hw_buff_size
+  key ^= algorithm;
+  key ^= level << 4;
+  key ^= sw_backup << 8;
+  key ^= polling_mode << 12;
+  key ^= data_format << 16;
+  key ^= (hw_buff_sz >> 10) << 20;  // remove the KB
+
+  return key;
+}
 
 /**
  * Sets up a QAT session for DEFLATE.
@@ -67,13 +118,11 @@ static int setup_deflate_session(QzSession_T *qz_session, int level,
   QzSessionParamsDeflate_T deflate_params;
 
   int status = qzGetDefaultsDeflate(&deflate_params);
-  if (status != QZ_OK) return status;
+  if (status != QZ_OK) {
+    return status;
+  }
 
   deflate_params.data_fmt = data_format;
-  deflate_params.common_params.direction = QZ_DIR_BOTH;
-  deflate_params.common_params.strm_buff_sz = QZ_STRM_BUFF_SZ_DEFAULT;
-  deflate_params.common_params.input_sz_thrshold = QZ_COMP_THRESHOLD_DEFAULT;
-  deflate_params.common_params.comp_algorithm = QZ_DEFLATE;
   deflate_params.common_params.hw_buff_sz = hw_buff_sz;
   deflate_params.common_params.comp_lvl = level;
   deflate_params.common_params.sw_backup = sw_backup;
@@ -81,6 +130,32 @@ static int setup_deflate_session(QzSession_T *qz_session, int level,
       polling_mode == 0 ? QZ_BUSY_POLLING : QZ_PERIODICAL_POLLING;
 
   return qzSetupSessionDeflate(qz_session, &deflate_params);
+}
+
+/**
+ * Sets up a QAT session for DEFLATE zlib.
+ *
+ * @param qz_session a pointer to the QzSession_T.
+ * @param level the compression level to use.
+ */
+static int setup_deflate_zlib_session(QzSession_T *qz_session, int level,
+                                      unsigned char sw_backup,
+                                      int polling_mode) {
+  QzSessionParamsDeflateExt_T deflate_params;
+
+  int rc = qzGetDefaultsDeflateExt(&deflate_params);
+  if (rc != QZ_OK) {
+    return rc;
+  }
+
+  deflate_params.deflate_params.common_params.comp_lvl = level;
+  deflate_params.deflate_params.common_params.sw_backup = sw_backup;
+  deflate_params.deflate_params.common_params.polling_mode =
+      polling_mode == 0 ? QZ_BUSY_POLLING : QZ_PERIODICAL_POLLING;
+  deflate_params.zlib_format = 1;
+  deflate_params.stop_decompression_stream_end = 1;
+
+  return qzSetupSessionDeflateExt(qz_session, &deflate_params);
 }
 
 /**
@@ -94,13 +169,11 @@ static int setup_lz4_session(QzSession_T *qz_session, int level,
                              unsigned char sw_backup, int polling_mode) {
   QzSessionParamsLZ4_T lz4_params;
 
-  int status = qzGetDefaultsLZ4(&lz4_params);
-  if (status != QZ_OK) return status;
+  int rc = qzGetDefaultsLZ4(&lz4_params);
+  if (rc != QZ_OK) {
+    return rc;
+  }
 
-  lz4_params.common_params.direction = QZ_DIR_BOTH;
-  lz4_params.common_params.strm_buff_sz = QZ_STRM_BUFF_SZ_DEFAULT;
-  lz4_params.common_params.input_sz_thrshold = QZ_COMP_THRESHOLD_DEFAULT;
-  lz4_params.common_params.comp_algorithm = QZ_LZ4;
   lz4_params.common_params.comp_lvl = level;
   lz4_params.common_params.sw_backup = sw_backup;
   lz4_params.common_params.polling_mode =
@@ -121,8 +194,8 @@ static int setup_lz4_session(QzSession_T *qz_session, int level,
  * @param src_len the size of the source buffer.
  * @param dst_ptr the destination buffer.
  * @param dst_len the size of the destination buffer.
- * @param bytes_read an out parameter that stores the bytes read from the source
- * buffer.
+ * @param bytes_read an out parameter that stores the bytes read from the
+ * source buffer.
  * @param bytes_written an out parameter that stores the bytes written to the
  * destination buffer.
  * @param retry_count the number of compression retries before we give up.
@@ -135,20 +208,20 @@ static int compress(JNIEnv *env, QzSession_T *sess, unsigned char *src_ptr,
   // Save src_len and dst_len
   int src_len_l = src_len;
   int dst_len_l = dst_len;
-  int status = qzCompress(sess, src_ptr, &src_len, dst_ptr, &dst_len, 1);
+  int rc = qzCompress(sess, src_ptr, &src_len, dst_ptr, &dst_len, 1);
 
-  if (status == QZ_NOSW_NO_INST_ATTACH && retry_count > 0) {
-    while (retry_count > 0 && QZ_OK != status) {
+  if (rc == QZ_NOSW_NO_INST_ATTACH && retry_count > 0) {
+    while (retry_count > 0 && QZ_OK != rc) {
       src_len = src_len_l;
       dst_len = dst_len_l;
-      status = qzCompress(sess, src_ptr, &src_len, dst_ptr, &dst_len, 1);
+      rc = qzCompress(sess, src_ptr, &src_len, dst_ptr, &dst_len, 1);
       retry_count--;
     }
   }
 
-  if (status != QZ_OK) {
-    throw_exception(env, status, "Error occurred while compressing data.");
-    return status;
+  if (rc != QZ_OK) {
+    throw_exception(env, rc, "Error occurred while compressing data.");
+    return rc;
   }
 
   *bytes_read = src_len;
@@ -158,10 +231,10 @@ static int compress(JNIEnv *env, QzSession_T *sess, unsigned char *src_ptr,
 }
 
 /**
- * Decmpresses a buffer pointed to by the given source pointer and writes it to
- * the destination buffer pointed to by the destination pointer. The read and
- * write of the source and destination buffers is bounded by the source and
- * destination lengths respectively.
+ * Decmpresses a buffer pointed to by the given source pointer and writes it
+ * to the destination buffer pointed to by the destination pointer. The read
+ * and write of the source and destination buffers is bounded by the source
+ * and destination lengths respectively.
  *
  * @param env a pointer to the JNI environment.
  * @param sess a pointer to the QzSession_T object.
@@ -169,8 +242,8 @@ static int compress(JNIEnv *env, QzSession_T *sess, unsigned char *src_ptr,
  * @param src_len the size of the source buffer.
  * @param dst_ptr the destination buffer.
  * @param dst_len the size of the destination buffer.
- * @param bytes_read an out parameter that stores the bytes read from the source
- * buffer.
+ * @param bytes_read an out parameter that stores the bytes read from the
+ * source buffer.
  * @param bytes_written an out parameter that stores the bytes written to the
  * destination buffer.
  * @param retry_count the number of decompression retries before we give up.
@@ -183,21 +256,21 @@ static int decompress(JNIEnv *env, QzSession_T *sess, unsigned char *src_ptr,
   // Save src_len and dst_len
   int src_len_l = src_len;
   int dst_len_l = dst_len;
-  int status = qzDecompress(sess, src_ptr, &src_len, dst_ptr, &dst_len);
+  int rc = qzDecompress(sess, src_ptr, &src_len, dst_ptr, &dst_len);
 
-  if (status == QZ_NOSW_NO_INST_ATTACH && retry_count > 0) {
-    while (retry_count > 0 && QZ_OK != status && status != QZ_BUF_ERROR &&
-           status != QZ_DATA_ERROR) {
+  if (rc == QZ_NOSW_NO_INST_ATTACH && retry_count > 0) {
+    while (retry_count > 0 && QZ_OK != rc && rc != QZ_BUF_ERROR &&
+           rc != QZ_DATA_ERROR) {
       src_len = src_len_l;
       dst_len = dst_len_l;
-      status = qzDecompress(sess, src_ptr, &src_len, dst_ptr, &dst_len);
+      rc = qzDecompress(sess, src_ptr, &src_len, dst_ptr, &dst_len);
       retry_count--;
     }
   }
 
-  if (status != QZ_OK && status != QZ_BUF_ERROR && status != QZ_DATA_ERROR) {
-    throw_exception(env, status, "Error occurred while decompressing data.");
-    return status;
+  if (rc != QZ_OK && rc != QZ_BUF_ERROR && rc != QZ_DATA_ERROR) {
+    throw_exception(env, rc, "Error occurred while decompressing data.");
+    return rc;
   }
 
   *bytes_read = src_len;
@@ -234,6 +307,7 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_setup(
     jint level, jint sw_backup, jint polling_mode, jint data_format,
     jint hw_buff_sz) {
   (void)clz;
+
   // Check if compression level is valid
   if (level < 1 || level > COMP_LVL_MAXIMUM) {
     throw_exception(env, QZ_PARAMS, "Invalid compression level given.");
@@ -242,6 +316,7 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_setup(
 
   // If the algorithm is ZSTD, initialize device and return
   if (comp_algorithm == ZSTD_ALGORITHM) {
+    call_once(&init_qzstd_flag, initialize_qzstd_once);
     g_zstd_is_device_available = QZSTD_startQatDevice();
     if (g_zstd_is_device_available == -1) {
       if (sw_backup == 0) {
@@ -256,30 +331,56 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_setup(
     return QZ_OK;
   }
 
-  QzSession_T *qz_session = (QzSession_T *)calloc(1, sizeof(QzSession_T));
+  int rc = QZ_OK;
+  int key = hash_params(comp_algorithm, level, sw_backup, polling_mode,
+                        data_format, hw_buff_sz);
+  Session_T *session_ptr = get_session(key);
+  if (!session_ptr || !session_ptr->qz_session) {
+    if (session_cache_counter == MAX_SESSIONS_PER_THREAD) {
+      throw_exception(env, QZ_FAIL,
+                      "Number of active QAT session exceeded limit.");
+      return QZ_FAIL;
+    }
 
-  int status = qzInit(qz_session, (unsigned char)sw_backup);
-  if (status != QZ_OK && status != QZ_DUPLICATE) {
-    throw_exception(env, status, "Initializing QAT HW failed.");
-    return status;
+    session_ptr = &session_cache[session_cache_counter];
+    ++session_cache_counter;
+
+    session_ptr->key = key;
+    session_ptr->qz_session = (QzSession_T *)calloc(1, sizeof(QzSession_T));
+
+    rc = qzInit(session_ptr->qz_session, (unsigned char)sw_backup);
+    if (rc != QZ_OK && rc != QZ_DUPLICATE) {
+      throw_exception(env, rc, "Initializing QAT HW failed.");
+      return rc;
+    }
+
+    if (comp_algorithm == DEFLATE_ALGORITHM) {
+      if (data_format != ZLIB_DATA_FORMAT) {
+        rc = setup_deflate_session(session_ptr->qz_session, level,
+                                   (unsigned char)sw_backup, polling_mode,
+                                   data_format, hw_buff_sz);
+      } else {
+        rc = setup_deflate_zlib_session(session_ptr->qz_session, level,
+                                        (unsigned char)sw_backup, polling_mode);
+      }
+    } else {
+      rc = setup_lz4_session(session_ptr->qz_session, level,
+                             (unsigned char)sw_backup, polling_mode);
+    }
   }
+  session_ptr->reference_count++;
 
-  if (comp_algorithm == DEFLATE_ALGORITHM)
-    status = setup_deflate_session(qz_session, level, (unsigned char)sw_backup,
-                                   polling_mode, data_format, hw_buff_sz);
-  else
-    status = setup_lz4_session(qz_session, level, (unsigned char)sw_backup,
-                               polling_mode);
-
-  if (status != QZ_OK) {
-    qzClose(qz_session);
-    throw_exception(env, status, "Error occurred while setting up a session.");
-    return status;
+  if (rc != QZ_OK) {
+    qzClose(session_ptr->qz_session);
+    session_ptr->key = 0;
+    session_ptr->qz_session = NULL;
+    throw_exception(env, rc, "Error occurred while setting up a session.");
+    return rc;
   }
 
   jclass qz_clz = (*env)->FindClass(env, "com/intel/qat/QatZipper");
   jfieldID qz_session_field = (*env)->GetFieldID(env, qz_clz, "session", "J");
-  (*env)->SetLongField(env, qat_zipper, qz_session_field, (jlong)qz_session);
+  (*env)->SetLongField(env, qat_zipper, qz_session_field, (jlong)session_ptr);
 
   return QZ_OK;
 }
@@ -297,7 +398,7 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_compressByteArray(
     jint retry_count) {
   (void)clz;
 
-  QzSession_T *qz_session = (QzSession_T *)sess;
+  QzSession_T *qz_session = ((Session_T *)sess)->qz_session;
 
   unsigned char *src_ptr =
       (unsigned char *)(*env)->GetPrimitiveArrayCritical(env, src_arr, NULL);
@@ -332,7 +433,7 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_decompressByteArray(
     jint retry_count) {
   (void)clz;
 
-  QzSession_T *qz_session = (QzSession_T *)sess;
+  QzSession_T *qz_session = ((Session_T *)sess)->qz_session;
   unsigned char *src_ptr =
       (unsigned char *)(*env)->GetPrimitiveArrayCritical(env, src_arr, NULL);
   unsigned char *dst_ptr =
@@ -366,7 +467,7 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_compressByteBuffer(
     jint retry_count) {
   (void)clz;
 
-  QzSession_T *qz_session = (QzSession_T *)sess;
+  QzSession_T *qz_session = ((Session_T *)sess)->qz_session;
 
   unsigned char *src_ptr =
       (unsigned char *)(*env)->GetPrimitiveArrayCritical(env, src_arr, NULL);
@@ -401,7 +502,7 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_decompressByteBuffer(
     jint retry_count) {
   (void)clz;
 
-  QzSession_T *qz_session = (QzSession_T *)sess;
+  QzSession_T *qz_session = ((Session_T *)sess)->qz_session;
   unsigned char *src_ptr =
       (unsigned char *)(*env)->GetPrimitiveArrayCritical(env, src_arr, NULL);
   unsigned char *dst_ptr =
@@ -435,7 +536,7 @@ jint JNICALL Java_com_intel_qat_InternalJNI_compressDirectByteBuffer(
     jint retry_count) {
   (void)clz;
 
-  QzSession_T *qz_session = (QzSession_T *)sess;
+  QzSession_T *qz_session = ((Session_T *)sess)->qz_session;
   unsigned char *src_ptr =
       (unsigned char *)(*env)->GetDirectBufferAddress(env, src_buf);
   unsigned char *dst_ptr =
@@ -470,7 +571,7 @@ Java_com_intel_qat_InternalJNI_decompressDirectByteBuffer(
     jint retry_count) {
   (void)clz;
 
-  QzSession_T *qz_session = (QzSession_T *)sess;
+  QzSession_T *qz_session = ((Session_T *)sess)->qz_session;
   unsigned char *src_ptr =
       (unsigned char *)(*env)->GetDirectBufferAddress(env, src_buf);
   unsigned char *dst_ptr =
@@ -503,7 +604,7 @@ Java_com_intel_qat_InternalJNI_compressDirectByteBufferSrc(
     jint retry_count) {
   (void)clz;
 
-  QzSession_T *qz_session = (QzSession_T *)sess;
+  QzSession_T *qz_session = ((Session_T *)sess)->qz_session;
   unsigned char *src_ptr =
       (unsigned char *)(*env)->GetDirectBufferAddress(env, src_buf);
   unsigned char *dst_ptr =
@@ -535,7 +636,7 @@ Java_com_intel_qat_InternalJNI_decompressDirectByteBufferSrc(
     jint retry_count) {
   (void)clz;
 
-  QzSession_T *qz_session = (QzSession_T *)sess;
+  QzSession_T *qz_session = ((Session_T *)sess)->qz_session;
   unsigned char *src_ptr =
       (unsigned char *)(*env)->GetDirectBufferAddress(env, src_buf);
   unsigned char *dst_ptr =
@@ -567,7 +668,7 @@ Java_com_intel_qat_InternalJNI_compressDirectByteBufferDst(
     jint retry_count) {
   (void)clz;
 
-  QzSession_T *qz_session = (QzSession_T *)sess;
+  QzSession_T *qz_session = ((Session_T *)sess)->qz_session;
   unsigned char *src_ptr =
       (unsigned char *)(*env)->GetPrimitiveArrayCritical(env, src_arr, NULL);
   unsigned char *dst_ptr =
@@ -601,7 +702,7 @@ Java_com_intel_qat_InternalJNI_decompressDirectByteBufferDst(
     jint retry_count) {
   (void)clz;
 
-  QzSession_T *qz_session = (QzSession_T *)sess;
+  QzSession_T *qz_session = ((Session_T *)sess)->qz_session;
   unsigned char *src_ptr =
       (unsigned char *)(*env)->GetPrimitiveArrayCritical(env, src_arr, NULL);
   unsigned char *dst_ptr =
@@ -635,7 +736,7 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_maxCompressedSize(
   (void)env;
   (void)clz;
 
-  return qzMaxCompressedLength(src_size, (QzSession_T *)sess);
+  return qzMaxCompressedLength(src_size, ((Session_T *)sess)->qz_session);
 }
 
 /*
@@ -695,22 +796,37 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_teardown(JNIEnv *env,
                                                                jlong sess) {
   (void)clz;
 
-  // If Zstd is enabled, clear it and return
+  Session_T *session_ptr = (Session_T *)sess;
+  if (!session_ptr || !session_ptr->qz_session) {
+    return QZ_OK;
+  }
+
+  QzSession_T *qz_session = ((Session_T *)session_ptr)->qz_session;
+  if (session_ptr->reference_count > 1) {
+    session_ptr->reference_count--;
+    return QZ_OK;
+  }
+
+  int rc = qzTeardownSession(qz_session);
+  if (rc != QZ_OK) {
+    throw_exception(env, rc, "Error occurred while tearing down session.");
+    return 0;
+  }
+
+  --session_cache_counter;
+  session_ptr->reference_count = 0;
+  session_ptr->qz_session = NULL;
+
+  return QZ_OK;
+}
+
+JNIEXPORT void JNICALL JNI_OnUnload(JavaVM *vm, void *reserved) {
+  (void)vm;
+  (void)reserved;
+
   if (g_algorithm_is_zstd && g_zstd_is_device_available != -1) {
     if (g_zstd_seqprod_state) QZSTD_freeSeqProdState(g_zstd_seqprod_state);
     g_zstd_seqprod_state = NULL;
     QZSTD_stopQatDevice();
-    return QZ_OK;
   }
-
-  QzSession_T *qz_session = (QzSession_T *)sess;
-  if (!qz_session) return QZ_OK;
-
-  int status = qzTeardownSession(qz_session);
-  if (status != QZ_OK) {
-    throw_exception(env, status, "Error occurred while tearing down session.");
-    return 0;
-  }
-
-  return QZ_OK;
 }

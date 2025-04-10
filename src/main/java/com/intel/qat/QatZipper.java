@@ -9,8 +9,6 @@ package com.intel.qat;
 import com.github.luben.zstd.Zstd;
 import com.github.luben.zstd.ZstdCompressCtx;
 import com.github.luben.zstd.ZstdDecompressCtx;
-import java.lang.ref.PhantomReference;
-import java.lang.ref.ReferenceQueue;
 import java.nio.ByteBuffer;
 import java.nio.ReadOnlyBufferException;
 
@@ -54,8 +52,7 @@ import java.nio.ReadOnlyBufferException;
  * </blockquote>
  *
  * To release QAT resources used by this <code>QatZipper</code>, the <code>end()</code> method
- * should be called explicitly. If not, resources will stay alive until this <code>QatZipper</code>
- * becomes phantom reachable.
+ * should be called explicitly.
  */
 public class QatZipper {
   /** The default compression algorithm. */
@@ -118,9 +115,6 @@ public class QatZipper {
 
   /** A reference to a QAT session in C. */
   private long session;
-
-  /** A phantom reference to QatZipper. */
-  private static QatZipperPhantomReference qzipPhantomReference;
 
   /** Zstd compress context. */
   private ZstdCompressCtx zstdCompressCtx;
@@ -198,6 +192,7 @@ public class QatZipper {
    *   <li>DEFLATE_GZIP -- DEFLATE wrapped by GZip header and footer.
    *   <li>DEFLATE_GZIP_EXT -- DEFLATE wrapped by GZip extended header and footer.
    *   <li>DEFLATE_RAW -- raw DEFLATE format.
+   *   <li>ZLIB -- ZLIB
    * </ul>
    */
   public static enum DataFormat {
@@ -211,7 +206,10 @@ public class QatZipper {
     DEFLATE_GZIP_EXT,
 
     /** Raw DEFLATE format. */
-    DEFLATE_RAW
+    DEFLATE_RAW,
+
+    /** ZLIB */
+    ZLIB
   }
 
   /**
@@ -440,8 +438,6 @@ public class QatZipper {
       }
       zstdCompressCtx.setLevel(level);
     }
-
-    qzipPhantomReference = new QatZipperPhantomReference(this, QatZipperCleaner.queue, session);
 
     isValid = true;
   }
@@ -878,45 +874,5 @@ public class QatZipper {
     if (!isValid) throw new IllegalStateException("QAT session has been closed.");
     InternalJNI.teardown(session);
     isValid = false;
-  }
-
-  private static class QatZipperCleaner {
-    private static final ReferenceQueue<QatZipper> queue = new ReferenceQueue<>();
-
-    static {
-      Thread cleanerThread =
-          new Thread(
-              () -> {
-                while (true) {
-                  try {
-                    QatZipperPhantomReference ref = (QatZipperPhantomReference) queue.remove();
-                    ref.cleanUp();
-                  } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    break;
-                  }
-                }
-              },
-              "QatZipper-Cleaner");
-      cleanerThread.setDaemon(true);
-      cleanerThread.start();
-    }
-  }
-
-  /** A PhantomReference for QatZipper. */
-  private static class QatZipperPhantomReference extends PhantomReference<QatZipper> {
-    private long qzSession;
-
-    public QatZipperPhantomReference(
-        QatZipper referent, ReferenceQueue<? super QatZipper> q, long qzSession) {
-      super(referent, q);
-      this.qzSession = qzSession;
-    }
-
-    public void cleanUp() {
-      if (qzSession != 0) {
-        InternalJNI.teardown(qzSession);
-      }
-    }
   }
 }
