@@ -12,7 +12,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -30,7 +29,7 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
 public class QatDecompressorInputStreamTests {
-  private static final String SAMPLE_TEXT_PATH = "src/test/resources/sample.txt";
+  private static final String SAMPLE_CORPUS = "src/test/resources/sample.txt";
   private static byte[] src;
   private static byte[] deflateBytes;
   private static byte[] lz4Bytes;
@@ -39,7 +38,7 @@ public class QatDecompressorInputStreamTests {
 
   @BeforeAll
   public static void setup() throws IOException {
-    src = Files.readAllBytes(Paths.get(SAMPLE_TEXT_PATH));
+    src = Files.readAllBytes(Paths.get(SAMPLE_CORPUS));
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     try (QatCompressorOutputStream compressedStream =
         new QatCompressorOutputStream(outputStream, 16 * 1024, Algorithm.LZ4)) {
@@ -74,72 +73,78 @@ public class QatDecompressorInputStreamTests {
   }
 
   public static Stream<Arguments> provideModeAlgorithmParams() {
-    return QatTestSuite.FORCE_HARDWARE
-        ? Stream.of(
-            Arguments.of(Mode.AUTO, Algorithm.DEFLATE),
-            Arguments.of(Mode.AUTO, Algorithm.LZ4),
-            Arguments.of(Mode.AUTO, Algorithm.ZSTD),
-            Arguments.of(Mode.HARDWARE, Algorithm.DEFLATE),
-            Arguments.of(Mode.HARDWARE, Algorithm.LZ4),
-            Arguments.of(Mode.HARDWARE, Algorithm.ZSTD))
-        : Stream.of(
-            Arguments.of(Mode.AUTO, Algorithm.DEFLATE),
-            Arguments.of(Mode.AUTO, Algorithm.LZ4),
-            Arguments.of(Mode.AUTO, Algorithm.ZSTD));
+    if (QatZipper.isQatAvailable()) {
+      return Stream.of(
+          Arguments.of(Mode.AUTO, Algorithm.DEFLATE),
+          Arguments.of(Mode.AUTO, Algorithm.LZ4),
+          Arguments.of(Mode.AUTO, Algorithm.ZSTD),
+          Arguments.of(Mode.HARDWARE, Algorithm.DEFLATE),
+          Arguments.of(Mode.HARDWARE, Algorithm.LZ4),
+          Arguments.of(Mode.HARDWARE, Algorithm.ZSTD));
+    } else {
+      return Stream.of(
+          Arguments.of(Mode.AUTO, Algorithm.DEFLATE),
+          Arguments.of(Mode.AUTO, Algorithm.LZ4),
+          Arguments.of(Mode.AUTO, Algorithm.ZSTD));
+    }
   }
 
   public static Stream<Arguments> provideModeAlgorithmLengthParams() {
-    return QatTestSuite.FORCE_HARDWARE
-        ? Stream.of(
-            Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 16384),
-            Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 65536),
-            Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 524288),
-            Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 1048576),
-            Arguments.of(Mode.AUTO, Algorithm.LZ4, 16384),
-            Arguments.of(Mode.AUTO, Algorithm.LZ4, 65536),
-            Arguments.of(Mode.AUTO, Algorithm.LZ4, 524288),
-            Arguments.of(Mode.AUTO, Algorithm.LZ4, 1048576),
-            Arguments.of(Mode.HARDWARE, Algorithm.DEFLATE, 16384),
-            Arguments.of(Mode.HARDWARE, Algorithm.DEFLATE, 65536),
-            Arguments.of(Mode.HARDWARE, Algorithm.DEFLATE, 524288),
-            Arguments.of(Mode.HARDWARE, Algorithm.DEFLATE, 1048576),
-            Arguments.of(Mode.HARDWARE, Algorithm.LZ4, 16384),
-            Arguments.of(Mode.HARDWARE, Algorithm.LZ4, 65536),
-            Arguments.of(Mode.HARDWARE, Algorithm.LZ4, 524288),
-            Arguments.of(Mode.HARDWARE, Algorithm.LZ4, 1048576))
-        : Stream.of(
-            Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 16384),
-            Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 65536),
-            Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 524288),
-            Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 1048576),
-            Arguments.of(Mode.AUTO, Algorithm.LZ4, 16384),
-            Arguments.of(Mode.AUTO, Algorithm.LZ4, 65536),
-            Arguments.of(Mode.AUTO, Algorithm.LZ4, 524288),
-            Arguments.of(Mode.AUTO, Algorithm.LZ4, 1048576));
+    if (QatZipper.isQatAvailable()) {
+      return Stream.of(
+          Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 16384),
+          Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 65536),
+          Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 524288),
+          Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 1048576),
+          Arguments.of(Mode.AUTO, Algorithm.LZ4, 16384),
+          Arguments.of(Mode.AUTO, Algorithm.LZ4, 65536),
+          Arguments.of(Mode.AUTO, Algorithm.LZ4, 524288),
+          Arguments.of(Mode.AUTO, Algorithm.LZ4, 1048576),
+          Arguments.of(Mode.HARDWARE, Algorithm.DEFLATE, 16384),
+          Arguments.of(Mode.HARDWARE, Algorithm.DEFLATE, 65536),
+          Arguments.of(Mode.HARDWARE, Algorithm.DEFLATE, 524288),
+          Arguments.of(Mode.HARDWARE, Algorithm.DEFLATE, 1048576),
+          Arguments.of(Mode.HARDWARE, Algorithm.LZ4, 16384),
+          Arguments.of(Mode.HARDWARE, Algorithm.LZ4, 65536),
+          Arguments.of(Mode.HARDWARE, Algorithm.LZ4, 524288),
+          Arguments.of(Mode.HARDWARE, Algorithm.LZ4, 1048576));
+    } else {
+      return Stream.of(
+          Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 16384),
+          Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 65536),
+          Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 524288),
+          Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 1048576),
+          Arguments.of(Mode.AUTO, Algorithm.LZ4, 16384),
+          Arguments.of(Mode.AUTO, Algorithm.LZ4, 65536),
+          Arguments.of(Mode.AUTO, Algorithm.LZ4, 524288),
+          Arguments.of(Mode.AUTO, Algorithm.LZ4, 1048576));
+    }
   }
 
   public static Stream<Arguments> provideModeAlgorithmSkipLengthParams() {
-    return QatTestSuite.FORCE_HARDWARE
-        ? Stream.of(
-            Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 0),
-            Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 1024),
-            Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 16384),
-            Arguments.of(Mode.AUTO, Algorithm.LZ4, 0),
-            Arguments.of(Mode.AUTO, Algorithm.LZ4, 1024),
-            Arguments.of(Mode.AUTO, Algorithm.LZ4, 16384),
-            Arguments.of(Mode.HARDWARE, Algorithm.DEFLATE, 0),
-            Arguments.of(Mode.HARDWARE, Algorithm.DEFLATE, 1024),
-            Arguments.of(Mode.HARDWARE, Algorithm.DEFLATE, 16384),
-            Arguments.of(Mode.HARDWARE, Algorithm.LZ4, 0),
-            Arguments.of(Mode.HARDWARE, Algorithm.LZ4, 1024),
-            Arguments.of(Mode.HARDWARE, Algorithm.LZ4, 16384))
-        : Stream.of(
-            Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 0),
-            Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 1024),
-            Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 16384),
-            Arguments.of(Mode.AUTO, Algorithm.LZ4, 0),
-            Arguments.of(Mode.AUTO, Algorithm.LZ4, 1024),
-            Arguments.of(Mode.AUTO, Algorithm.LZ4, 16384));
+    if (QatZipper.isQatAvailable()) {
+      return Stream.of(
+          Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 0),
+          Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 1024),
+          Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 16384),
+          Arguments.of(Mode.AUTO, Algorithm.LZ4, 0),
+          Arguments.of(Mode.AUTO, Algorithm.LZ4, 1024),
+          Arguments.of(Mode.AUTO, Algorithm.LZ4, 16384),
+          Arguments.of(Mode.HARDWARE, Algorithm.DEFLATE, 0),
+          Arguments.of(Mode.HARDWARE, Algorithm.DEFLATE, 1024),
+          Arguments.of(Mode.HARDWARE, Algorithm.DEFLATE, 16384),
+          Arguments.of(Mode.HARDWARE, Algorithm.LZ4, 0),
+          Arguments.of(Mode.HARDWARE, Algorithm.LZ4, 1024),
+          Arguments.of(Mode.HARDWARE, Algorithm.LZ4, 16384));
+    } else {
+      return Stream.of(
+          Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 0),
+          Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 1024),
+          Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 16384),
+          Arguments.of(Mode.AUTO, Algorithm.LZ4, 0),
+          Arguments.of(Mode.AUTO, Algorithm.LZ4, 1024),
+          Arguments.of(Mode.AUTO, Algorithm.LZ4, 16384));
+    }
   }
 
   @Test
@@ -156,7 +161,9 @@ public class QatDecompressorInputStreamTests {
 
   @Test
   public void testConstructor() {
-    assumeTrue(QatTestSuite.FORCE_HARDWARE);
+    if (!QatZipper.isQatAvailable()) {
+      return;
+    }
     ByteArrayInputStream inputStream = new ByteArrayInputStream(deflateBytes);
     try {
       try (QatDecompressorInputStream decompressedStream =
@@ -168,7 +175,9 @@ public class QatDecompressorInputStreamTests {
 
   @Test
   public void testTwoArgConstructor() {
-    assumeTrue(QatTestSuite.FORCE_HARDWARE);
+    if (!QatZipper.isQatAvailable()) {
+      return;
+    }
     ByteArrayInputStream inputStream = new ByteArrayInputStream(deflateBytes);
     try {
       try (QatDecompressorInputStream decompressedStream =
@@ -181,7 +190,9 @@ public class QatDecompressorInputStreamTests {
   @ParameterizedTest
   @EnumSource(Algorithm.class)
   public void testConstructor1(Algorithm algo) {
-    assumeTrue(QatTestSuite.FORCE_HARDWARE);
+    if (!QatZipper.isQatAvailable()) {
+      return;
+    }
     ByteArrayInputStream inputStream = new ByteArrayInputStream(selectInputBytes(algo));
     try {
       try (QatDecompressorInputStream decompressedStream =
