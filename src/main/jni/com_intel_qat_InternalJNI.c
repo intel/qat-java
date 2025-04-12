@@ -6,13 +6,13 @@
 
 #include "com_intel_qat_InternalJNI.h"
 
-#include <qatseqprod.h>
 #include <qatzip.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <threads.h>
 #include <zstd.h>
 
+#include "qatseqprod.h"
 #include "util.h"
 
 #ifndef CPA_DC_API_VERSION_AT_LEAST

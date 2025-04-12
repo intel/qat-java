@@ -5,63 +5,108 @@
 # ******************************************************************************
 
 cmake_minimum_required(VERSION 3.10.0)
-project(qat-java)
+project(qat-java LANGUAGES C)
 
-set(SOURCE_FILES 
+# Set default build type if not specified
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release)
+endif()
+
+# Define source files
+set(SOURCE_FILES
     com_intel_qat_InternalJNI.c
     util.c
 )
+
 set(SHARED_LIBRARY_NAME qat-java)
 
-FIND_PACKAGE(JNI REQUIRED)
-INCLUDE_DIRECTORIES(${JAVA_INCLUDE_PATH})
-INCLUDE_DIRECTORIES(${JAVA_INCLUDE_PATH2})
+# Find JNI package
+find_package(JNI REQUIRED)
 
-# Pull submodule
-execute_process(
-  COMMAND /bin/sh -c "git submodule update --init --recursive && cd ${CMAKE_SOURCE_DIR}/external/qat-zstd-plugin  && git fetch --tags && git checkout tags/v0.2.0"
-  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-  RESULT_VARIABLE GIT_RESULT
-  OUTPUT_VARIABLE GIT_OUTPUT
-  ERROR_VARIABLE GIT_ERROR
+# Include JNI headers
+include_directories(${JNI_INCLUDE_DIRS})
+
+# Define compiler flags
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_C_STANDARD_REQUIRED ON)
+
+# Define QAT-ZSTD directory
+set(QAT_ZSTD_DIR ${CMAKE_SOURCE_DIR}/external/qat-zstd-plugin)
+
+# Include QAT-ZSTD headers
+include_directories(${QAT_ZSTD_DIR}/src)
+
+set(COMMON_FLAGS
+    -O2
+    -Wall
+    -Wextra
+    -Wpedantic
+    -Werror
+    -fstack-protector-strong
+    -D_FORTIFY_SOURCE=2
 )
-if(NOT GIT_RESULT EQUAL 0)
-  message(FATAL_ERROR "Failed to update git submodules: ${GIT_ERROR}")
+
+# Sanitizer option
+option(SANITIZE_MEMORY "Enable memory sanitizing" OFF)
+if(SANITIZE_MEMORY)
+    if(CMAKE_C_COMPILER_ID MATCHES "Clang")
+        list(APPEND COMMON_FLAGS -fsanitize=fuzzer-no-link,address)
+    else()
+        message(WARNING "Memory sanitizing requires Clang compiler")
+    endif()
 endif()
 
-# Add custom target
-add_custom_target(build_submodule ALL
-    COMMAND ${CMAKE_MAKE_PROGRAM} -C ${CMAKE_SOURCE_DIR}/external/qat-zstd-plugin
-    COMMENT "Building submodule qat-zstd-plugin via its Makefile"
-    VERBATIM
+# Configure git submodule update
+find_package(Git QUIET)
+if(GIT_FOUND)
+    execute_process(
+        COMMAND ${GIT_EXECUTABLE} submodule update --init --recursive
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        RESULT_VARIABLE GIT_SUBMODULE_RESULT
+        OUTPUT_VARIABLE GIT_SUBMODULE_OUTPUT
+        ERROR_VARIABLE GIT_SUBMODULE_ERROR
+    )
+    
+    if(NOT GIT_SUBMODULE_RESULT EQUAL 0)
+        message(FATAL_ERROR "Git submodule update failed: ${GIT_SUBMODULE_ERROR}")
+    endif()
+
+    # Checkout specific tag for qat-zstd-plugin
+    execute_process(
+        COMMAND ${GIT_EXECUTABLE} fetch --tags
+        WORKING_DIRECTORY ${QAT_ZSTD_DIR}
+        RESULT_VARIABLE GIT_FETCH_RESULT
+    )
+    execute_process(
+        COMMAND ${GIT_EXECUTABLE} checkout tags/v0.2.0
+        WORKING_DIRECTORY ${QAT_ZSTD_DIR}
+        RESULT_VARIABLE GIT_CHECKOUT_RESULT
+    )
+endif()
+
+# Create custom target for submodule build
+add_custom_target(build_submodule
+    COMMAND ${CMAKE_COMMAND} -E env ${CMAKE_MAKE_PROGRAM}
+    WORKING_DIRECTORY ${QAT_ZSTD_DIR}
+    COMMENT "Building qat-zstd-plugin submodule"
 )
 
-# Add the source files to the project
+# Create shared library
 add_library(${SHARED_LIBRARY_NAME} SHARED ${SOURCE_FILES})
 
-# Build the submodule before the shared library
+# Set compile options
+target_compile_options(${SHARED_LIBRARY_NAME} PRIVATE ${COMMON_FLAGS})
+
+# Add dependency
 add_dependencies(${SHARED_LIBRARY_NAME} build_submodule)
 
-set(CMAKE_BUILD_TYPE Release)
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c11 -O2 -Wall -Wextra -Wpedantic -Werror -fstack-protector-strong -lpthread")
-
-message("CMAKE_C_FLAGS: ${CMAKE_C_FLAGS}")
-
-# Add a SANITIZE_MEMORY option
-option(SANITIZE_MEMORY "Enables memory sanitizing" OFF)
-
-# Print user's settings
-message(STATUS "Memory sanitizing build: ${SANITIZE_MEMORY}")
-
-if (SANITIZE_MEMORY)
-	   set(CMAKE_C_COMPILER "/usr/bin/clang")
-	   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=fuzzer-no-link,address")
-else()
-	   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_FORTIFY_SOURCE=2")
-endif()
-
-target_link_libraries(${SHARED_LIBRARY_NAME} PRIVATE 
+# Link libraries
+target_link_libraries(${SHARED_LIBRARY_NAME} PRIVATE
     qatzip
-    ${CMAKE_CURRENT_SOURCE_DIR}/external/qat-zstd-plugin/src/libqatseqprod.a
+    ${CMAKE_SOURCE_DIR}/external/qat-zstd-plugin/src/libqatseqprod.a
 )
 
+# Print configuration
+message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
+message(STATUS "Memory sanitizing: ${SANITIZE_MEMORY}")
+message(STATUS "Compiler flags: ${COMMON_FLAGS}")
