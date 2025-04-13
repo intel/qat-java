@@ -40,74 +40,131 @@
 #define ZLIB_DATA_FORMAT 4
 
 /**
- * The fieldID for java.nio.ByteBuffer/position
+ * Stores the JNI field ID for the 'position' field of java.nio.ByteBuffer.
+ * Used to access or modify the current position of a ByteBuffer instance.
+ * Initialized during JNI library setup and remains valid for the JVM's
+ * lifetime.
  */
-static jfieldID nio_bytebuffer_position_id;
+static jfieldID g_nio_bytebuffer_position_id;
 
 /**
- * The fieldID for com.intel.qat.QatZipper/bytesRead
+ * Stores the JNI field ID for the 'bytesRead' field of com.intel.qat.QatZipper.
+ * Enables this to read or update the number of bytes processed by a QatZipper
+ * instance. Initialized during JNI library setup and remains valid for the
+ * JVM's lifetime.
  */
-static jfieldID qzip_bytes_read_id;
+static jfieldID g_qzip_bytes_read_id;
 
 /**
- * Flag to indicate that Zstandard algorithm is set.
+ * Thread-local flag indicating whether the Zstandard (ZSTD) compression
+ * algorithm is active. Non-zero when ZSTD is selected for the current thread’s
+ * QAT session; zero otherwise. Used to manage ZSTD-specific resources and
+ * behavior.
  */
 static _Thread_local int g_algorithm_is_zstd;
 
 /**
- * Refers to the current sequence producer state.
+ * Thread-local pointer to the Zstandard (ZSTD) sequence producer state.
+ * Holds the state for ZSTD compression operations in the current thread’s QAT
+ * session. Allocated during ZSTD initialization and freed during cleanup (e.g.,
+ * JNI_OnUnload). NULL when ZSTD is not active or state is uninitialized.
  */
 static _Thread_local void *g_zstd_seqprod_state;
 
 /**
  * QZSTD_startQatDevice() must be called only once!
  */
-static once_flag init_qzstd_flag = ONCE_FLAG_INIT;
+static once_flag g_init_qzstd_flag = ONCE_FLAG_INIT;
 static int g_zstd_is_device_available;
 static void initialize_qzstd_once(void) {
   g_zstd_is_device_available = QZSTD_startQatDevice();
 }
 
 /**
- * A type representing a unique QAT session for specific compression params.
+ * Represents a unique QAT session for specific compression parameters.
+ * This structure is used to manage a QAT session with associated metadata.
+ * All members should be accessed with care in a multi-threaded environment.
  */
-typedef struct {
-  int key;
-  int reference_count;
-  QzSession_T *qz_session;
+typedef struct Session_T {
+  int32_t key;             /**< Unique identifier for session parameters */
+  int32_t reference_count; /**< Number of active references to this session */
+  QzSession_T *qz_session; /**< Pointer to the QAT session object */
 } Session_T;
 
+/**
+ * Defines the maximum number of unique QAT sessions allowed per thread.
+ * This limit prevents excessive memory usage and ensures efficient session
+ * caching for thread-local session storage. It is highly imporobable that an
+ * application would require more than one distinct session configuration.
+ */
 #define MAX_SESSIONS_PER_THREAD 32
-static _Thread_local Session_T session_cache[MAX_SESSIONS_PER_THREAD];
-static _Thread_local int session_cache_counter;
 
-static Session_T *get_session(int key) {
-  for (int i = 0; i < session_cache_counter; ++i) {
-    if (session_cache[i].key == key) {
-      return &session_cache[i];
+/**
+ * Thread-local cache of QAT session objects, indexed by unique session keys.
+ * Stores up to MAX_SESSIONS_PER_THREAD active sessions per thread to optimize
+ * session reuse for distinct compression configurations. Each session holds a
+ * Session_T struct with a QAT session handle and metadata.
+ */
+static _Thread_local Session_T g_session_cache[MAX_SESSIONS_PER_THREAD];
+
+/**
+ * Thread-local counter tracking the number of active QAT sessions in
+ * g_session_cache. Incremented when a new session is created and decremented
+ * when a session is torn down. Must not exceed MAX_SESSIONS_PER_THREAD to
+ * prevent cache overflow.
+ */
+static _Thread_local int g_session_counter;
+
+/**
+ * Retrieves a cached QAT session matching the specified key from the
+ * thread-local session cache. Searches the g_session_cache array up to
+ * g_session_cache_counter for a session with a matching key. Returns a pointer
+ * to the found Session_T or NULL if no match is found.
+ *
+ * @param key The unique session key generated from compression parameters
+ * (e.g., algorithm, level).
+ * @return A pointer to the matching Session_T in g_session_cache, or NULL if no
+ * session matches.
+ */
+static Session_T *get_cached_session(int key) {
+  for (int i = 0; i < g_session_counter; ++i) {
+    if (g_session_cache[i].qz_session && g_session_cache[i].key == key) {
+      return &g_session_cache[i];
     }
   }
   return NULL;
 }
 
 /**
- * Constructs a unique key for a session from the compression params.
+ * Constructs a unique key for a session from compression parameters.
+ * Combines parameters into a 32-bit key using bitwise operations to ensure
+ * uniqueness for distinct configurations.
+ *
+ * @param algorithm    Compression algorithm (e.g., DEFLATE, LZ4, ZSTD).
+ * @param level        Compression level (1 to COMP_LVL_MAXIMUM).
+ * @param sw_backup    Software fallback flag (0 or 1).
+ * @param polling_mode Polling mode for QAT (e.g., synchronous, asynchronous).
+ * @param data_format  Data format (e.g., ZLIB, GZIP).
+ * @param hw_buff_sz   Hardware buffer size in KB (converted to bits
+ * internally).
+ * @return A 32-bit key uniquely representing the session parameters.
  */
-static int generate_key_for_session(int algorithm,
-                                    int level,
-                                    int sw_backup,
-                                    int polling_mode,
-                                    int data_format,
-                                    int hw_buff_sz) {
-  int key = 0;
+static int32_t generate_key_for_session(int32_t algorithm,
+                                        int32_t level,
+                                        int32_t sw_backup,
+                                        int32_t polling_mode,
+                                        int32_t data_format,
+                                        int32_t hw_buff_sz) {
+  int32_t key = 0;
 
-  // 4 bits for all except hw_buff_size
-  key ^= algorithm;
-  key ^= level << 4;
-  key ^= sw_backup << 8;
-  key ^= polling_mode << 12;
-  key ^= data_format << 16;
-  key ^= (hw_buff_sz >> 10) << 20;  // remove the KB
+  // Bit-field allocation: 4 bits each for algorithm, level, sw_backup,
+  // polling_mode, data_format; 12 bits for hw_buff_sz (supports up to 4MB)
+  key |= (algorithm & 0xF);
+  key |= (level & 0xF) << 4;
+  key |= (sw_backup & 0x1) << 8;
+  key |= (polling_mode & 0xF) << 9;
+  key |= (data_format & 0xF) << 13;
+  key |= ((hw_buff_sz >> 10) & 0xFFF) << 17;
 
   return key;
 }
@@ -329,20 +386,21 @@ JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_initFieldIDs(JNIEnv *env,
   }
 
   jclass byte_buffer_class = (*env)->FindClass(env, "java/nio/ByteBuffer");
-  nio_bytebuffer_position_id =
+  g_nio_bytebuffer_position_id =
       (*env)->GetFieldID(env, byte_buffer_class, "position", "I");
 
   jclass qat_zipper_class = (*env)->FindClass(env, "com/intel/qat/QatZipper");
-  qzip_bytes_read_id =
+  g_qzip_bytes_read_id =
       (*env)->GetFieldID(env, qat_zipper_class, "bytesRead", "I");
 }
 
-/*
- * Sets up a QAT session.
+/**
+ * Initializes JNI field IDs for accessing Java class fields.
+ * Stores field IDs globally for efficient access to ByteBuffer.position and
+ * QatZipper.bytesRead fields.
  *
- * Class:     com_intel_qat_InternalJNI
- * Method:    setup
- * Signature: (Lcom/intel/qat/QatZipper;IIIIII)I
+ * @param env JNI environment pointer. Must not be NULL.
+ * @param clz Java class object (unused).
  */
 JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_setup(JNIEnv *env,
                                                             jclass clz,
@@ -355,17 +413,18 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_setup(JNIEnv *env,
                                                             jint hw_buff_sz) {
   (void)clz;
 
-  // Check if compression level is valid
-  if (level < 1 || level > COMP_LVL_MAXIMUM) {
+  // Validate inputs
+  if (level < 1 || level > COMP_LVL_MAXIMUM || sw_backup < 0 || sw_backup > 1 ||
+      hw_buff_sz < 0) {
     (*env)->ThrowNew(
         env, (*env)->FindClass(env, "java/lang/IllegalArgumentException"),
         "Invalid compression level");
     return QZ_FAIL;
   }
 
-  // If the algorithm is ZSTD, initialize device and return
+  // Handle ZSTD algorithm
   if (comp_algorithm == ZSTD_ALGORITHM) {
-    call_once(&init_qzstd_flag, initialize_qzstd_once);
+    call_once(&g_init_qzstd_flag, initialize_qzstd_once);
     g_zstd_is_device_available = QZSTD_startQatDevice();
     if (g_zstd_is_device_available == -1) {
       if (sw_backup == 0) {
@@ -374,33 +433,34 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_setup(JNIEnv *env,
             "Initializing QAT failed");
         return QZ_FAIL;
       }
-      // NO HW but sw_backup is on, use software!
       return QZ_NO_HW;
     }
     g_algorithm_is_zstd = 1;
     return QZ_OK;
   }
 
+  // Initialize session
   int rc = QZ_OK;
   int key = generate_key_for_session(comp_algorithm, level, sw_backup,
                                      polling_mode, data_format, hw_buff_sz);
-  Session_T *session_ptr = get_session(key);
+  Session_T *session_ptr = get_cached_session(key);
+
   if (!session_ptr || !session_ptr->qz_session) {
-    if (session_cache_counter == MAX_SESSIONS_PER_THREAD) {
+    if (g_session_counter == MAX_SESSIONS_PER_THREAD) {
       (*env)->ThrowNew(
           env, (*env)->FindClass(env, "java/nio/BufferOverflowException"),
           "Number of sessions exceeded the limit");
       return QZ_FAIL;
     }
 
-    session_ptr = &session_cache[session_cache_counter];
-    ++session_cache_counter;
-
+    session_ptr = &g_session_cache[g_session_counter++];
     session_ptr->key = key;
     session_ptr->qz_session = (QzSession_T *)calloc(1, sizeof(QzSession_T));
 
     rc = qzInit(session_ptr->qz_session, (unsigned char)sw_backup);
     if (rc != QZ_OK && rc != QZ_DUPLICATE) {
+      free(session_ptr->qz_session);
+      session_ptr->qz_session = NULL;
       (*env)->ThrowNew(
           env, (*env)->FindClass(env, "java/lang/IllegalStateException"),
           "Initializing QAT failed");
@@ -408,30 +468,30 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_setup(JNIEnv *env,
     }
 
     if (comp_algorithm == DEFLATE_ALGORITHM) {
-      if (data_format != ZLIB_DATA_FORMAT) {
-        rc = setup_deflate_session(session_ptr->qz_session, level,
-                                   (unsigned char)sw_backup, polling_mode,
-                                   data_format, hw_buff_sz);
-      } else {
-        rc = setup_deflate_zlib_session(session_ptr->qz_session, level,
-                                        (unsigned char)sw_backup, polling_mode);
-      }
+      rc = (data_format != ZLIB_DATA_FORMAT)
+               ? setup_deflate_session(session_ptr->qz_session, level,
+                                       (unsigned char)sw_backup, polling_mode,
+                                       data_format, hw_buff_sz)
+               : setup_deflate_zlib_session(session_ptr->qz_session, level,
+                                            (unsigned char)sw_backup,
+                                            polling_mode);
     } else {
       rc = setup_lz4_session(session_ptr->qz_session, level,
                              (unsigned char)sw_backup, polling_mode);
     }
+
+    if (rc != QZ_OK) {
+      qzClose(session_ptr->qz_session);
+      free(session_ptr->qz_session);
+      session_ptr->qz_session = NULL;
+      session_ptr->key = 0;
+      (*env)->ThrowNew(
+          env, (*env)->FindClass(env, "java/lang/IllegalStateException"),
+          "QAT session setup failed");
+      return rc;
+    }
   }
   session_ptr->reference_count++;
-
-  if (unlikely(rc != QZ_OK)) {
-    qzClose(session_ptr->qz_session);
-    session_ptr->key = 0;
-    session_ptr->qz_session = NULL;
-    (*env)->ThrowNew(env,
-                     (*env)->FindClass(env, "java/lang/IllegalStateException"),
-                     "Initializing QAT failed");
-    return rc;
-  }
 
   jclass qz_clz = (*env)->FindClass(env, "com/intel/qat/QatZipper");
   jfieldID qz_session_field = (*env)->GetFieldID(env, qz_clz, "session", "J");
@@ -514,13 +574,13 @@ Java_com_intel_qat_InternalJNI_compressByteArray(JNIEnv *env,
   }
 
   // Update QatZipper.bytesRead
-  if (unlikely(qzip_bytes_read_id == NULL)) {
+  if (unlikely(!g_qzip_bytes_read_id)) {
     (*env)->ThrowNew(env,
                      (*env)->FindClass(env, "java/lang/IllegalStateException"),
                      "QatZipper bytesRead field ID not initialized");
     return rc;
   }
-  (*env)->SetIntField(env, qat_zipper, qzip_bytes_read_id, (jint)bytes_read);
+  (*env)->SetIntField(env, qat_zipper, g_qzip_bytes_read_id, (jint)bytes_read);
 
   return (jint)bytes_written;
 }
@@ -596,17 +656,17 @@ Java_com_intel_qat_InternalJNI_decompressByteArray(JNIEnv *env,
 
   // Check for decompression error
   if (unlikely(rc != QZ_OK)) {
-    return rc;  // Exception already thrown by decompress
+    return rc;
   }
 
   // Update QatZipper.bytesRead
-  if (unlikely(qzip_bytes_read_id == NULL)) {
+  if (unlikely(!g_qzip_bytes_read_id)) {
     (*env)->ThrowNew(env,
                      (*env)->FindClass(env, "java/lang/IllegalStateException"),
                      "QatZipper bytesRead field ID not initialized");
     return rc;
   }
-  (*env)->SetIntField(env, qat_zipper, qzip_bytes_read_id, (jint)bytes_read);
+  (*env)->SetIntField(env, qat_zipper, g_qzip_bytes_read_id, (jint)bytes_read);
 
   return (jint)bytes_written;
 }
@@ -685,13 +745,13 @@ Java_com_intel_qat_InternalJNI_compressByteBuffer(JNIEnv *env,
   }
 
   // Update ByteBuffer.position
-  if (unlikely(nio_bytebuffer_position_id == NULL)) {
+  if (unlikely(!g_nio_bytebuffer_position_id)) {
     (*env)->ThrowNew(env,
                      (*env)->FindClass(env, "java/lang/IllegalStateException"),
                      "ByteBuffer position field ID not initialized");
     return -1;
   }
-  (*env)->SetIntField(env, src_buf, nio_bytebuffer_position_id,
+  (*env)->SetIntField(env, src_buf, g_nio_bytebuffer_position_id,
                       src_pos + bytes_read);
 
   return (jint)bytes_written;
@@ -771,13 +831,13 @@ Java_com_intel_qat_InternalJNI_decompressByteBuffer(JNIEnv *env,
   }
 
   // Update ByteBuffer.position
-  if (unlikely(nio_bytebuffer_position_id == NULL)) {
+  if (unlikely(!g_nio_bytebuffer_position_id)) {
     (*env)->ThrowNew(env,
                      (*env)->FindClass(env, "java/lang/IllegalStateException"),
                      "ByteBuffer position field ID not initialized");
     return -1;
   }
-  (*env)->SetIntField(env, src_buf, nio_bytebuffer_position_id,
+  (*env)->SetIntField(env, src_buf, g_nio_bytebuffer_position_id,
                       src_pos + bytes_read);
 
   return (jint)bytes_written;
@@ -850,15 +910,15 @@ Java_com_intel_qat_InternalJNI_compressDirectByteBuffer(JNIEnv *env,
   }
 
   // Update ByteBuffer positions
-  if (unlikely(nio_bytebuffer_position_id == NULL)) {
+  if (unlikely(!g_nio_bytebuffer_position_id)) {
     (*env)->ThrowNew(env,
                      (*env)->FindClass(env, "java/lang/IllegalStateException"),
                      "ByteBuffer position field ID not initialized");
     return -1;
   }
-  (*env)->SetIntField(env, src_buf, nio_bytebuffer_position_id,
+  (*env)->SetIntField(env, src_buf, g_nio_bytebuffer_position_id,
                       src_pos + bytes_read);
-  (*env)->SetIntField(env, dst_buf, nio_bytebuffer_position_id,
+  (*env)->SetIntField(env, dst_buf, g_nio_bytebuffer_position_id,
                       dst_pos + bytes_written);
 
   return (jint)bytes_written;
@@ -932,15 +992,15 @@ Java_com_intel_qat_InternalJNI_decompressDirectByteBuffer(JNIEnv *env,
   }
 
   // Update ByteBuffer positions
-  if (unlikely(nio_bytebuffer_position_id == NULL)) {
+  if (unlikely(!g_nio_bytebuffer_position_id)) {
     (*env)->ThrowNew(env,
                      (*env)->FindClass(env, "java/lang/IllegalStateException"),
                      "ByteBuffer position field ID not initialized");
     return -1;
   }
-  (*env)->SetIntField(env, src_buf, nio_bytebuffer_position_id,
+  (*env)->SetIntField(env, src_buf, g_nio_bytebuffer_position_id,
                       src_pos + bytes_read);
-  (*env)->SetIntField(env, dst_buf, nio_bytebuffer_position_id,
+  (*env)->SetIntField(env, dst_buf, g_nio_bytebuffer_position_id,
                       dst_pos + bytes_written);
 
   return (jint)bytes_written;
@@ -1016,13 +1076,13 @@ Java_com_intel_qat_InternalJNI_compressDirectByteBufferSrc(JNIEnv *env,
   }
 
   // Update source ByteBuffer position
-  if (unlikely(nio_bytebuffer_position_id == NULL)) {
+  if (unlikely(!g_nio_bytebuffer_position_id)) {
     (*env)->ThrowNew(env,
                      (*env)->FindClass(env, "java/lang/IllegalStateException"),
                      "ByteBuffer position field ID not initialized");
     return -1;
   }
-  (*env)->SetIntField(env, src_buf, nio_bytebuffer_position_id,
+  (*env)->SetIntField(env, src_buf, g_nio_bytebuffer_position_id,
                       src_pos + bytes_read);
 
   return (jint)bytes_written;
@@ -1098,13 +1158,13 @@ Java_com_intel_qat_InternalJNI_decompressDirectByteBufferSrc(JNIEnv *env,
   }
 
   // Update source ByteBuffer position
-  if (unlikely(nio_bytebuffer_position_id == NULL)) {
+  if (unlikely(!g_nio_bytebuffer_position_id)) {
     (*env)->ThrowNew(env,
                      (*env)->FindClass(env, "java/lang/IllegalStateException"),
                      "ByteBuffer position field ID not initialized");
     return -1;
   }
-  (*env)->SetIntField(env, src_buf, nio_bytebuffer_position_id,
+  (*env)->SetIntField(env, src_buf, g_nio_bytebuffer_position_id,
                       src_pos + bytes_read);
 
   return (jint)bytes_written;
@@ -1185,15 +1245,15 @@ Java_com_intel_qat_InternalJNI_compressDirectByteBufferDst(JNIEnv *env,
   }
 
   // Update source and destination ByteBuffer positions
-  if (unlikely(nio_bytebuffer_position_id == NULL)) {
+  if (unlikely(!g_nio_bytebuffer_position_id)) {
     (*env)->ThrowNew(env,
                      (*env)->FindClass(env, "java/lang/IllegalStateException"),
                      "ByteBuffer position field ID not initialized");
     return -1;
   }
-  (*env)->SetIntField(env, src_buf, nio_bytebuffer_position_id,
+  (*env)->SetIntField(env, src_buf, g_nio_bytebuffer_position_id,
                       src_pos + bytes_read);
-  (*env)->SetIntField(env, dst_buf, nio_bytebuffer_position_id,
+  (*env)->SetIntField(env, dst_buf, g_nio_bytebuffer_position_id,
                       dst_pos + bytes_written);
 
   return (jint)bytes_written;
@@ -1274,15 +1334,15 @@ Java_com_intel_qat_InternalJNI_decompressDirectByteBufferDst(JNIEnv *env,
   }
 
   // Update source and destination ByteBuffer positions
-  if (unlikely(nio_bytebuffer_position_id == NULL)) {
+  if (unlikely(!g_nio_bytebuffer_position_id)) {
     (*env)->ThrowNew(env,
                      (*env)->FindClass(env, "java/lang/IllegalStateException"),
                      "ByteBuffer position field ID not initialized");
     return -1;
   }
-  (*env)->SetIntField(env, src_buf, nio_bytebuffer_position_id,
+  (*env)->SetIntField(env, src_buf, g_nio_bytebuffer_position_id,
                       src_pos + bytes_read);
-  (*env)->SetIntField(env, dst_buf, nio_bytebuffer_position_id,
+  (*env)->SetIntField(env, dst_buf, g_nio_bytebuffer_position_id,
                       dst_pos + bytes_written);
 
   return (jint)bytes_written;
@@ -1329,12 +1389,6 @@ Java_com_intel_qat_InternalJNI_zstdGetSeqProdFunction(JNIEnv *env, jclass clz) {
   (void)env;
   (void)clz;
 
-  if (unlikely(qatSequenceProducer == NULL)) {
-    (*env)->ThrowNew(env,
-                     (*env)->FindClass(env, "java/lang/IllegalStateException"),
-                     "QAT sequence producer function not available");
-    return -1;
-  }
   return (jlong)qatSequenceProducer;
 }
 
@@ -1360,7 +1414,7 @@ Java_com_intel_qat_InternalJNI_zstdCreateSeqProdState(JNIEnv *env, jclass clz) {
 
   // Create sequence producer state
   g_zstd_seqprod_state = QZSTD_createSeqProdState();
-  if (unlikely(g_zstd_seqprod_state == NULL)) {
+  if (unlikely(!g_zstd_seqprod_state)) {
     (*env)->ThrowNew(env,
                      (*env)->FindClass(env, "java/lang/IllegalStateException"),
                      "Failed to create Zstandard sequence producer state");
@@ -1407,51 +1461,77 @@ Java_com_intel_qat_InternalJNI_zstdFreeSeqProdState(JNIEnv *env,
   }
 }
 
-/*
- * Tear downs the given QAT session.
+/**
+ * Tears down a QAT session associated with the given session pointer.
+ * Decrements the reference count and only destroys the session if no references
+ * remain. Updates the thread-local session cache counter if the session is
+ * fully torn down.
  *
- * Class:     com_intel_qat_InternalJNI
- * Method:    teardown
- * Signature: (J)I
+ * @param env      JNI environment pointer. Must not be NULL.
+ * @param clz      Java class object (unused).
+ * @param sess     Pointer to a Session_T struct, cast to jlong.
+ * @return QZ_OK on success, or 0 if an error occurs (with a Java exception
+ * thrown).
  */
 JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_teardown(JNIEnv *env,
                                                                jclass clz,
                                                                jlong sess) {
   (void)clz;
 
+  // Validate session pointer
   Session_T *session_ptr = (Session_T *)sess;
   if (!session_ptr || !session_ptr->qz_session) {
     return QZ_OK;
   }
 
-  QzSession_T *qz_session = ((Session_T *)session_ptr)->qz_session;
+  // Decrement reference count
   if (session_ptr->reference_count > 1) {
     session_ptr->reference_count--;
     return QZ_OK;
   }
 
-  int rc = qzTeardownSession(qz_session);
+  // Last reference: tear down the QAT session
+  int rc = qzTeardownSession(session_ptr->qz_session);
   if (rc != QZ_OK) {
     (*env)->ThrowNew(env,
                      (*env)->FindClass(env, "java/lang/IllegalStateException"),
-                     "Error occurred while tearing down QAT session");
+                     "Failed to tear down QAT session");
     return 0;
   }
 
-  --session_cache_counter;
-  session_ptr->reference_count = 0;
+  // Clean up session
+  free(session_ptr->qz_session);
   session_ptr->qz_session = NULL;
+  session_ptr->reference_count = 0;
+  session_ptr->key = 0;
+
+  // Update session cache counter
+  if (g_session_counter > 0) {
+    g_session_counter--;
+  }
 
   return QZ_OK;
 }
 
+/**
+ * Cleans up QAT ZSTD resources when the JNI library is unloaded.
+ * Frees the ZSTD sequence producer state and stops the QAT device if
+ * initialized.
+ *
+ * @param vm       JavaVM pointer (unused).
+ * @param reserved Reserved parameter (unused).
+ */
 JNIEXPORT void JNICALL JNI_OnUnload(JavaVM *vm, void *reserved) {
   (void)vm;
   (void)reserved;
 
   if (g_algorithm_is_zstd && g_zstd_is_device_available != -1) {
-    if (g_zstd_seqprod_state) QZSTD_freeSeqProdState(g_zstd_seqprod_state);
-    g_zstd_seqprod_state = NULL;
+    if (g_zstd_seqprod_state) {
+      QZSTD_freeSeqProdState(g_zstd_seqprod_state);
+      g_zstd_seqprod_state = NULL;
+    }
     QZSTD_stopQatDevice();
+    g_zstd_is_device_available = -1;  // Mark device as stopped
+    g_algorithm_is_zstd = 0;          // Reset ZSTD flag
   }
 }
