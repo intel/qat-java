@@ -168,7 +168,7 @@ public class QatDecompressorInputStreamTests {
     try {
       try (QatDecompressorInputStream decompressedStream =
           new QatDecompressorInputStream(inputStream, 16 * 1024, Algorithm.LZ4)) {}
-    } catch (IOException | IllegalArgumentException | QatException e) {
+    } catch (IOException | IllegalArgumentException e) {
       fail(e.getMessage());
     }
   }
@@ -182,7 +182,7 @@ public class QatDecompressorInputStreamTests {
     try {
       try (QatDecompressorInputStream decompressedStream =
           new QatDecompressorInputStream(inputStream, Algorithm.DEFLATE)) {}
-    } catch (IOException | IllegalArgumentException | QatException e) {
+    } catch (IOException | IllegalArgumentException e) {
       fail(e.getMessage());
     }
   }
@@ -197,7 +197,7 @@ public class QatDecompressorInputStreamTests {
     try {
       try (QatDecompressorInputStream decompressedStream =
           new QatDecompressorInputStream(inputStream, 16 * 1024, algo)) {}
-    } catch (IOException | IllegalArgumentException | QatException e) {
+    } catch (IOException | IllegalArgumentException e) {
       fail(e.getMessage());
     }
   }
@@ -210,7 +210,7 @@ public class QatDecompressorInputStreamTests {
       try (QatDecompressorInputStream decompressedStream =
           new QatDecompressorInputStream(
               inputStream, 16 * 1024, new QatZipper.Builder().setAlgorithm(algo).setMode(mode))) {}
-    } catch (IOException | IllegalArgumentException | QatException e) {
+    } catch (IOException | IllegalArgumentException e) {
       fail(e.getMessage());
     }
   }

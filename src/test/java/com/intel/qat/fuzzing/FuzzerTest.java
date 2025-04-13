@@ -8,7 +8,6 @@ package com.intel.qat.fuzzing;
 import com.code_intelligence.jazzer.api.FuzzedDataProvider;
 import com.intel.qat.QatCompressorOutputStream;
 import com.intel.qat.QatDecompressorInputStream;
-import com.intel.qat.QatException;
 import com.intel.qat.QatZipper;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -53,7 +52,7 @@ public class FuzzerTest {
       testQatStreamLZ4(src);
       testQatStreamDeflate2(src);
       testQatStreamLZ42(src);
-    } catch (QatException e) {
+    } catch (RuntimeException e) {
       throw e;
     }
   }

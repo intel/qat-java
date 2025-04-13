@@ -158,7 +158,7 @@ public class QatCompressorOutputStreamTests {
     try {
       try (QatCompressorOutputStream compressedStream =
           new QatCompressorOutputStream(outputStream, algo)) {}
-    } catch (IOException | IllegalArgumentException | QatException e) {
+    } catch (IOException | IllegalArgumentException e) {
       fail(e.getMessage());
     }
   }
@@ -173,7 +173,7 @@ public class QatCompressorOutputStreamTests {
     try {
       try (QatCompressorOutputStream compressedStream =
           new QatCompressorOutputStream(outputStream, 16 * 1024, algo)) {}
-    } catch (IOException | IllegalArgumentException | QatException e) {
+    } catch (IOException | IllegalArgumentException e) {
       fail(e.getMessage());
     }
   }
@@ -191,7 +191,7 @@ public class QatCompressorOutputStreamTests {
               outputStream,
               16 * 1024,
               new QatZipper.Builder().setAlgorithm(algo).setLevel(level))) {}
-    } catch (IOException | IllegalArgumentException | QatException e) {
+    } catch (IOException | IllegalArgumentException e) {
       fail(e.getMessage());
     }
   }
@@ -204,7 +204,7 @@ public class QatCompressorOutputStreamTests {
       try (QatCompressorOutputStream compressedStream =
           new QatCompressorOutputStream(
               outputStream, 16 * 1024, new QatZipper.Builder().setAlgorithm(algo).setMode(mode))) {}
-    } catch (IOException | IllegalArgumentException | QatException e) {
+    } catch (IOException | IllegalArgumentException e) {
       fail(e.getMessage());
     }
   }

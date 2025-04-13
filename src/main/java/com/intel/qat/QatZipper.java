@@ -44,7 +44,7 @@ import java.nio.ReadOnlyBufferException;
  *   String outputStr = new String(result, "UTF-8");
  * } catch (java.io.UnsupportedEncodingException e) {
  * //
- * } catch (QatException e) {
+ * } catch (RuntimeException e) {
  * //
  * }
  * }</pre>
@@ -265,7 +265,7 @@ public class QatZipper {
       } catch (UnsatisfiedLinkError
           | ExceptionInInitializerError
           | NoClassDefFoundError
-          | QatException e) {
+          | RuntimeException e) {
         isQatAvailable = false;
       }
       IS_QAT_AVAILABLE = isQatAvailable;
@@ -378,7 +378,7 @@ public class QatZipper {
      *
      * @return A QatZipper.
      */
-    public QatZipper build() throws QatException {
+    public QatZipper build() throws RuntimeException {
       return new QatZipper(this);
     }
 
@@ -402,7 +402,7 @@ public class QatZipper {
     }
   }
 
-  private QatZipper(Builder builder) throws QatException {
+  private QatZipper(Builder builder) throws RuntimeException {
     algorithm = builder.algorithm;
     level = builder.level;
     mode = builder.mode;
@@ -411,9 +411,9 @@ public class QatZipper {
     dataFormat = builder.dataFormat;
     hwBufferSize = builder.hwBufferSize;
 
-    if (retryCount < 0) throw new IllegalArgumentException("Invalid value for retry count.");
+    if (retryCount < 0) throw new IllegalArgumentException("Invalid value for retry count");
     if (!NativeLoader.isLoaded())
-      throw new RuntimeException("Unable to load qat-java native library.");
+      throw new RuntimeException("Unable to load qat-java native library");
 
     if (algorithm == Algorithm.ZSTD) {
       zstdCompressCtx = new ZstdCompressCtx();
@@ -482,7 +482,7 @@ public class QatZipper {
    * @return the maximum compression length for the specified length.
    */
   public int maxCompressedLength(long len) {
-    if (!isValid) throw new IllegalStateException("QAT session has been closed.");
+    if (!isValid) throw new IllegalStateException("QAT session has been closed");
 
     if (algorithm != Algorithm.ZSTD) {
       return InternalJNI.maxCompressedSize(session, len);
@@ -518,17 +518,17 @@ public class QatZipper {
    */
   public int compress(
       byte[] src, int srcOffset, int srcLen, byte[] dst, int dstOffset, int dstLen) {
-    if (!isValid) throw new IllegalStateException("QAT session has been closed.");
+    if (!isValid) throw new IllegalStateException("QAT session has been closed");
 
     if (src == null || dst == null || srcLen == 0 || dst.length == 0)
       throw new IllegalArgumentException(
-          "Either source or destination array or both have size 0 or null value.");
+          "Either source or destination array or both have size 0 or null value");
 
     if (srcOffset < 0 || srcLen < 0 || srcOffset > src.length - srcLen)
-      throw new ArrayIndexOutOfBoundsException("Source offset is out of bound.");
+      throw new ArrayIndexOutOfBoundsException("Source offset is out of bound");
 
     if (dstOffset < 0 || dstLen < 0 || dstOffset > dst.length - dstLen)
-      throw new ArrayIndexOutOfBoundsException("Destination offset is out of bound.");
+      throw new ArrayIndexOutOfBoundsException("Destination offset is out of bound");
 
     if (algorithm != Algorithm.ZSTD) {
       return compressByteArray(src, srcOffset, srcLen, dst, dstOffset, dstLen);
@@ -567,7 +567,7 @@ public class QatZipper {
    * @return the size of the compressed data in bytes
    */
   public int compress(ByteBuffer src, ByteBuffer dst) {
-    if (!isValid) throw new IllegalStateException("QAT session has been closed.");
+    if (!isValid) throw new IllegalStateException("QAT session has been closed");
 
     if ((src == null || dst == null)
         || (src.position() == src.limit() || dst.position() == dst.limit()))
@@ -685,16 +685,16 @@ public class QatZipper {
    */
   public int decompress(
       byte[] src, int srcOffset, int srcLen, byte[] dst, int dstOffset, int dstLen) {
-    if (!isValid) throw new IllegalStateException("QAT session has been closed.");
+    if (!isValid) throw new IllegalStateException("QAT session has been closed");
 
     if (src == null || dst == null || srcLen == 0 || dst.length == 0)
-      throw new IllegalArgumentException("Empty source or/and destination byte array(s).");
+      throw new IllegalArgumentException("Empty source or/and destination byte array(s)");
 
     if (srcOffset < 0 || srcLen < 0 || srcOffset > src.length - srcLen)
-      throw new ArrayIndexOutOfBoundsException("Source offset is out of bound.");
+      throw new ArrayIndexOutOfBoundsException("Source offset is out of bound");
 
     if (dstOffset < 0 || dstLen < 0 || dstOffset > dst.length - dstLen)
-      throw new ArrayIndexOutOfBoundsException("Destination offset is out of bound.");
+      throw new ArrayIndexOutOfBoundsException("Destination offset is out of bound");
 
     if (algorithm != Algorithm.ZSTD) {
       return decompressByteArray(src, srcOffset, srcLen, dst, dstOffset, dstLen);
@@ -735,7 +735,7 @@ public class QatZipper {
    * @return the size of the decompressed data in bytes
    */
   public int decompress(ByteBuffer src, ByteBuffer dst) {
-    if (!isValid) throw new IllegalStateException("QAT session has been closed.");
+    if (!isValid) throw new IllegalStateException("QAT session has been closed");
 
     if ((src == null || dst == null)
         || (src.position() == src.limit() || dst.position() == dst.limit()))
@@ -749,7 +749,7 @@ public class QatZipper {
       // ZSTD treats the first parameter as the destination and the second as the source.
       if (!src.isDirect())
         throw new IllegalArgumentException(
-            "Zstd-jni requires source buffers to be direct byte buffers.");
+            "Zstd-jni requires source buffers to be direct byte buffers");
       return zstdDecompressCtx.decompress(dst, src);
     }
   }
@@ -823,7 +823,7 @@ public class QatZipper {
       dst.put(dstArr, 0, decompressedSize);
     }
 
-    if (decompressedSize < 0) throw new QatException("QAT: Compression failed");
+    if (decompressedSize < 0) throw new RuntimeException("QAT: Compression failed");
 
     bytesRead = src.position() - srcPos;
     bytesWritten = dst.position() - dstPos;
@@ -860,7 +860,7 @@ public class QatZipper {
   public void setChecksumFlag(boolean checksumFlag) {
     if (algorithm != Algorithm.ZSTD)
       throw new UnsupportedOperationException(
-          "Setting a checksum flag is currently valid only for ZSTD compressor.");
+          "Setting a checksum flag is currently valid only for ZSTD compressor");
     zstdCompressCtx.setChecksum(checksumFlag);
   }
 
@@ -868,10 +868,10 @@ public class QatZipper {
    * Ends the current QAT session by freeing up resources. A new session must be used after a
    * successful call of this method.
    *
-   * @throws QatException if QAT session cannot be gracefully ended.
+   * @throws RuntimeException if QAT session cannot be gracefully ended.
    */
-  public void end() throws QatException {
-    if (!isValid) throw new IllegalStateException("QAT session has been closed.");
+  public void end() throws RuntimeException {
+    if (!isValid) throw new IllegalStateException("Invalid QAT session");
     InternalJNI.teardown(session);
     isValid = false;
   }
