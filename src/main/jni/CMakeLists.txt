@@ -7,6 +7,9 @@
 cmake_minimum_required(VERSION 3.10.0)
 project(qat-java LANGUAGES C)
 
+# Override default -O3 used in Release builds
+set(CMAKE_C_FLAGS_RELEASE "-O2 -DNDEBUG")
+
 # Set default build type if not specified
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)

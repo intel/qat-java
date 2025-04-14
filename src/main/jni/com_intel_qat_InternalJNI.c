@@ -344,30 +344,31 @@ static int decompress(JNIEnv *env,
                       int *bytes_read,
                       int *bytes_written,
                       int retry_count) {
-  // Save src_len and dst_len
-  int src_len_l = src_len;
-  int dst_len_l = dst_len;
-  int rc = qzDecompress(sess, src_ptr, &src_len, dst_ptr, &dst_len);
+  unsigned int src_len_remain = src_len;
+  unsigned int dst_len_remain = dst_len;
+  int rc =
+      qzDecompress(sess, src_ptr, &src_len_remain, dst_ptr, &dst_len_remain);
 
-  if (rc == QZ_NOSW_NO_INST_ATTACH && retry_count > 0) {
-    while (retry_count > 0 && QZ_OK != rc && rc != QZ_BUF_ERROR &&
-           rc != QZ_DATA_ERROR) {
-      src_len = src_len_l;
-      dst_len = dst_len_l;
-      rc = qzDecompress(sess, src_ptr, &src_len, dst_ptr, &dst_len);
-      retry_count--;
-    }
+  // Retry on specific error if retries remain
+  while (unlikely(rc == QZ_NOSW_NO_INST_ATTACH && retry_count > 0)) {
+    src_len_remain = src_len;
+    dst_len_remain = dst_len;
+    rc = qzDecompress(sess, src_ptr, &src_len_remain, dst_ptr, &dst_len_remain);
+    retry_count--;
   }
 
-  if (rc != QZ_OK && rc != QZ_BUF_ERROR && rc != QZ_DATA_ERROR) {
-    (*env)->ThrowNew(env,
-                     (*env)->FindClass(env, "java/lang/IllegalStateException"),
-                     get_err_str(rc));
+  // Handle errors, allowing certain conditions to proceed
+  if (unlikely(rc != QZ_OK && rc != QZ_BUF_ERROR && rc != QZ_DATA_ERROR)) {
+    if (env) {
+      (*env)->ThrowNew(
+          env, (*env)->FindClass(env, "java/lang/IllegalStateException"),
+          get_err_str(rc));
+    }
     return rc;
   }
 
-  *bytes_read = src_len;
-  *bytes_written = dst_len;
+  *bytes_read = src_len_remain;
+  *bytes_written = dst_len_remain;
 
   return QZ_OK;
 }
@@ -425,7 +426,6 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_setup(JNIEnv *env,
   // Handle ZSTD algorithm
   if (comp_algorithm == ZSTD_ALGORITHM) {
     call_once(&g_init_qzstd_flag, initialize_qzstd_once);
-    g_zstd_is_device_available = QZSTD_startQatDevice();
     if (g_zstd_is_device_available == -1) {
       if (sw_backup == 0) {
         (*env)->ThrowNew(
