@@ -1,3 +1,9 @@
+/*******************************************************************************
+ * Copyright (C) 2023 Intel Corporation
+ *
+ * SPDX-License-Identifier: BSD
+ ******************************************************************************/
+
 package com.intel.qat;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -23,13 +29,11 @@ public class NativeLoaderTest {
   @Test
   void testLoadNativeLibraryNotPresent() {
     setField("isLoaded", false);
-    setField("libName", "libfake-qat-java");
     try {
       NativeLoader.loadLibrary();
-    } catch (RuntimeException e) {
       assertTrue(true);
+    } catch (RuntimeException e) {
     }
-    setField("libName", "libqat-java");
   }
 
   private <T> void setField(String fieldName, T value) {
