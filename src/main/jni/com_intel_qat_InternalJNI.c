@@ -300,7 +300,7 @@ static int compress(JNIEnv *env,
       qzCompress(sess, src_ptr, &src_len_remain, dst_ptr, &dst_len_remain, 1);
 
   // Retry on specific error if retries remain
-  while (rc == QZ_NOSW_NO_INST_ATTACH && retry_count > 0) {
+  while (unlikely(rc == QZ_NOSW_NO_INST_ATTACH && retry_count > 0)) {
     src_len_remain = src_len;
     dst_len_remain = dst_len;
     rc =
@@ -357,20 +357,20 @@ static int decompress(JNIEnv *env,
     retry_count--;
   }
 
-  // Handle errors, allowing certain conditions to proceed
-  if (unlikely(rc != QZ_OK && rc != QZ_BUF_ERROR && rc != QZ_DATA_ERROR)) {
-    if (env) {
-      (*env)->ThrowNew(
-          env, (*env)->FindClass(env, "java/lang/IllegalStateException"),
-          get_err_str(rc));
-    }
-    return rc;
-  }
-
   *bytes_read = src_len_remain;
   *bytes_written = dst_len_remain;
 
-  return QZ_OK;
+  if (rc == QZ_OK || rc == QZ_BUF_ERROR || rc == QZ_DATA_ERROR) {
+    // TODO: implement a better solution!
+    // The streaming API requires that we allow BUF_ERROR and DATA_ERROR to proceed.
+    // Caller needs to check bytes_read and bytes_written.
+    return QZ_OK;
+  } else {
+    (*env)->ThrowNew(
+        env, (*env)->FindClass(env, "java/lang/IllegalStateException"),
+        get_err_str(rc));
+    return rc;
+  }
 }
 
 /**
@@ -655,7 +655,7 @@ Java_com_intel_qat_InternalJNI_decompressByteArray(JNIEnv *env,
   (*env)->ReleasePrimitiveArrayCritical(env, src_arr, (jbyte *)src_ptr, 0);
 
   // Check for decompression error
-  if (unlikely(rc != QZ_OK)) {
+  if (rc != QZ_OK) {
     return rc;
   }
 
@@ -740,7 +740,7 @@ Java_com_intel_qat_InternalJNI_compressByteBuffer(JNIEnv *env,
   (*env)->ReleasePrimitiveArrayCritical(env, src_arr, (jbyte *)src_ptr, 0);
 
   // Check for compression error
-  if (unlikely(rc != QZ_OK)) {
+  if (rc != QZ_OK) {
     return rc;
   }
 
@@ -826,7 +826,7 @@ Java_com_intel_qat_InternalJNI_decompressByteBuffer(JNIEnv *env,
   (*env)->ReleasePrimitiveArrayCritical(env, src_arr, (jbyte *)src_ptr, 0);
 
   // Check for decompression error
-  if (unlikely(rc != QZ_OK)) {
+  if (rc != QZ_OK) {
     return rc;
   }
 
@@ -905,7 +905,7 @@ Java_com_intel_qat_InternalJNI_compressDirectByteBuffer(JNIEnv *env,
                dst_len, &bytes_read, &bytes_written, retry_count);
 
   // Check for compression error
-  if (unlikely(rc != QZ_OK)) {
+  if (rc != QZ_OK) {
     return rc;
   }
 
@@ -987,7 +987,7 @@ Java_com_intel_qat_InternalJNI_decompressDirectByteBuffer(JNIEnv *env,
                  dst_len, &bytes_read, &bytes_written, retry_count);
 
   // Check for decompression error
-  if (unlikely(rc != QZ_OK)) {
+  if (rc != QZ_OK) {
     return rc;
   }
 
@@ -1071,7 +1071,7 @@ Java_com_intel_qat_InternalJNI_compressDirectByteBufferSrc(JNIEnv *env,
   (*env)->ReleasePrimitiveArrayCritical(env, dst_arr, (jbyte *)dst_ptr, 0);
 
   // Check for compression error
-  if (unlikely(rc != QZ_OK)) {
+  if (rc != QZ_OK) {
     return rc;
   }
 
@@ -1153,7 +1153,7 @@ Java_com_intel_qat_InternalJNI_decompressDirectByteBufferSrc(JNIEnv *env,
   (*env)->ReleasePrimitiveArrayCritical(env, dst_arr, (jbyte *)dst_ptr, 0);
 
   // Check for decompression error
-  if (unlikely(rc != QZ_OK)) {
+  if (rc != QZ_OK) {
     return rc;
   }
 
@@ -1240,7 +1240,7 @@ Java_com_intel_qat_InternalJNI_compressDirectByteBufferDst(JNIEnv *env,
   (*env)->ReleasePrimitiveArrayCritical(env, src_arr, (jbyte *)src_ptr, 0);
 
   // Check for compression error
-  if (unlikely(rc != QZ_OK)) {
+  if (rc != QZ_OK) {
     return rc;
   }
 
@@ -1329,7 +1329,7 @@ Java_com_intel_qat_InternalJNI_decompressDirectByteBufferDst(JNIEnv *env,
   (*env)->ReleasePrimitiveArrayCritical(env, src_arr, (jbyte *)src_ptr, 0);
 
   // Check for decompression error
-  if (unlikely(rc != QZ_OK)) {
+  if (rc != QZ_OK) {
     return rc;
   }
 
