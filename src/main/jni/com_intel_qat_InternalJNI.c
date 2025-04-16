@@ -362,13 +362,13 @@ static int decompress(JNIEnv *env,
 
   if (rc == QZ_OK || rc == QZ_BUF_ERROR || rc == QZ_DATA_ERROR) {
     // TODO: implement a better solution!
-    // The streaming API requires that we allow BUF_ERROR and DATA_ERROR to proceed.
-    // Caller needs to check bytes_read and bytes_written.
+    // The streaming API requires that we allow BUF_ERROR and DATA_ERROR to
+    // proceed. Caller needs to check bytes_read and bytes_written.
     return QZ_OK;
   } else {
-    (*env)->ThrowNew(
-        env, (*env)->FindClass(env, "java/lang/IllegalStateException"),
-        get_err_str(rc));
+    (*env)->ThrowNew(env,
+                     (*env)->FindClass(env, "java/lang/IllegalStateException"),
+                     get_err_str(rc));
     return rc;
   }
 }
