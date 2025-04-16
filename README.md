@@ -7,7 +7,7 @@ Qat-Java currently supports DEFLATE, LZ4, and ZStandard compression algorithms.
 This release was validated on the following:
 
 * Intel&reg; QuickAssist Acceleration Driver version [QAT20.L.1.2.30-00078](https://www.intel.com/content/www/us/en/download/765501/intel-quickassist-technology-driver-for-linux-hw-version-2-0.html). 
-* QATzip version [1.2.0](https://github.com/intel/QATzip/releases) and its dependencies.
+* QATzip version [1.3.0](https://github.com/intel/QATzip/releases) and its dependencies.
 * GCC\* of version 4.8.5 or higher.
 * JDK 11 or above.
 * clang (for fuzz testing).
