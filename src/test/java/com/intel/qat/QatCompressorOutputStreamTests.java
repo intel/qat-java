@@ -12,7 +12,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -30,7 +29,7 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
 public class QatCompressorOutputStreamTests {
-  private static final String SAMPLE_TEXT_PATH = "src/test/resources/sample.txt";
+  private static final String SAMPLE_CORPUS = "src/test/resources/sample.txt";
 
   private QatZipper qzip;
   private static byte[] src;
@@ -39,7 +38,7 @@ public class QatCompressorOutputStreamTests {
 
   @BeforeAll
   public static void setup() throws IOException {
-    src = Files.readAllBytes(Paths.get(SAMPLE_TEXT_PATH));
+    src = Files.readAllBytes(Paths.get(SAMPLE_CORPUS));
   }
 
   @AfterEach
@@ -48,58 +47,62 @@ public class QatCompressorOutputStreamTests {
   }
 
   public static Stream<Arguments> provideModeAlgorithmParams() {
-    return QatTestSuite.FORCE_HARDWARE
-        ? Stream.of(
-            Arguments.of(Mode.AUTO, Algorithm.DEFLATE),
-            Arguments.of(Mode.AUTO, Algorithm.LZ4),
-            Arguments.of(Mode.AUTO, Algorithm.ZSTD),
-            Arguments.of(Mode.HARDWARE, Algorithm.DEFLATE),
-            Arguments.of(Mode.HARDWARE, Algorithm.ZSTD),
-            Arguments.of(Mode.HARDWARE, Algorithm.LZ4))
-        : Stream.of(
-            Arguments.of(Mode.AUTO, Algorithm.DEFLATE), Arguments.of(Mode.AUTO, Algorithm.LZ4));
+    if (QatZipper.isQatAvailable()) {
+      return Stream.of(
+          Arguments.of(Mode.AUTO, Algorithm.DEFLATE),
+          Arguments.of(Mode.AUTO, Algorithm.LZ4),
+          Arguments.of(Mode.AUTO, Algorithm.ZSTD),
+          Arguments.of(Mode.HARDWARE, Algorithm.DEFLATE),
+          Arguments.of(Mode.HARDWARE, Algorithm.ZSTD),
+          Arguments.of(Mode.HARDWARE, Algorithm.LZ4));
+    } else {
+      return Stream.of(
+          Arguments.of(Mode.AUTO, Algorithm.DEFLATE), Arguments.of(Mode.AUTO, Algorithm.LZ4));
+    }
   }
 
   public static Stream<Arguments> provideModeAlgorithmLengthParams() {
-    return QatTestSuite.FORCE_HARDWARE
-        ? Stream.of(
-            Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 16384),
-            Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 65536),
-            Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 524288),
-            Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 1048576),
-            Arguments.of(Mode.AUTO, Algorithm.LZ4, 16384),
-            Arguments.of(Mode.AUTO, Algorithm.LZ4, 65536),
-            Arguments.of(Mode.AUTO, Algorithm.LZ4, 524288),
-            Arguments.of(Mode.AUTO, Algorithm.LZ4, 1048576),
-            Arguments.of(Mode.AUTO, Algorithm.ZSTD, 16384),
-            Arguments.of(Mode.AUTO, Algorithm.ZSTD, 65536),
-            Arguments.of(Mode.AUTO, Algorithm.ZSTD, 524288),
-            Arguments.of(Mode.AUTO, Algorithm.ZSTD, 1048576),
-            Arguments.of(Mode.HARDWARE, Algorithm.DEFLATE, 16384),
-            Arguments.of(Mode.HARDWARE, Algorithm.DEFLATE, 65536),
-            Arguments.of(Mode.HARDWARE, Algorithm.DEFLATE, 524288),
-            Arguments.of(Mode.HARDWARE, Algorithm.DEFLATE, 1048576),
-            Arguments.of(Mode.HARDWARE, Algorithm.LZ4, 16384),
-            Arguments.of(Mode.HARDWARE, Algorithm.LZ4, 65536),
-            Arguments.of(Mode.HARDWARE, Algorithm.LZ4, 524288),
-            Arguments.of(Mode.HARDWARE, Algorithm.LZ4, 1048576),
-            Arguments.of(Mode.HARDWARE, Algorithm.ZSTD, 16384),
-            Arguments.of(Mode.HARDWARE, Algorithm.ZSTD, 65536),
-            Arguments.of(Mode.HARDWARE, Algorithm.ZSTD, 524288),
-            Arguments.of(Mode.HARDWARE, Algorithm.ZSTD, 1048576))
-        : Stream.of(
-            Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 16384),
-            Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 65536),
-            Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 524288),
-            Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 1048576),
-            Arguments.of(Mode.AUTO, Algorithm.LZ4, 16384),
-            Arguments.of(Mode.AUTO, Algorithm.LZ4, 65536),
-            Arguments.of(Mode.AUTO, Algorithm.LZ4, 524288),
-            Arguments.of(Mode.AUTO, Algorithm.LZ4, 1048576),
-            Arguments.of(Mode.AUTO, Algorithm.ZSTD, 16384),
-            Arguments.of(Mode.AUTO, Algorithm.ZSTD, 65536),
-            Arguments.of(Mode.AUTO, Algorithm.ZSTD, 524288),
-            Arguments.of(Mode.AUTO, Algorithm.ZSTD, 1048576));
+    if (QatZipper.isQatAvailable()) {
+      return Stream.of(
+          Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 16384),
+          Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 65536),
+          Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 524288),
+          Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 1048576),
+          Arguments.of(Mode.AUTO, Algorithm.LZ4, 16384),
+          Arguments.of(Mode.AUTO, Algorithm.LZ4, 65536),
+          Arguments.of(Mode.AUTO, Algorithm.LZ4, 524288),
+          Arguments.of(Mode.AUTO, Algorithm.LZ4, 1048576),
+          Arguments.of(Mode.AUTO, Algorithm.ZSTD, 16384),
+          Arguments.of(Mode.AUTO, Algorithm.ZSTD, 65536),
+          Arguments.of(Mode.AUTO, Algorithm.ZSTD, 524288),
+          Arguments.of(Mode.AUTO, Algorithm.ZSTD, 1048576),
+          Arguments.of(Mode.HARDWARE, Algorithm.DEFLATE, 16384),
+          Arguments.of(Mode.HARDWARE, Algorithm.DEFLATE, 65536),
+          Arguments.of(Mode.HARDWARE, Algorithm.DEFLATE, 524288),
+          Arguments.of(Mode.HARDWARE, Algorithm.DEFLATE, 1048576),
+          Arguments.of(Mode.HARDWARE, Algorithm.LZ4, 16384),
+          Arguments.of(Mode.HARDWARE, Algorithm.LZ4, 65536),
+          Arguments.of(Mode.HARDWARE, Algorithm.LZ4, 524288),
+          Arguments.of(Mode.HARDWARE, Algorithm.LZ4, 1048576),
+          Arguments.of(Mode.HARDWARE, Algorithm.ZSTD, 16384),
+          Arguments.of(Mode.HARDWARE, Algorithm.ZSTD, 65536),
+          Arguments.of(Mode.HARDWARE, Algorithm.ZSTD, 524288),
+          Arguments.of(Mode.HARDWARE, Algorithm.ZSTD, 1048576));
+    } else {
+      return Stream.of(
+          Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 16384),
+          Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 65536),
+          Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 524288),
+          Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 1048576),
+          Arguments.of(Mode.AUTO, Algorithm.LZ4, 16384),
+          Arguments.of(Mode.AUTO, Algorithm.LZ4, 65536),
+          Arguments.of(Mode.AUTO, Algorithm.LZ4, 524288),
+          Arguments.of(Mode.AUTO, Algorithm.LZ4, 1048576),
+          Arguments.of(Mode.AUTO, Algorithm.ZSTD, 16384),
+          Arguments.of(Mode.AUTO, Algorithm.ZSTD, 65536),
+          Arguments.of(Mode.AUTO, Algorithm.ZSTD, 524288),
+          Arguments.of(Mode.AUTO, Algorithm.ZSTD, 1048576));
+    }
   }
 
   public static Stream<Arguments> provideAlgorithmLevelParams() {
@@ -148,12 +151,14 @@ public class QatCompressorOutputStreamTests {
   @ParameterizedTest
   @EnumSource(Algorithm.class)
   public void testOutputStreamOneArgConstructor(Algorithm algo) throws IOException {
-    assumeTrue(QatTestSuite.FORCE_HARDWARE);
+    if (!QatZipper.isQatAvailable()) {
+      return;
+    }
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     try {
       try (QatCompressorOutputStream compressedStream =
           new QatCompressorOutputStream(outputStream, algo)) {}
-    } catch (IOException | IllegalArgumentException | QatException e) {
+    } catch (IOException | IllegalArgumentException e) {
       fail(e.getMessage());
     }
   }
@@ -161,12 +166,14 @@ public class QatCompressorOutputStreamTests {
   @ParameterizedTest
   @EnumSource(Algorithm.class)
   public void testOutputStreamConstructor1(Algorithm algo) throws IOException {
-    assumeTrue(QatTestSuite.FORCE_HARDWARE);
+    if (!QatZipper.isQatAvailable()) {
+      return;
+    }
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     try {
       try (QatCompressorOutputStream compressedStream =
           new QatCompressorOutputStream(outputStream, 16 * 1024, algo)) {}
-    } catch (IOException | IllegalArgumentException | QatException e) {
+    } catch (IOException | IllegalArgumentException e) {
       fail(e.getMessage());
     }
   }
@@ -174,7 +181,9 @@ public class QatCompressorOutputStreamTests {
   @ParameterizedTest
   @MethodSource("provideAlgorithmLevelParams")
   public void testOutputStreamConstructor2(Algorithm algo, int level) throws IOException {
-    assumeTrue(QatTestSuite.FORCE_HARDWARE);
+    if (!QatZipper.isQatAvailable()) {
+      return;
+    }
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     try {
       try (QatCompressorOutputStream compressedStream =
@@ -182,7 +191,7 @@ public class QatCompressorOutputStreamTests {
               outputStream,
               16 * 1024,
               new QatZipper.Builder().setAlgorithm(algo).setLevel(level))) {}
-    } catch (IOException | IllegalArgumentException | QatException e) {
+    } catch (IOException | IllegalArgumentException e) {
       fail(e.getMessage());
     }
   }
@@ -195,7 +204,7 @@ public class QatCompressorOutputStreamTests {
       try (QatCompressorOutputStream compressedStream =
           new QatCompressorOutputStream(
               outputStream, 16 * 1024, new QatZipper.Builder().setAlgorithm(algo).setMode(mode))) {}
-    } catch (IOException | IllegalArgumentException | QatException e) {
+    } catch (IOException | IllegalArgumentException e) {
       fail(e.getMessage());
     }
   }
@@ -234,7 +243,7 @@ public class QatCompressorOutputStreamTests {
   @MethodSource("provideModeAlgorithmLengthParams")
   public void testOutputStreamWriteAll3(Mode mode, Algorithm algo, int size) throws IOException {
     qzip = new QatZipper.Builder().setAlgorithm(algo).setMode(mode).build();
-    byte[] src = Files.readAllBytes(Paths.get(SAMPLE_TEXT_PATH));
+    byte[] src = Files.readAllBytes(Paths.get(SAMPLE_CORPUS));
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     try (QatCompressorOutputStream compressedStream =
         new QatCompressorOutputStream(
@@ -258,7 +267,7 @@ public class QatCompressorOutputStreamTests {
   @MethodSource("provideModeAlgorithmLengthParams")
   public void testOutputStreamWriteByte(Mode mode, Algorithm algo, int size) throws IOException {
     qzip = new QatZipper.Builder().setAlgorithm(algo).setMode(mode).build();
-    byte[] src = Files.readAllBytes(Paths.get(SAMPLE_TEXT_PATH));
+    byte[] src = Files.readAllBytes(Paths.get(SAMPLE_CORPUS));
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     try (QatCompressorOutputStream compressedStream =
         new QatCompressorOutputStream(
@@ -287,7 +296,7 @@ public class QatCompressorOutputStreamTests {
   @MethodSource("provideModeAlgorithmLengthParams")
   public void testOutputStreamWriteFlush(Mode mode, Algorithm algo, int size) throws IOException {
     qzip = new QatZipper.Builder().setAlgorithm(algo).setMode(mode).build();
-    byte[] src = Files.readAllBytes(Paths.get(SAMPLE_TEXT_PATH));
+    byte[] src = Files.readAllBytes(Paths.get(SAMPLE_CORPUS));
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     try (QatCompressorOutputStream compressedStream =
         new QatCompressorOutputStream(
@@ -313,7 +322,7 @@ public class QatCompressorOutputStreamTests {
   @ParameterizedTest
   @MethodSource("provideModeAlgorithmLengthParams")
   public void testOutputStreamClose(Mode mode, Algorithm algo, int size) throws IOException {
-    byte[] src = Files.readAllBytes(Paths.get(SAMPLE_TEXT_PATH));
+    byte[] src = Files.readAllBytes(Paths.get(SAMPLE_CORPUS));
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     QatCompressorOutputStream compressedStream =
         new QatCompressorOutputStream(
@@ -331,7 +340,7 @@ public class QatCompressorOutputStreamTests {
   @MethodSource("provideModeAlgorithmLengthParams")
   public void testOutputStreamWriteAfterClose(Mode mode, Algorithm algo, int size)
       throws IOException {
-    byte[] src = Files.readAllBytes(Paths.get(SAMPLE_TEXT_PATH));
+    byte[] src = Files.readAllBytes(Paths.get(SAMPLE_CORPUS));
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     QatCompressorOutputStream compressedStream =
         new QatCompressorOutputStream(
@@ -416,7 +425,7 @@ public class QatCompressorOutputStreamTests {
   @MethodSource("provideModeAlgorithmParams")
   public void testOutputStreamWriteBadOffset(Mode mode, Algorithm algo) throws IOException {
     qzip = new QatZipper.Builder().setAlgorithm(algo).setMode(mode).build();
-    byte[] src = Files.readAllBytes(Paths.get(SAMPLE_TEXT_PATH));
+    byte[] src = Files.readAllBytes(Paths.get(SAMPLE_CORPUS));
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     try (QatCompressorOutputStream compressedStream =
         new QatCompressorOutputStream(
@@ -434,7 +443,7 @@ public class QatCompressorOutputStreamTests {
   @MethodSource("provideModeAlgorithmParams")
   public void testOutputStreamWriteBadLength(Mode mode, Algorithm algo) throws IOException {
     qzip = new QatZipper.Builder().setAlgorithm(algo).setMode(mode).build();
-    byte[] src = Files.readAllBytes(Paths.get(SAMPLE_TEXT_PATH));
+    byte[] src = Files.readAllBytes(Paths.get(SAMPLE_CORPUS));
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     try (QatCompressorOutputStream compressedStream =
         new QatCompressorOutputStream(
@@ -453,7 +462,7 @@ public class QatCompressorOutputStreamTests {
   public void testOutputStreamWriteBadOffsetAndLength(Mode mode, Algorithm algo)
       throws IOException {
     qzip = new QatZipper.Builder().setAlgorithm(algo).setMode(mode).build();
-    byte[] src = Files.readAllBytes(Paths.get(SAMPLE_TEXT_PATH));
+    byte[] src = Files.readAllBytes(Paths.get(SAMPLE_CORPUS));
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     try (QatCompressorOutputStream compressedStream =
         new QatCompressorOutputStream(

@@ -13,7 +13,7 @@
 extern "C" {
 #endif
 
-void throw_exception(JNIEnv *env, jlong err_code, const char *msg);
+const char *get_err_str(int err_code);
 
 #ifdef __cplusplus
 }

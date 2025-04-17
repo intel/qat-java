@@ -12,6 +12,7 @@ import com.github.luben.zstd.ZstdException;
 import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.BufferOverflowException;
 import java.util.Objects;
 
 /**
@@ -218,7 +219,7 @@ public class QatDecompressorInputStream extends FilterInputStream {
 
   private void growOutputBuffer() {
     int oldSize = outputBuffer.length;
-    if (oldSize == MAX_BUFFER_SIZE) throw new QatException("Error buffer limit exceeded");
+    if (oldSize == MAX_BUFFER_SIZE) throw new BufferOverflowException();
     int newSize = (oldSize > Integer.MAX_VALUE / 2) ? MAX_BUFFER_SIZE : oldSize * 2;
     outputBuffer = new byte[newSize];
     outputPosition = 0;

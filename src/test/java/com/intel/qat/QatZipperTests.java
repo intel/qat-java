@@ -12,8 +12,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
-import static org.junit.jupiter.api.Assumptions.assumeFalse;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -32,25 +30,27 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
 public class QatZipperTests {
-  private final String SAMPLE_TEXT_PATH = "src/test/resources/sample.txt";
+  private final String SAMPLE_CORPUS = "src/test/resources/sample.txt";
 
   private QatZipper qzip;
 
   private static final Random RANDOM = new Random();
 
   public static Stream<Arguments> provideModeAlgorithmParams() {
-    return QatTestSuite.FORCE_HARDWARE
-        ? Stream.of(
-            Arguments.of(Mode.AUTO, Algorithm.DEFLATE),
-            Arguments.of(Mode.AUTO, Algorithm.LZ4),
-            Arguments.of(Mode.AUTO, Algorithm.ZSTD),
-            Arguments.of(Mode.HARDWARE, Algorithm.DEFLATE),
-            Arguments.of(Mode.HARDWARE, Algorithm.LZ4),
-            Arguments.of(Mode.HARDWARE, Algorithm.ZSTD))
-        : Stream.of(
-            Arguments.of(Mode.AUTO, Algorithm.DEFLATE),
-            Arguments.of(Mode.AUTO, Algorithm.LZ4),
-            Arguments.of(Mode.AUTO, Algorithm.ZSTD));
+    if (QatZipper.isQatAvailable()) {
+      return Stream.of(
+          Arguments.of(Mode.AUTO, Algorithm.DEFLATE),
+          Arguments.of(Mode.AUTO, Algorithm.LZ4),
+          Arguments.of(Mode.AUTO, Algorithm.ZSTD),
+          Arguments.of(Mode.HARDWARE, Algorithm.DEFLATE),
+          Arguments.of(Mode.HARDWARE, Algorithm.LZ4),
+          Arguments.of(Mode.HARDWARE, Algorithm.ZSTD));
+    } else {
+      return Stream.of(
+          Arguments.of(Mode.AUTO, Algorithm.DEFLATE),
+          Arguments.of(Mode.AUTO, Algorithm.LZ4),
+          Arguments.of(Mode.AUTO, Algorithm.ZSTD));
+    }
   }
 
   public static Stream<Arguments> provideAlgorithmLevelParams() {
@@ -85,36 +85,38 @@ public class QatZipperTests {
   }
 
   public static Stream<Arguments> provideModeAlgorithmLengthParams() {
-    return QatTestSuite.FORCE_HARDWARE
-        ? Stream.of(
-            Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 131072),
-            Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 524288),
-            Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 2097152),
-            Arguments.of(Mode.AUTO, Algorithm.LZ4, 131072),
-            Arguments.of(Mode.AUTO, Algorithm.LZ4, 524288),
-            Arguments.of(Mode.AUTO, Algorithm.LZ4, 2097152),
-            Arguments.of(Mode.AUTO, Algorithm.ZSTD, 131072),
-            Arguments.of(Mode.AUTO, Algorithm.ZSTD, 524288),
-            Arguments.of(Mode.AUTO, Algorithm.ZSTD, 2097152),
-            Arguments.of(Mode.HARDWARE, Algorithm.DEFLATE, 131072),
-            Arguments.of(Mode.HARDWARE, Algorithm.DEFLATE, 524288),
-            Arguments.of(Mode.HARDWARE, Algorithm.DEFLATE, 2097152),
-            Arguments.of(Mode.HARDWARE, Algorithm.LZ4, 131072),
-            Arguments.of(Mode.HARDWARE, Algorithm.LZ4, 524288),
-            Arguments.of(Mode.HARDWARE, Algorithm.LZ4, 2097152),
-            Arguments.of(Mode.HARDWARE, Algorithm.ZSTD, 131072),
-            Arguments.of(Mode.HARDWARE, Algorithm.ZSTD, 524288),
-            Arguments.of(Mode.HARDWARE, Algorithm.ZSTD, 2097152))
-        : Stream.of(
-            Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 131072),
-            Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 524288),
-            Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 2097152),
-            Arguments.of(Mode.AUTO, Algorithm.LZ4, 131072),
-            Arguments.of(Mode.AUTO, Algorithm.LZ4, 524288),
-            Arguments.of(Mode.AUTO, Algorithm.LZ4, 2097152),
-            Arguments.of(Mode.AUTO, Algorithm.ZSTD, 131072),
-            Arguments.of(Mode.AUTO, Algorithm.ZSTD, 524288),
-            Arguments.of(Mode.AUTO, Algorithm.ZSTD, 2097152));
+    if (QatZipper.isQatAvailable()) {
+      return Stream.of(
+          Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 131072),
+          Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 524288),
+          Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 2097152),
+          Arguments.of(Mode.AUTO, Algorithm.LZ4, 131072),
+          Arguments.of(Mode.AUTO, Algorithm.LZ4, 524288),
+          Arguments.of(Mode.AUTO, Algorithm.LZ4, 2097152),
+          Arguments.of(Mode.AUTO, Algorithm.ZSTD, 131072),
+          Arguments.of(Mode.AUTO, Algorithm.ZSTD, 524288),
+          Arguments.of(Mode.AUTO, Algorithm.ZSTD, 2097152),
+          Arguments.of(Mode.HARDWARE, Algorithm.DEFLATE, 131072),
+          Arguments.of(Mode.HARDWARE, Algorithm.DEFLATE, 524288),
+          Arguments.of(Mode.HARDWARE, Algorithm.DEFLATE, 2097152),
+          Arguments.of(Mode.HARDWARE, Algorithm.LZ4, 131072),
+          Arguments.of(Mode.HARDWARE, Algorithm.LZ4, 524288),
+          Arguments.of(Mode.HARDWARE, Algorithm.LZ4, 2097152),
+          Arguments.of(Mode.HARDWARE, Algorithm.ZSTD, 131072),
+          Arguments.of(Mode.HARDWARE, Algorithm.ZSTD, 524288),
+          Arguments.of(Mode.HARDWARE, Algorithm.ZSTD, 2097152));
+    } else {
+      return Stream.of(
+          Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 131072),
+          Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 524288),
+          Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 2097152),
+          Arguments.of(Mode.AUTO, Algorithm.LZ4, 131072),
+          Arguments.of(Mode.AUTO, Algorithm.LZ4, 524288),
+          Arguments.of(Mode.AUTO, Algorithm.LZ4, 2097152),
+          Arguments.of(Mode.AUTO, Algorithm.ZSTD, 131072),
+          Arguments.of(Mode.AUTO, Algorithm.ZSTD, 524288),
+          Arguments.of(Mode.AUTO, Algorithm.ZSTD, 2097152));
+    }
   }
 
   private byte[] getRandomBytes(int len) {
@@ -134,10 +136,12 @@ public class QatZipperTests {
 
   @Test
   public void testDefaultConstructor() {
-    assumeTrue(QatTestSuite.FORCE_HARDWARE);
+    if (!QatZipper.isQatAvailable()) {
+      return;
+    }
     try {
-      qzip = new QatZipper.Builder().build();
-    } catch (IllegalArgumentException | QatException e) {
+      qzip = new QatZipper.Builder().setMode(Mode.HARDWARE).build();
+    } catch (IllegalArgumentException e) {
       fail(e.getMessage());
     }
   }
@@ -147,14 +151,16 @@ public class QatZipperTests {
     try {
       QatZipper qzip = new QatZipper.Builder().setMode(Mode.HARDWARE).build();
       qzip.end();
-    } catch (QatException e) {
+    } catch (IllegalStateException e) {
       fail(e.getMessage());
     }
   }
 
   @Test
   public void duplicateEndHW() {
-    assumeTrue(QatTestSuite.FORCE_HARDWARE);
+    if (!QatZipper.isQatAvailable()) {
+      return;
+    }
     try {
       QatZipper qzip =
           new QatZipper.Builder().setAlgorithm(Algorithm.LZ4).setMode(Mode.HARDWARE).build();
@@ -162,7 +168,7 @@ public class QatZipperTests {
       qzip.end();
     } catch (IllegalStateException | IllegalArgumentException is) {
       assertTrue(true);
-    } catch (QatException e) {
+    } catch (Exception e) {
       fail(e.getMessage());
     }
   }
@@ -279,10 +285,9 @@ public class QatZipperTests {
   @ParameterizedTest
   @EnumSource(Mode.class)
   public void testSingleArgConstructorMode(Mode mode) {
-    assumeFalse(mode.equals(Mode.HARDWARE) && !QatTestSuite.FORCE_HARDWARE);
     try {
       qzip = new QatZipper.Builder().setMode(mode).build();
-    } catch (IllegalArgumentException | QatException e) {
+    } catch (IllegalArgumentException e) {
       fail(e.getMessage());
     }
   }
@@ -290,10 +295,12 @@ public class QatZipperTests {
   @ParameterizedTest
   @EnumSource(Algorithm.class)
   public void testSingleArgConstructorAlgo(Algorithm algo) {
-    assumeTrue(QatTestSuite.FORCE_HARDWARE);
+    if (!QatZipper.isQatAvailable()) {
+      return;
+    }
     try {
       qzip = new QatZipper.Builder().setAlgorithm(algo).build();
-    } catch (IllegalArgumentException | QatException e) {
+    } catch (IllegalArgumentException e) {
       fail(e.getMessage());
     }
   }
@@ -303,7 +310,7 @@ public class QatZipperTests {
   public void testTwoArgConstructorAlgoAndMode(Mode mode, Algorithm algo) {
     try {
       qzip = new QatZipper.Builder().setAlgorithm(algo).setMode(mode).build();
-    } catch (IllegalArgumentException | QatException e) {
+    } catch (IllegalArgumentException e) {
       fail(e.getMessage());
     }
   }
@@ -311,10 +318,12 @@ public class QatZipperTests {
   @ParameterizedTest
   @EnumSource(Algorithm.class)
   public void testTwoArgConstructorAlgoAndLevel(Algorithm algo) {
-    assumeTrue(QatTestSuite.FORCE_HARDWARE);
+    if (!QatZipper.isQatAvailable()) {
+      return;
+    }
     try {
       qzip = new QatZipper.Builder().setAlgorithm(algo).setLevel(9).build();
-    } catch (IllegalArgumentException | QatException e) {
+    } catch (IllegalArgumentException e) {
       fail(e.getMessage());
     }
   }
@@ -324,7 +333,7 @@ public class QatZipperTests {
   public void testThreeArgConstructorAlgoLevelMode(Mode mode, Algorithm algo) {
     try {
       qzip = new QatZipper.Builder().setAlgorithm(algo).setLevel(9).setMode(mode).build();
-    } catch (IllegalArgumentException | QatException e) {
+    } catch (IllegalArgumentException e) {
       fail(e.getMessage());
     }
   }
@@ -334,7 +343,7 @@ public class QatZipperTests {
   public void testFourArgConstructorAlgoLevelModeRetryCount(Mode mode, Algorithm algo) {
     try {
       qzip = new QatZipper.Builder().setAlgorithm(algo).setMode(mode).setRetryCount(10).build();
-    } catch (IllegalArgumentException | QatException e) {
+    } catch (IllegalArgumentException e) {
       fail(e.getMessage());
     }
   }
@@ -361,7 +370,7 @@ public class QatZipperTests {
       // Convert the bytes into a String
       String outputStr = new String(barr, 0, resultLen, "UTF-8");
       assertEquals(inputStr, outputStr);
-    } catch (java.io.UnsupportedEncodingException | QatException e) {
+    } catch (java.io.UnsupportedEncodingException e) {
       fail(e.getMessage());
     }
   }
@@ -388,7 +397,7 @@ public class QatZipperTests {
       // Convert the bytes into a String
       String outputStr = new String(barr, 0, resultLen, "UTF-8");
       assertEquals(inputStr, outputStr);
-    } catch (java.io.UnsupportedEncodingException | QatException e) {
+    } catch (java.io.UnsupportedEncodingException e) {
       fail(e.getMessage());
     }
   }
@@ -415,7 +424,7 @@ public class QatZipperTests {
       // Convert the bytes into a String
       String outputStr = new String(barr, 0, resultLen, "UTF-8");
       assertEquals(inputStr, outputStr);
-    } catch (java.io.UnsupportedEncodingException | QatException e) {
+    } catch (java.io.UnsupportedEncodingException e) {
       fail(e.getMessage());
     }
   }
@@ -442,7 +451,7 @@ public class QatZipperTests {
       // Convert the bytes into a String
       String outputStr = new String(barr, 0, resultLen, "UTF-8");
       assertEquals(inputStr, outputStr);
-    } catch (java.io.UnsupportedEncodingException | QatException e) {
+    } catch (java.io.UnsupportedEncodingException e) {
       fail(e.getMessage());
     }
   }
@@ -470,7 +479,7 @@ public class QatZipperTests {
       // Convert the bytes into a String
       String outputStr = new String(barr, 0, resultLen, "UTF-8");
       assertEquals(inputStr, outputStr);
-    } catch (java.io.UnsupportedEncodingException | QatException e) {
+    } catch (java.io.UnsupportedEncodingException e) {
       fail(e.getMessage());
     }
   }
@@ -504,7 +513,7 @@ public class QatZipperTests {
       // Convert the bytes into a String
       String outputStr = new String(barr, 0, decompLen, "UTF-8");
       assertEquals(inputStr, outputStr);
-    } catch (java.io.UnsupportedEncodingException | QatException e) {
+    } catch (java.io.UnsupportedEncodingException e) {
       fail(e.getMessage());
     }
   }
@@ -515,7 +524,7 @@ public class QatZipperTests {
     try {
       qzip = new QatZipper.Builder().setAlgorithm(algo).setLevel(15).build();
       fail();
-    } catch (QatException e) {
+    } catch (RuntimeException e) {
       assertTrue(true);
     }
   }
@@ -526,7 +535,7 @@ public class QatZipperTests {
     try {
       qzip = new QatZipper.Builder().setAlgorithm(algo).setMode(mode).build();
 
-      byte[] src = readAllBytes(SAMPLE_TEXT_PATH);
+      byte[] src = readAllBytes(SAMPLE_CORPUS);
       byte[] dst = new byte[qzip.maxCompressedLength(src.length)];
       byte[] dec = new byte[src.length];
 
@@ -541,7 +550,7 @@ public class QatZipperTests {
       assertTrue(compressedSize > 0);
       assertEquals(decompressedSize, src.length);
       assertTrue(Arrays.equals(src, dec));
-    } catch (QatException | IOException e) {
+    } catch (IOException e) {
       fail(e.getMessage());
     }
   }
@@ -552,7 +561,7 @@ public class QatZipperTests {
     try {
       qzip = new QatZipper.Builder().setAlgorithm(algo).setMode(mode).build();
 
-      byte[] src = readAllBytes(SAMPLE_TEXT_PATH);
+      byte[] src = readAllBytes(SAMPLE_CORPUS);
       byte[] dst = new byte[qzip.maxCompressedLength(src.length)];
       byte[] dec = new byte[src.length];
 
@@ -571,7 +580,7 @@ public class QatZipperTests {
       assertTrue(
           str.substring(3).compareTo(new String(dec, StandardCharsets.UTF_8).substring(3)) == 0);
 
-    } catch (QatException | IOException e) {
+    } catch (IOException e) {
       fail(e.getMessage());
     }
   }
@@ -582,7 +591,7 @@ public class QatZipperTests {
     try {
       qzip = new QatZipper.Builder().setAlgorithm(algo).setMode(mode).build();
 
-      byte[] src = readAllBytes(SAMPLE_TEXT_PATH);
+      byte[] src = readAllBytes(SAMPLE_CORPUS);
       byte[] dec = new byte[src.length];
 
       ByteBuffer srcBuf = ByteBuffer.allocateDirect(src.length);
@@ -602,7 +611,7 @@ public class QatZipperTests {
       assertTrue(compressedSize > 0);
       assertEquals(decompressedSize, src.length);
       assertTrue(Arrays.equals(src, dec));
-    } catch (QatException | IOException | IllegalArgumentException e) {
+    } catch (IOException | IllegalArgumentException e) {
       fail(e.getMessage());
     }
   }
@@ -613,7 +622,7 @@ public class QatZipperTests {
     try {
       qzip = new QatZipper.Builder().setAlgorithm(algo).setMode(mode).build();
 
-      byte[] src = readAllBytes(SAMPLE_TEXT_PATH);
+      byte[] src = readAllBytes(SAMPLE_CORPUS);
       byte[] dec = new byte[src.length];
 
       ByteBuffer srcBuf = ByteBuffer.allocateDirect(src.length);
@@ -634,7 +643,7 @@ public class QatZipperTests {
       assertTrue(compressedSize > 0);
       assertEquals(decompressedSize, src.length);
       assertTrue(Arrays.equals(src, dec));
-    } catch (QatException | IOException e) {
+    } catch (IOException e) {
       fail(e.getMessage());
     }
   }
@@ -668,10 +677,7 @@ public class QatZipperTests {
       assertNotNull(decBuf);
       assertTrue(decompressedSize > 0);
       assertTrue(Arrays.equals(src, dec));
-    } catch (QatException
-        | IllegalStateException
-        | IllegalArgumentException
-        | ReadOnlyBufferException e) {
+    } catch (IllegalStateException | IllegalArgumentException | ReadOnlyBufferException e) {
       fail(e.getMessage());
     }
   }
@@ -717,10 +723,7 @@ public class QatZipperTests {
       decBuf.get(dec, 0, decompressedSize);
 
       assertTrue(Arrays.equals(src, dec));
-    } catch (QatException
-        | IllegalStateException
-        | IllegalArgumentException
-        | ArrayIndexOutOfBoundsException e) {
+    } catch (IllegalStateException | IllegalArgumentException | ArrayIndexOutOfBoundsException e) {
       fail(e.getMessage());
     }
   }
@@ -766,10 +769,7 @@ public class QatZipperTests {
       decBuf.get(dec, 0, decompressedSize);
 
       assertTrue(Arrays.equals(src, dec));
-    } catch (QatException
-        | IllegalStateException
-        | IllegalArgumentException
-        | ArrayIndexOutOfBoundsException e) {
+    } catch (IllegalStateException | IllegalArgumentException | ArrayIndexOutOfBoundsException e) {
       fail(e.getMessage());
     }
   }
@@ -815,10 +815,7 @@ public class QatZipperTests {
       decBuf.get(dec, 0, decompressedSize);
 
       assertTrue(Arrays.equals(src, dec));
-    } catch (QatException
-        | IllegalStateException
-        | IllegalArgumentException
-        | ArrayIndexOutOfBoundsException e) {
+    } catch (IllegalStateException | IllegalArgumentException | ArrayIndexOutOfBoundsException e) {
       fail(e.getMessage());
     }
   }
@@ -861,10 +858,7 @@ public class QatZipperTests {
       decBuf.get(dec, 0, decompressedSize);
 
       assertTrue(Arrays.equals(src, dec));
-    } catch (QatException
-        | IllegalStateException
-        | IllegalArgumentException
-        | ArrayIndexOutOfBoundsException e) {
+    } catch (IllegalStateException | IllegalArgumentException | ArrayIndexOutOfBoundsException e) {
       fail(e.getMessage());
     }
   }
@@ -910,10 +904,7 @@ public class QatZipperTests {
       decBuf.flip();
       decBuf.get(dec, 0, decompressedSize);
       assertTrue(Arrays.equals(dec, src));
-    } catch (QatException
-        | IllegalStateException
-        | IllegalArgumentException
-        | ReadOnlyBufferException e) {
+    } catch (IllegalStateException | IllegalArgumentException | ReadOnlyBufferException e) {
       fail(e.getMessage());
     }
   }
@@ -940,10 +931,7 @@ public class QatZipperTests {
       qzip.decompress(dst, 0, compressedSize, dec, 0, dec.length);
       assertNotNull(dec);
       assertTrue(Arrays.equals(src, dec));
-    } catch (QatException
-        | IllegalStateException
-        | IllegalArgumentException
-        | ArrayIndexOutOfBoundsException e) {
+    } catch (IllegalStateException | IllegalArgumentException | ArrayIndexOutOfBoundsException e) {
       fail(e.getMessage());
     }
   }
@@ -975,7 +963,7 @@ public class QatZipperTests {
       decBuf.get(dec, 0, decompressedSize);
 
       assertTrue(Arrays.equals(src, dec));
-    } catch (QatException e) {
+    } catch (RuntimeException e) {
       fail(e.getMessage());
     }
   }
@@ -1014,7 +1002,7 @@ public class QatZipperTests {
       decBuf.get(dec, 0, decompressedSize);
 
       assertTrue(Arrays.equals(src, dec));
-    } catch (QatException e) {
+    } catch (RuntimeException e) {
       fail(e.getMessage());
     }
   }
@@ -1089,7 +1077,7 @@ public class QatZipperTests {
       decBuf.get(dec, 0, decompressedSize);
 
       assertTrue(Arrays.equals(src, dec));
-    } catch (QatException e) {
+    } catch (RuntimeException e) {
       fail(e.getMessage());
     }
   }
@@ -1236,7 +1224,7 @@ public class QatZipperTests {
       assertEquals(decompressedSize, data.length);
       assertTrue(result.compareTo(src) == 0);
 
-    } catch (QatException | IllegalArgumentException e) {
+    } catch (IllegalArgumentException e) {
       fail(e.getMessage());
     }
   }
@@ -1281,7 +1269,7 @@ public class QatZipperTests {
       for (int i = 0; i < len; ++i)
         assert data[i] == result.get(inOffset + i) : "Failed comparison on index: " + i;
 
-    } catch (QatException | IllegalArgumentException e) {
+    } catch (IllegalArgumentException e) {
       fail(e.getMessage());
     }
   }
@@ -1330,7 +1318,7 @@ public class QatZipperTests {
       for (int i = 0; i < len; ++i)
         assert data[i] == result.get(inOffset + i) : "Failed comparison on index: " + i;
 
-    } catch (QatException | IllegalArgumentException e) {
+    } catch (IllegalArgumentException e) {
       fail(e.getMessage());
     }
   }
@@ -1355,7 +1343,7 @@ public class QatZipperTests {
       qzip.decompress(dst, 0, dst.length, dec, 0, dec.length);
 
       fail();
-    } catch (QatException | ArrayIndexOutOfBoundsException e) {
+    } catch (ArrayIndexOutOfBoundsException e) {
       assertTrue(true);
     }
   }
@@ -1380,7 +1368,7 @@ public class QatZipperTests {
       qzip.decompress(dst, 0, dst.length, dec, 0, dec.length);
 
       fail();
-    } catch (QatException | ArrayIndexOutOfBoundsException e) {
+    } catch (ArrayIndexOutOfBoundsException e) {
       assertTrue(true);
     }
   }
@@ -1405,7 +1393,7 @@ public class QatZipperTests {
       qzip.decompress(dst, -1, dst.length, dec, 0, dec.length);
 
       fail();
-    } catch (QatException | ArrayIndexOutOfBoundsException e) {
+    } catch (ArrayIndexOutOfBoundsException e) {
       assertTrue(true);
     }
   }
@@ -1430,7 +1418,7 @@ public class QatZipperTests {
       qzip.decompress(dst, dst.length + 1, dst.length, dec, 0, dec.length);
 
       fail();
-    } catch (QatException | ArrayIndexOutOfBoundsException e) {
+    } catch (ArrayIndexOutOfBoundsException e) {
       assertTrue(true);
     }
   }

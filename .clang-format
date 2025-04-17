@@ -1,2 +1,5 @@
 Language: Cpp
 BasedOnStyle: Google
+AlignAfterOpenBracket: Align
+BinPackParameters: false
+AllowAllParametersOfDeclarationOnNextLine: false
