@@ -6,7 +6,6 @@
 
 package com.intel.qat.examples;
 
-import com.intel.qat.QatException;
 import com.intel.qat.QatZipper;
 
 public class ByteArrayExample {
@@ -35,7 +34,7 @@ public class ByteArrayExample {
       // Convert the bytes into a String
       String outputStr = new String(decompressedData, 0, decompressedLength, "UTF-8");
       System.out.println("Decompressed data: " + outputStr);
-    } catch (java.io.UnsupportedEncodingException | QatException e) {
+    } catch (java.io.UnsupportedEncodingException | RuntimeException e) {
       e.printStackTrace();
     }
   }

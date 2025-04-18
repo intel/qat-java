@@ -12,25 +12,25 @@ import java.lang.reflect.Field;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-public class NativeLoaderTest {
+public class NativeTest {
   @BeforeEach
   void setUp() {
-    setField("isLoaded", false);
+    setField("loaded", false);
   }
 
   @Test
   void testLoadNativeLibraryAlreadyLoaded() {
-    setField("isLoaded", true);
+    setField("loaded", true);
 
-    assertDoesNotThrow(() -> NativeLoader.loadLibrary());
-    assertTrue(NativeLoader.isLoaded(), "Library should be marked as loaded");
+    assertDoesNotThrow(() -> Native.loadLibrary());
+    assertTrue(Native.isLoaded(), "Library should be marked as loaded");
   }
 
   @Test
   void testLoadNativeLibraryNotPresent() {
-    setField("isLoaded", false);
+    setField("loaded", false);
     try {
-      NativeLoader.loadLibrary();
+      Native.loadLibrary();
       assertTrue(true);
     } catch (RuntimeException e) {
     }
@@ -38,7 +38,7 @@ public class NativeLoaderTest {
 
   private <T> void setField(String fieldName, T value) {
     try {
-      Field field = NativeLoader.class.getDeclaredField(fieldName);
+      Field field = Native.class.getDeclaredField(fieldName);
       field.setAccessible(true);
       field.set(null, value);
     } catch (NoSuchFieldException | IllegalAccessException e) {

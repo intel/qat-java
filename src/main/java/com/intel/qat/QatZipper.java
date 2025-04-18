@@ -125,10 +125,6 @@ public class QatZipper {
   /** Checksum flag, currently valid for only ZSTD. */
   private boolean checksumFlag;
 
-  static {
-    InternalJNI.initFieldIDs();
-  }
-
   /** The compression algorithm to use. DEFLATE and LZ4 are supported. */
   public static enum Algorithm {
     /** The deflate compression algorithm. */
@@ -412,8 +408,7 @@ public class QatZipper {
     hwBufferSize = builder.hwBufferSize;
 
     if (retryCount < 0) throw new IllegalArgumentException("Invalid value for retry count");
-    if (!NativeLoader.isLoaded())
-      throw new RuntimeException("Unable to load qat-java native library");
+    if (!Native.isLoaded()) throw new RuntimeException("Unable to load qat-java native library");
 
     if (algorithm == Algorithm.ZSTD) {
       zstdCompressCtx = new ZstdCompressCtx();
