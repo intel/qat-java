@@ -8,13 +8,13 @@ package com.intel.qat;
 import java.nio.ByteBuffer;
 
 /** Class with static native function declaration */
-class InternalJNI {
-  /** This class contains static native method interface declarations required by JNI. */
-  private InternalJNI() {}
+enum InternalJNI {
+  ;
 
   /** loads libqatzip.so while loading through static block */
   static {
-    NativeLoader.loadLibrary();
+    Native.loadLibrary();
+    initFieldIDs();
   }
 
   static native void initFieldIDs();
