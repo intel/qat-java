@@ -408,7 +408,6 @@ public class QatZipper {
     hwBufferSize = builder.hwBufferSize;
 
     if (retryCount < 0) throw new IllegalArgumentException("Invalid value for retry count");
-    if (!Native.isLoaded()) throw new RuntimeException("Unable to load qat-java native library");
 
     if (algorithm == Algorithm.ZSTD) {
       zstdCompressCtx = new ZstdCompressCtx();
