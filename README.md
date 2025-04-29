@@ -6,8 +6,9 @@ Qat-Java currently supports DEFLATE, LZ4, and ZStandard compression algorithms.
 ## Prerequisites
 This release was validated on the following:
 
-* Intel&reg; QuickAssist Acceleration Driver version QAT20.L.1.2.30-00078. You may download it from [here](https://www.intel.com/content/www/us/en/download/765501/intel-quickassist-technology-driver-for-linux-hw-version-2-0.html). 
+* Intel&reg; QATlib version [24.09.0](https://github.com/intel/qatlib)
 * QATzip version [1.3.0](https://github.com/intel/QATzip/releases) and its dependencies.
+* ZSTD library, version [1.5.4+](https://github.com/facebook/zstd).
 * GCC\* of version 4.8.5 or higher.
 * JDK 11 or above.
 * clang (for fuzz testing).
@@ -20,6 +21,7 @@ mvn clean package
 
 Other Maven targets include:
 
+- `clean` &mdash; cleans.
 - `compile` &mdash; builds sources.
 - `test` &mdash; builds and runs tests.
 - `package` &mdash; builds and writes jar files into ```target``` directory.
@@ -33,12 +35,12 @@ Other Maven targets include:
 ## Testing
 To run all the unit tests, execute the below command.
 ```
-mvn clean test
+mvn test
 ```
 
 You can also install the [Jazzer](https://github.com/CodeIntelligenceTesting/jazzer/blob/main/CONTRIBUTING.md) tool and run Fuzz tests. 
 ```
-mvn clean test -Dfuzzing=true
+mvn test -Dfuzzing=true
 ```
 
 ## Examples

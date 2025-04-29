@@ -443,9 +443,9 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_setup(JNIEnv *env,
   int rc = QZ_OK;
   int key = generate_key_for_session(comp_algorithm, level, sw_backup,
                                      polling_mode, data_format, hw_buff_sz);
-  Session_T *session_ptr = get_cached_session(key);
+  Session_T *sess_ptr = get_cached_session(key);
 
-  if (!session_ptr || !session_ptr->qz_session) {
+  if (!sess_ptr || !sess_ptr->qz_session) {
     if (g_session_counter == MAX_SESSIONS_PER_THREAD) {
       (*env)->ThrowNew(
           env, (*env)->FindClass(env, "java/nio/BufferOverflowException"),
@@ -453,14 +453,15 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_setup(JNIEnv *env,
       return QZ_FAIL;
     }
 
-    session_ptr = &g_session_cache[g_session_counter++];
-    session_ptr->key = key;
-    session_ptr->qz_session = (QzSession_T *)calloc(1, sizeof(QzSession_T));
+    sess_ptr = &g_session_cache[g_session_counter++];
+    sess_ptr->key = key;
+    sess_ptr->qz_session = (QzSession_T *)calloc(1, sizeof(QzSession_T));
 
-    rc = qzInit(session_ptr->qz_session, (unsigned char)sw_backup);
+    rc = qzInit(sess_ptr->qz_session, (unsigned char)sw_backup);
     if (rc != QZ_OK && rc != QZ_DUPLICATE) {
-      free(session_ptr->qz_session);
-      session_ptr->qz_session = NULL;
+      qzTeardownSession(sess_ptr->qz_session);
+      free(sess_ptr->qz_session);
+      sess_ptr->qz_session = NULL;
       (*env)->ThrowNew(
           env, (*env)->FindClass(env, "java/lang/IllegalStateException"),
           "Initializing QAT failed");
@@ -469,33 +470,33 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_setup(JNIEnv *env,
 
     if (comp_algorithm == DEFLATE_ALGORITHM) {
       rc = (data_format != ZLIB_DATA_FORMAT)
-               ? setup_deflate_session(session_ptr->qz_session, level,
+               ? setup_deflate_session(sess_ptr->qz_session, level,
                                        (unsigned char)sw_backup, polling_mode,
                                        data_format, hw_buff_sz)
-               : setup_deflate_zlib_session(session_ptr->qz_session, level,
+               : setup_deflate_zlib_session(sess_ptr->qz_session, level,
                                             (unsigned char)sw_backup,
                                             polling_mode);
     } else {
-      rc = setup_lz4_session(session_ptr->qz_session, level,
+      rc = setup_lz4_session(sess_ptr->qz_session, level,
                              (unsigned char)sw_backup, polling_mode);
     }
 
     if (rc != QZ_OK) {
-      qzClose(session_ptr->qz_session);
-      free(session_ptr->qz_session);
-      session_ptr->qz_session = NULL;
-      session_ptr->key = 0;
+      qzTeardownSession(sess_ptr->qz_session);
+      free(sess_ptr->qz_session);
+      sess_ptr->qz_session = NULL;
+      sess_ptr->key = 0;
       (*env)->ThrowNew(
           env, (*env)->FindClass(env, "java/lang/IllegalStateException"),
           "QAT session setup failed");
       return rc;
     }
   }
-  session_ptr->reference_count++;
+  sess_ptr->reference_count++;
 
   jclass qz_clz = (*env)->FindClass(env, "com/intel/qat/QatZipper");
   jfieldID qz_session_field = (*env)->GetFieldID(env, qz_clz, "session", "J");
-  (*env)->SetLongField(env, qat_zipper, qz_session_field, (jlong)session_ptr);
+  (*env)->SetLongField(env, qat_zipper, qz_session_field, (jlong)sess_ptr);
 
   return QZ_OK;
 }
@@ -1479,19 +1480,19 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_teardown(JNIEnv *env,
   (void)clz;
 
   // Validate session pointer
-  Session_T *session_ptr = (Session_T *)sess;
-  if (!session_ptr || !session_ptr->qz_session) {
+  Session_T *sess_ptr = (Session_T *)sess;
+  if (!sess_ptr || !sess_ptr->qz_session) {
     return QZ_OK;
   }
 
   // Decrement reference count
-  if (session_ptr->reference_count > 1) {
-    session_ptr->reference_count--;
+  if (sess_ptr->reference_count > 1) {
+    sess_ptr->reference_count--;
     return QZ_OK;
   }
 
   // Last reference: tear down the QAT session
-  int rc = qzTeardownSession(session_ptr->qz_session);
+  int rc = qzTeardownSession(sess_ptr->qz_session);
   if (rc != QZ_OK) {
     (*env)->ThrowNew(env,
                      (*env)->FindClass(env, "java/lang/IllegalStateException"),
@@ -1500,10 +1501,13 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_teardown(JNIEnv *env,
   }
 
   // Clean up session
-  free(session_ptr->qz_session);
-  session_ptr->qz_session = NULL;
-  session_ptr->reference_count = 0;
-  session_ptr->key = 0;
+  if (sess_ptr->qz_session) {
+    qzTeardownSession(sess_ptr->qz_session);
+    free(sess_ptr->qz_session);
+    sess_ptr->qz_session = NULL;
+  }
+  sess_ptr->reference_count = 0;
+  sess_ptr->key = 0;
 
   // Update session cache counter
   if (g_session_counter > 0) {
