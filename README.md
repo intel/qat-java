@@ -4,9 +4,9 @@ Qat-Java is a library that accelerates data compression using Intel® [QuickAssi
 Qat-Java currently supports DEFLATE, LZ4, and ZStandard compression algorithms.
 
 ## Prerequisites
-This release was validated on the following:
+This release was validated on the following prerequisites:
 
-* Intel&reg; QATlib version [24.09.0](https://github.com/intel/qatlib)
+* Intel&reg; QATlib, version [24.09.0](https://github.com/intel/qatlib).
 * QATzip version [1.3.0](https://github.com/intel/QATzip/releases) and its dependencies.
 * ZSTD library, version [1.5.4+](https://github.com/facebook/zstd).
 * GCC\* of version 4.8.5 or higher.
