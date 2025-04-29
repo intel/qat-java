@@ -7,11 +7,10 @@ package com.intel.qat;
 
 import java.nio.ByteBuffer;
 
-/** Class with static native function declaration */
+/** JNI wrapper, for internal use. */
 enum InternalJNI {
   ;
 
-  /** loads libqatzip.so while loading through static block */
   static {
     Native.loadLibrary();
     initFieldIDs();
