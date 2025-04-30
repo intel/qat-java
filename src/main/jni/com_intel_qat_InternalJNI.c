@@ -382,9 +382,6 @@ static int decompress(JNIEnv *env,
 JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_initFieldIDs(JNIEnv *env,
                                                                    jclass clz) {
   (void)clz;
-  if (!env) {
-    return;
-  }
 
   jclass byte_buffer_class = (*env)->FindClass(env, "java/nio/ByteBuffer");
   g_nio_bytebuffer_position_id =
