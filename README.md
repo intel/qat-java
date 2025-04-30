@@ -8,9 +8,9 @@ This release was validated on the following:
 
 * QATlib, version [24.09.0](https://github.com/intel/qatlib).
 * QATzip, version [1.3.0](https://github.com/intel/QATzip/releases) and its dependencies.
-* ZSTD library, version [1.5.4+](https://github.com/facebook/zstd).
-* GCC\* of version 4.8.5 or above.
-* JDK 11 or above.
+* ZSTD library, version [1.5.4](https://github.com/facebook/zstd).
+* GCC, version 8.5+.
+* JDK 17+.
 * clang (for fuzz testing).
 
 ## Build
