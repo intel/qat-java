@@ -1,66 +1,89 @@
-## Java* Native Interface binding for Intel® QuickAssist Technology
-Qat-Java is a library that accelerates data compression using Intel® [QuickAssist Technology](https://www.intel.com/content/www/us/en/architecture-and-technology/intel-quick-assist-technology-overview.html). For more information about Intel® QAT and installation instructions, refer to the [QAT Documentation](https://intel.github.io/quickassist/index.html).
+## Java* Native Interface Binding for Intel® QuickAssist Technology
 
-Qat-Java currently supports DEFLATE, LZ4, and ZStandard compression algorithms.
+**Qat-Java** is a library that accelerates data compression using Intel® [QuickAssist Technology (QAT)](https://www.intel.com/content/www/us/en/architecture-and-technology/intel-quick-assist-technology-overview.html).  
+For more details on Intel® QAT and installation instructions, refer to the [QAT Documentation](https://intel.github.io/quickassist/index.html).
+
+Qat-Java currently supports the following compression algorithms:
+- **DEFLATE**
+- **LZ4**
+- **Zstandard (ZSTD)**
 
 ## Prerequisites
-This release was validated on the following:
 
-* Intel&reg; QuickAssist Acceleration Driver version QAT20.L.1.2.30-00078. You may download it from [here](https://www.intel.com/content/www/us/en/download/765501/intel-quickassist-technology-driver-for-linux-hw-version-2-0.html). 
-* QATzip version [1.3.0](https://github.com/intel/QATzip/releases) and its dependencies.
-* GCC\* of version 4.8.5 or higher.
-* JDK 11 or above.
-* clang (for fuzz testing).
+This release was validated with the following tools and libraries:
+
+- [QATlib v24.09.0](https://github.com/intel/qatlib)
+- [QATzip v1.3.0](https://github.com/intel/QATzip/releases) and its dependencies
+- [Zstandard v1.5.4](https://github.com/facebook/zstd)
+- GCC 8.5 or newer
+- JDK 17 or newer
+- Clang (for fuzz testing)
 
 ## Build
-To build qat-java, run the below command:
+
+To build Qat-Java, run:
+
 ```
 mvn clean package
 ```
 
-Other Maven targets include:
+### Additional Maven Targets
 
-- `compile` &mdash; builds sources.
-- `test` &mdash; builds and runs tests.
-- `package` &mdash; builds and writes jar files into ```target``` directory.
-- `javadoc:javadoc` &mdash; generates javadocs. 
-- `spotless:check` &mdash; check if source code is formatted well.
-- `spotless:apply` &mdash; fixes source code format issues.
-- `site` &mdash; generates Surefire reports into ```target/site```.
+In addition to `mvn clean package`, the following Maven goals are available:
 
-> The build instructions were tested using gcc-8.5.0, cmake-3.10.0, mvn-3.5.4 and clang-16.0.0.
+- `clean` — Cleans the build directory.  
+- `compile` — Compiles the source code.  
+- `test` — Compiles and runs all unit tests.  
+- `package` — Packages the compiled classes into JAR files (in the `target/` directory).  
+- `javadoc:javadoc` — Generates Javadoc API documentation.  
+- `spotless:check` — Checks that the source code is properly formatted.  
+- `spotless:apply` — Automatically fixes code formatting issues.  
+- `site` — Generates Surefire test reports in `target/site/`.
 
 ## Testing
-To run all the unit tests, execute the below command.
+
+To run all unit tests:
+
 ```
-mvn clean test
+mvn test
 ```
 
-You can also install the [Jazzer](https://github.com/CodeIntelligenceTesting/jazzer/blob/main/CONTRIBUTING.md) tool and run Fuzz tests. 
+## Fuzz Testing
+
+To enable fuzz testing, install the [Jazzer](https://github.com/CodeIntelligenceTesting/jazzer/blob/main/CONTRIBUTING.md) tool and run:
+
 ```
-mvn clean test -Dfuzzing=true
+mvn test -Dfuzzing=true
 ```
 
 ## Examples
-You can run the examples in the `com.intel.qat.examples`, use the below command:
+
+To run an example from the `com.intel.qat.examples` package, use the following command:
+
 ```
-java -cp .:./target/classes/:path/to/zstd-jni-1.5.6-1.jar com.intel.qat.examples.<example-class>
+java -cp .:./target/classes/:path/to/zstd-jni-1.5.6-1.jar com.intel.qat.examples.<ExampleClass>
 ```
 
 ## Authors
-* Mulugeta Mammo (mulugeta.mammo@intel.com)
-* Olasoji Denloye (olasoji.denloye@intel.com)
-* Praveen Nishchal (praveen.nishchal@intel.com)
 
-with contributions on ZStandard compression by:
-* Jacob Greenfield, Matthew West, and Tommy Parisi
+- **Mulugeta Mammo** — [mulugeta.mammo@intel.com](mailto:mulugeta.mammo@intel.com)  
+- **Olasoji Denloye** — [olasoji.denloye@intel.com](mailto:olasoji.denloye@intel.com)  
+- **Praveen Nishchal** — [praveen.nishchal@intel.com](mailto:praveen.nishchal@intel.com)
+
+**Zstandard compression contributions** by:
+- Jacob Greenfield  
+- Matthew West  
+- Tommy Parisi
 
 ## Contributing
-Thanks for your interest! Please see the [CONTRIBUTING.md](CONTRIBUTING.md) document for information on how to contribute.
 
-## Contacts ##
-For more information on this library, contact Mammo, Mulugeta (mulugeta.mammo@intel.com) or  Denloye, Olasoji (olasoji.denloye@intel.com).
+Thank you for your interest in contributing!  
+Please refer to the [CONTRIBUTING.md](CONTRIBUTING.md) document for details on how to get involved.
 
-&nbsp;
+## Contact
 
-> <b id="f1">*</b> Java is a registered trademark of Oracle and/or its affiliates.
+For questions or more information about this library, contact:  
+- [mulugeta.mammo@intel.com](mailto:mulugeta.mammo@intel.com)  
+- [olasoji.denloye@intel.com](mailto:olasoji.denloye@intel.com)
+
+<sub><b id="f1">*</b> Java is a registered trademark of Oracle and/or its affiliates.</sub>

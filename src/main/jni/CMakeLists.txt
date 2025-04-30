@@ -4,42 +4,31 @@
 # SPDX-License-Identifier: BSD
 # ******************************************************************************
 
-cmake_minimum_required(VERSION 3.10.0)
+cmake_minimum_required(VERSION 3.10)
+
 project(qat-java LANGUAGES C)
 
-# Override default -O3 used in Release builds
-set(CMAKE_C_FLAGS_RELEASE "-O2 -DNDEBUG")
-
-# Set default build type if not specified
+# Set default build type early
 if(NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_BUILD_TYPE Release)
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
 endif()
 
-# Define source files
+# Define shared library name
+set(SHARED_LIBRARY_NAME qat-java)
+
+# Source files
 set(SOURCE_FILES
     com_intel_qat_InternalJNI.c
     util.c
 )
 
-set(SHARED_LIBRARY_NAME qat-java)
-
-# Find JNI package
-find_package(JNI REQUIRED)
-
-# Include JNI headers
-include_directories(${JNI_INCLUDE_DIRS})
-
-# Define compiler flags
+# Set C standard and compile flags
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
-# Define QAT-ZSTD directory
-set(QAT_ZSTD_DIR ${CMAKE_SOURCE_DIR}/external/qat-zstd-plugin)
-
-# Include QAT-ZSTD headers
-include_directories(${QAT_ZSTD_DIR}/src)
-
-set(COMMON_FLAGS
+# Define common compile flags
+set(COMMON_FLAGS "")
+list(APPEND COMMON_FLAGS
     -O2
     -Wall
     -Wextra
@@ -59,57 +48,85 @@ if(SANITIZE_MEMORY)
     endif()
 endif()
 
-# Configure git submodule update
+# Find JNI
+find_package(JNI REQUIRED)
+
+# Configure QAT-ZSTD submodule
+set(QAT_ZSTD_DIR "${CMAKE_SOURCE_DIR}/external/qat-zstd-plugin")
+set(QAT_ZSTD_LIB "${QAT_ZSTD_DIR}/src/libqatseqprod.a")
+
+# Ensure submodule is initialized
 find_package(Git QUIET)
 if(GIT_FOUND)
     execute_process(
         COMMAND ${GIT_EXECUTABLE} submodule update --init --recursive
         WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
         RESULT_VARIABLE GIT_SUBMODULE_RESULT
-        OUTPUT_VARIABLE GIT_SUBMODULE_OUTPUT
         ERROR_VARIABLE GIT_SUBMODULE_ERROR
     )
-    
+
     if(NOT GIT_SUBMODULE_RESULT EQUAL 0)
         message(FATAL_ERROR "Git submodule update failed: ${GIT_SUBMODULE_ERROR}")
     endif()
 
-    # Checkout specific tag for qat-zstd-plugin
+    # Checkout specific version/tag
     execute_process(
         COMMAND ${GIT_EXECUTABLE} fetch --tags
         WORKING_DIRECTORY ${QAT_ZSTD_DIR}
-        RESULT_VARIABLE GIT_FETCH_RESULT
     )
     execute_process(
         COMMAND ${GIT_EXECUTABLE} checkout tags/v0.2.0
         WORKING_DIRECTORY ${QAT_ZSTD_DIR}
         RESULT_VARIABLE GIT_CHECKOUT_RESULT
     )
+
+    if(NOT GIT_CHECKOUT_RESULT EQUAL 0)
+        message(FATAL_ERROR "Failed to checkout QAT-ZSTD v0.2.0")
+    endif()
 endif()
 
-# Create custom target for submodule build
-add_custom_target(build_submodule
-    COMMAND ${CMAKE_COMMAND} -E env ${CMAKE_MAKE_PROGRAM}
+# Build QAT-ZSTD statically
+add_custom_target(build_qat_zstd
+    COMMAND ${CMAKE_MAKE_PROGRAM}
     WORKING_DIRECTORY ${QAT_ZSTD_DIR}
-    COMMENT "Building qat-zstd-plugin submodule"
+    COMMENT "Building QAT-ZSTD plugin"
 )
 
 # Create shared library
 add_library(${SHARED_LIBRARY_NAME} SHARED ${SOURCE_FILES})
 
-# Set compile options
+# Include directories
+target_include_directories(${SHARED_LIBRARY_NAME} PRIVATE
+    ${JNI_INCLUDE_DIRS}
+    ${QAT_ZSTD_DIR}/src
+)
+
+# Compile options
 target_compile_options(${SHARED_LIBRARY_NAME} PRIVATE ${COMMON_FLAGS})
 
-# Add dependency
-add_dependencies(${SHARED_LIBRARY_NAME} build_submodule)
-
 # Link libraries
+find_library(QATZIP_LIB qatzip)
+if(NOT QATZIP_LIB)
+    message(FATAL_ERROR "Could not find system library: qatzip")
+endif()
+
 target_link_libraries(${SHARED_LIBRARY_NAME} PRIVATE
-    qatzip
-    ${CMAKE_SOURCE_DIR}/external/qat-zstd-plugin/src/libqatseqprod.a
+    ${QATZIP_LIB}
+    ${QAT_ZSTD_LIB}
+)
+
+# Depend on the custom build target
+add_dependencies(${SHARED_LIBRARY_NAME} build_qat_zstd)
+
+# Properties
+set_target_properties(${SHARED_LIBRARY_NAME} PROPERTIES
+    POSITION_INDEPENDENT_CODE ON
+    INSTALL_RPATH "$ORIGIN"
 )
 
 # Print configuration
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 message(STATUS "Memory sanitizing: ${SANITIZE_MEMORY}")
 message(STATUS "Compiler flags: ${COMMON_FLAGS}")
+message(STATUS "QAT-ZSTD directory: ${QAT_ZSTD_DIR}")
+
