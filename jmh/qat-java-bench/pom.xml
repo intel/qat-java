@@ -35,7 +35,7 @@ THE POSSIBILITY OF SUCH DAMAGE.
 
     <groupId>com.intel.qat.jmh</groupId>
     <artifactId>qat-java-bench</artifactId>
-    <version>1.0</version>
+    <version>2.3.0</version>
     <packaging>jar</packaging>
 
     <name>JMH benchmark sample: Java</name>
@@ -60,7 +60,7 @@ THE POSSIBILITY OF SUCH DAMAGE.
         <dependency>
             <groupId>com.intel.qat</groupId>
             <artifactId>qat-java</artifactId>
-            <version>2.3.1</version>
+            <version>2.3.0</version>
         </dependency>
         <dependency>
             <groupId>com.github.luben</groupId>
