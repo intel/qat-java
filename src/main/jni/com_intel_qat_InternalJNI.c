@@ -9,7 +9,7 @@
 #include <qatzip.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include <threads.h>
+#include <pthread.h>
 #include <zstd.h>
 
 #include "qatseqprod.h"
@@ -74,10 +74,14 @@ static _Thread_local void *g_zstd_seqprod_state;
 /**
  * QZSTD_startQatDevice() must be called only once!
  */
-static once_flag g_init_qzstd_flag = ONCE_FLAG_INIT;
-static int g_zstd_is_device_available;
-static void initialize_qzstd_once(void) {
-  g_zstd_is_device_available = QZSTD_startQatDevice();
+static pthread_mutex_t g_init_qzstd_mtx = PTHREAD_MUTEX_INITIALIZER;
+static int g_zstd_is_device_available = QZSTD_FAIL;
+static void call_qzstd_once(void) {
+  pthread_mutex_lock(&g_init_qzstd_mtx);
+  if (g_zstd_is_device_available != QZSTD_OK) {
+    g_zstd_is_device_available = QZSTD_startQatDevice();
+  }
+  pthread_mutex_unlock(&g_init_qzstd_mtx);
 }
 
 /**
@@ -422,8 +426,8 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_setup(JNIEnv *env,
 
   // Handle ZSTD algorithm
   if (comp_algorithm == ZSTD_ALGORITHM) {
-    call_once(&g_init_qzstd_flag, initialize_qzstd_once);
-    if (g_zstd_is_device_available == -1) {
+    call_qzstd_once();
+    if (g_zstd_is_device_available != QZSTD_OK) {
       if (sw_backup == 0) {
         (*env)->ThrowNew(
             env, (*env)->FindClass(env, "java/lang/IllegalStateException"),
@@ -442,6 +446,7 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_setup(JNIEnv *env,
                                      polling_mode, data_format, hw_buff_sz);
   Session_T *sess_ptr = get_cached_session(key);
 
+  // If no cached session exists for the key in this thread, create one!
   if (!sess_ptr || !sess_ptr->qz_session) {
     if (g_session_counter == MAX_SESSIONS_PER_THREAD) {
       (*env)->ThrowNew(
@@ -454,6 +459,7 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_setup(JNIEnv *env,
     sess_ptr->key = key;
     sess_ptr->qz_session = (QzSession_T *)calloc(1, sizeof(QzSession_T));
 
+    // Initialize a new QAT session.
     rc = qzInit(sess_ptr->qz_session, (unsigned char)sw_backup);
     if (rc != QZ_OK && rc != QZ_DUPLICATE) {
       qzTeardownSession(sess_ptr->qz_session);
@@ -1526,13 +1532,16 @@ JNIEXPORT void JNICALL JNI_OnUnload(JavaVM *vm, void *reserved) {
   (void)vm;
   (void)reserved;
 
-  if (g_algorithm_is_zstd && g_zstd_is_device_available != -1) {
-    if (g_zstd_seqprod_state) {
+  JNIEnv *env = NULL;
+
+  if ((*vm)->GetEnv(vm, (void **)&env, JNI_VERSION_1_8) == JNI_OK &&
+      env != NULL) {
+    if (g_zstd_is_device_available == QZSTD_OK) {
       QZSTD_freeSeqProdState(g_zstd_seqprod_state);
-      g_zstd_seqprod_state = NULL;
+      QZSTD_stopQatDevice();
     }
-    QZSTD_stopQatDevice();
-    g_zstd_is_device_available = -1;  // Mark device as stopped
-    g_algorithm_is_zstd = 0;          // Reset ZSTD flag
+
+    // Destroy the QZSTD mutex
+    pthread_mutex_destroy(&g_init_qzstd_mtx);
   }
 }

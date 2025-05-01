@@ -113,6 +113,7 @@ endif()
 target_link_libraries(${SHARED_LIBRARY_NAME} PRIVATE
     ${QATZIP_LIB}
     ${QAT_ZSTD_LIB}
+    pthread
 )
 
 # Depend on the custom build target
