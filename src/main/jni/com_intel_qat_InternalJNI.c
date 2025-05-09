@@ -88,11 +88,11 @@ static void call_qzstd_once(void) {
  * Represents a unique QAT session for specific compression parameters.
  * This structure is used to manage a QAT session with associated metadata.
  */
-typedef struct QzWrapper_T {
+typedef struct QzSessionHandle_T {
   int32_t qz_key;          /**< Unique identifier for session parameters */
   int32_t reference_count; /**< Number of active references to this session */
   QzSession_T *qz_session; /**< Pointer to the QAT session object */
-} QzWrapper_T;
+} QzSessionHandle_T;
 
 /**
  * Defines the maximum number of unique QAT sessions allowed per thread.
@@ -109,9 +109,9 @@ typedef struct QzWrapper_T {
  * Thread-local cache of QAT session objects, indexed by unique session keys.
  * Stores up to MAX_SESSIONS_PER_THREAD active sessions per thread to optimize
  * session reuse for distinct compression configurations. Each session holds a
- * QzWrapper_T struct with a QAT session handle and metadata.
+ * QzSessionHandle_T struct with a QAT session handle and metadata.
  */
-static _Thread_local QzWrapper_T g_session_cache[MAX_SESSIONS_PER_THREAD];
+static _Thread_local QzSessionHandle_T g_session_cache[MAX_SESSIONS_PER_THREAD];
 
 /**
  * Thread-local counter tracking the number of active QAT sessions in
@@ -135,12 +135,12 @@ static _Thread_local int g_session_counter;
  * internally).
  * @return A 32-bit key uniquely representing the session parameters.
  */
-static int32_t generate_key_for_session(int32_t algorithm,
-                                        int32_t level,
-                                        int32_t sw_backup,
-                                        int32_t polling_mode,
-                                        int32_t data_format,
-                                        int32_t hw_buff_sz) {
+static int32_t gen_session_key(int32_t algorithm,
+                               int32_t level,
+                               int32_t sw_backup,
+                               int32_t polling_mode,
+                               int32_t data_format,
+                               int32_t hw_buff_sz) {
   int32_t qz_key = 0;
 
   // Bit-field allocation: 4 bits each for algorithm, level, sw_backup,
@@ -253,48 +253,33 @@ static int setup_lz4_session(QzSession_T *qz_session,
 }
 
 /**
- * Retrieves a cached QAT session matching the specified key from the
- * thread-local session cache. Searches the g_session_cache array up to
- * g_session_cache_counter for a session with a matching key. Returns a pointer
- * to the found QzWrapper_T or NULL if no match is found.
+ * Creates and initializes a new QAT session based on the provided
+ * configuration key. The session is stored in a global cache, and the function
+ * handles initialization and setup for either DEFLATE or LZ4 compression
+ * algorithms, depending on the configuration.
  *
- * @param qz_key  The unique session key generated from compression parameters (e.g., algorithm, level).
- * @return        A pointer to the matching QzWrapper_T in g_session_cache, or NULL if no session matches.
+ * Parameters:
+ *   env           - JNI environment pointer for Java interaction.
+ *   qz_key        - Configuration key encoding the following:
+ *                   - Compression algorithm (bits 0-3)
+ *                   - Compression level (bits 4-7)
+ *                   - Software backup flag (bit 8)
+ *                   - Polling mode (bits 9-12)
+ *                   - Data format (bits 13-16)
+ *                   - Hardware buffer size (bits 17-29, shifted left by 10)
+ *
+ * Returns:
+ *   A pointer to the initialized QzSessionHandle_T session from the global
+ * cache, or NULL if an error occurs (e.g., session limit reached,
+ * initialization failure, or setup failure).
+ *
+ * Throws:
+ *   - java.lang.RuntimeException: If the number of sessions exceeds the
+ * thread's limit (MAX_SESSIONS_PER_THREAD).
+ *   - java.lang.IllegalStateException: If QAT initialization or session setup
+ * fails.
  */
-static QzWrapper_T *get_session(int32_t qz_key) {
-  for (int i = 0; i < g_session_counter; ++i) {
-    if (g_session_cache[i].qz_session && g_session_cache[i].qz_key == qz_key) {
-      return &g_session_cache[i];
-    }
-  }
-  return NULL;
-}
-
-/*
- * Retrieves or creates a session based on the provided key.
- * Iterates through the global session cache to find an existing session
- * matching the key. If found, returns the cached session. Otherwise, creates a
- * new session if the cache limit (MAX_SESSIONS_PER_THREAD) is not exceeded.
- *
- * Extracts session parameters (compression algorithm, level, software backup,
- * polling mode, data format, and hardware buffer size) from the key using bit
- * manipulation. Initializes a QAT session and sets up the session based on the
- * compression algorithm.
- *
- * Throws Java exceptions for errors such as exceeding session limits, QAT
- * initialization failures, or session setup failures.
- *
- * Increments the session's reference count upon successful creation.
- * Returns a pointer to the session or NULL on failure.
- */
-static QzWrapper_T *get_or_create_session(JNIEnv *env, int32_t qz_key) {
-  for (int i = 0; i < g_session_counter; ++i) {
-    if (g_session_cache[i].qz_session && g_session_cache[i].qz_key == qz_key) {
-      return &g_session_cache[i];
-    }
-  }
-
-  // No cached session for the key in this thread. Create one now!
+static QzSessionHandle_T *create_session(JNIEnv *env, int32_t qz_key) {
   if (g_session_counter == MAX_SESSIONS_PER_THREAD) {
     (*env)->ThrowNew(env, (*env)->FindClass(env, "java/lang/RuntimeException"),
                      "Number of sessions exceeded the limit for this thread");
@@ -308,7 +293,7 @@ static QzWrapper_T *get_or_create_session(JNIEnv *env, int32_t qz_key) {
   int data_format = (qz_key >> 13) & 0xF;
   int hw_buff_sz = ((qz_key >> 17) & 0xFFF) << 10;
 
-  QzWrapper_T *sess_ptr = &g_session_cache[g_session_counter++];
+  QzSessionHandle_T *sess_ptr = &g_session_cache[g_session_counter++];
   sess_ptr->qz_key = qz_key;
   sess_ptr->qz_session = (QzSession_T *)calloc(1, sizeof(QzSession_T));
 
@@ -346,6 +331,46 @@ static QzWrapper_T *get_or_create_session(JNIEnv *env, int32_t qz_key) {
                      "QAT session setup failed");
     return NULL;
   }
+
+  return sess_ptr;
+}
+
+/**
+ * Retrieves a cached QAT session matching the specified key from the
+ * thread-local session cache. Searches the g_session_cache array up to
+ * g_session_cache_counter for a session with a matching key. Returns a pointer
+ * to the found QzSessionHandle_T or NULL if no match is found.
+ *
+ * @param qz_key  The unique session key generated from compression parameters
+ * (e.g., algorithm, level).
+ * @return        A pointer to the matching QzSessionHandle_T in
+ * g_session_cache, or NULL if no session matches.
+ */
+static QzSessionHandle_T *get_session(int32_t qz_key) {
+  for (int i = 0; i < g_session_counter; ++i) {
+    if (g_session_cache[i].qz_session && g_session_cache[i].qz_key == qz_key) {
+      return &g_session_cache[i];
+    }
+  }
+  return NULL;
+}
+
+/*
+ * Retrieves or creates a session based on the provided key.
+ * Iterates through the global thread-local session cache to find an existing
+ * session matching the key. If found, returns the cached session. Otherwise,
+ * creates a a new session.
+ *
+ * Returns a pointer to the session or NULL on failure.
+ */
+static QzSessionHandle_T *get_or_create_session(JNIEnv *env, int32_t qz_key) {
+  QzSessionHandle_T *sess_ptr = get_session(qz_key);
+  if (sess_ptr) {
+    return sess_ptr;
+  }
+
+  // Create a new session and update the reference count
+  sess_ptr = create_session(env, qz_key);
   sess_ptr->reference_count++;
 
   return sess_ptr;
@@ -363,8 +388,10 @@ static QzWrapper_T *get_or_create_session(JNIEnv *env, int32_t qz_key) {
  * @param src_len        The size of the source buffer.
  * @param dst_ptr        The destination buffer.
  * @param dst_len        The size of the destination buffer.
- * @param bytes_read     An out parameter that stores the bytes read from the source buffer.
- * @param bytes_written  An out parameter that stores the bytes written to the destination buffer.
+ * @param bytes_read     An out parameter that stores the bytes read from the
+ * source buffer.
+ * @param bytes_written  An out parameter that stores the bytes written to the
+ * destination buffer.
  * @param retry_count    The number of compression retries before we give up.
  * @return               QZ_OK (0) if successful, non-zero otherwise.
  */
@@ -471,7 +498,8 @@ JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_initFieldIDs(JNIEnv *env,
       (*env)->GetFieldID(env, byte_buffer_class, "position", "I");
 
   jclass qz_obj_class = (*env)->FindClass(env, "com/intel/qat/QatZipper");
-  g_qzip_bytes_read_id = (*env)->GetFieldID(env, qz_obj_class, "bytesRead", "I");
+  g_qzip_bytes_read_id =
+      (*env)->GetFieldID(env, qz_obj_class, "bytesRead", "I");
 }
 
 /**
@@ -482,13 +510,15 @@ JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_initFieldIDs(JNIEnv *env,
  * @param env             JNI environment pointer. Must not be NULL.
  * @param clz             Java class object (unused).
  * @param qz_obj          QatZipper Java object to store session key.
- * @param comp_algo       Compression algorithm identifier (e.g., ZSTD_ALGORITHM).
+ * @param comp_algo       Compression algorithm identifier (e.g.,
+ * ZSTD_ALGORITHM).
  * @param level           Compression level (1 to COMP_LVL_MAXIMUM).
  * @param sw_backup       Flag to enable (1) or disable (0) software fallback.
  * @param polling_mode    Polling mode for QAT hardware.
  * @param data_format     Data format for compression.
  * @param hw_buff_sz      Hardware buffer size.
- * @return                QZ_OK on success, QZ_FAIL on invalid input, QZ_NO_HW if hardware is
+ * @return                QZ_OK on success, QZ_FAIL on invalid input, QZ_NO_HW
+ * if hardware is
  */
 JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_setup(JNIEnv *env,
                                                             jclass clz,
@@ -526,9 +556,15 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_setup(JNIEnv *env,
     return QZ_OK;
   }
 
-  int qz_key = generate_key_for_session(comp_algo, level, sw_backup,
-                                        polling_mode, data_format, hw_buff_sz);
-  QzWrapper_T *sess_ptr = get_or_create_session(env, qz_key);
+  int qz_key = gen_session_key(comp_algo, level, sw_backup, polling_mode,
+                               data_format, hw_buff_sz);
+
+  QzSessionHandle_T *sess_ptr = get_session(qz_key);
+  if (!sess_ptr) {
+    sess_ptr = create_session(env, qz_key);
+  }
+  // Update the reference count
+  sess_ptr->reference_count++;
 
   jclass qz_clz = (*env)->FindClass(env, "com/intel/qat/QatZipper");
   jfieldID qz_session_field = (*env)->GetFieldID(env, qz_clz, "qzKey", "I");
@@ -1499,8 +1535,8 @@ Java_com_intel_qat_InternalJNI_zstdFreeSeqProdState(JNIEnv *env,
  * @param env      JNI environment pointer. Must not be NULL.
  * @param clz      Java class object (unused).
  * @param qz_key   Value representing unique compression params
- * @return         QZ_OK on success, or 0 if an error occurs (with a Java exception
- * thrown).
+ * @return         QZ_OK on success, or 0 if an error occurs (with a Java
+ * exception thrown).
  */
 JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_teardown(JNIEnv *env,
                                                                jclass clz,
@@ -1508,7 +1544,7 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_teardown(JNIEnv *env,
   (void)clz;
 
   // Validate session pointer
-  QzWrapper_T *sess_ptr = get_session(qz_key);
+  QzSessionHandle_T *sess_ptr = get_session(qz_key);
   if (!sess_ptr || !sess_ptr->qz_session) {
     return QZ_OK;
   }
