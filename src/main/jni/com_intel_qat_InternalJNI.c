@@ -346,7 +346,6 @@ static QzWrapper_T *get_or_create_session(JNIEnv *env, int32_t qz_key) {
                      "QAT session setup failed");
     return NULL;
   }
-  sess_ptr->reference_count++;
 
   return sess_ptr;
 }
@@ -533,6 +532,9 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_setup(JNIEnv *env,
   jclass qz_clz = (*env)->FindClass(env, "com/intel/qat/QatZipper");
   jfieldID qz_session_field = (*env)->GetFieldID(env, qz_clz, "qzKey", "I");
   (*env)->SetLongField(env, qz_obj, qz_session_field, (jint)sess_ptr->qz_key);
+
+  // Update reference count
+  sess_ptr->reference_count++;
 
   return QZ_OK;
 }
