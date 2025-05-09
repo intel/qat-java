@@ -15,6 +15,7 @@ This release was validated with the following tools and libraries:
 - [QATlib v24.09.0](https://github.com/intel/qatlib)
 - [QATzip v1.3.0](https://github.com/intel/QATzip/releases) and its dependencies
 - [Zstandard v1.5.4](https://github.com/facebook/zstd)
+- [Zstd-jni v1.5.6-1](https://github.com/luben/zstd-jni) or newer (if you're not building from source)
 - GCC 8.5 or newer
 - JDK 17 or newer
 - Clang (for fuzz testing)

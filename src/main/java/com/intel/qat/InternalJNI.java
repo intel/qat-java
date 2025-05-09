@@ -21,11 +21,11 @@ enum InternalJNI {
   static native int setup(
       QatZipper qzip, int algo, int level, int mode, int pmode, int dataFormat, int hwBufferSize);
 
-  static native int maxCompressedSize(long session, long sourceSize);
+  static native int maxCompressedSize(int qzKey, long sourceSize);
 
   static native int compressByteArray(
       QatZipper qzip,
-      long session,
+      int qzKey,
       byte[] src,
       int srcOff,
       int srcLen,
@@ -36,7 +36,7 @@ enum InternalJNI {
 
   static native int decompressByteArray(
       QatZipper qzip,
-      long session,
+      int qzKey,
       byte[] src,
       int srcOff,
       int srcLen,
@@ -46,7 +46,7 @@ enum InternalJNI {
       int retryCount);
 
   static native int compressByteBuffer(
-      long session,
+      int qzKey,
       ByteBuffer srcBuffer,
       byte[] src,
       int srcOff,
@@ -57,7 +57,7 @@ enum InternalJNI {
       int retryCount);
 
   static native int decompressByteBuffer(
-      long session,
+      int qzKey,
       ByteBuffer srcBuffer,
       byte[] src,
       int srcOff,
@@ -68,7 +68,7 @@ enum InternalJNI {
       int retryCount);
 
   static native int compressDirectByteBuffer(
-      long session,
+      int qzKey,
       ByteBuffer src,
       int srcOff,
       int srcLen,
@@ -78,7 +78,7 @@ enum InternalJNI {
       int retryCount);
 
   static native int decompressDirectByteBuffer(
-      long session,
+      int qzKey,
       ByteBuffer src,
       int srcOff,
       int srcLen,
@@ -88,7 +88,7 @@ enum InternalJNI {
       int retryCount);
 
   static native int compressDirectByteBufferSrc(
-      long session,
+      int qzKey,
       ByteBuffer src,
       int srcOff,
       int srcLen,
@@ -98,7 +98,7 @@ enum InternalJNI {
       int retryCount);
 
   static native int decompressDirectByteBufferSrc(
-      long session,
+      int qzKey,
       ByteBuffer src,
       int srcOff,
       int srcLen,
@@ -108,7 +108,7 @@ enum InternalJNI {
       int retryCount);
 
   static native int compressDirectByteBufferDst(
-      long session,
+      int qzKey,
       ByteBuffer src,
       byte[] srcArr,
       int srcOff,
@@ -119,7 +119,7 @@ enum InternalJNI {
       int retryCount);
 
   static native int decompressDirectByteBufferDst(
-      long session,
+      int qzKey,
       ByteBuffer src,
       byte[] srcArr,
       int srcOff,
@@ -135,5 +135,5 @@ enum InternalJNI {
 
   static native void zstdFreeSeqProdState(long sequenceProdState);
 
-  static native int teardown(long session);
+  static native int teardown(int qzKey);
 }

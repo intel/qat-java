@@ -8,6 +8,7 @@ package com.intel.qat.jmh;
 
 import com.intel.qat.QatZipper;
 import com.intel.qat.QatZipper.Algorithm;
+import com.intel.qat.QatZipper.Mode;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -59,7 +60,11 @@ public class QatJavaBench {
             throw new IllegalArgumentException("Invalid algorithm. Supported are DEFLATE and LZ4.");
         }
 
-        QatZipper qzip = new QatZipper.Builder().setAlgorithm(algorithm).setLevel(level).build();
+        QatZipper qzip =
+            new QatZipper.Builder()
+                .setAlgorithm(algorithm)
+                .setLevel(level)
+                .build();
 
         // Read input
         src = Files.readAllBytes(Paths.get(file));
@@ -106,7 +111,11 @@ public class QatJavaBench {
 
   @Benchmark
   public void compress(ThreadState state) throws IOException {
-    QatZipper qzip = new QatZipper.Builder().setAlgorithm(state.algorithm).setLevel(level).build();
+    QatZipper qzip =
+        new QatZipper.Builder()
+            .setAlgorithm(state.algorithm)
+            .setLevel(level)
+            .build();
     int maxCompressedSize = qzip.maxCompressedLength(blockSize);
     byte[] compressedBlock = new byte[maxCompressedSize];
     ByteArrayOutputStream compressedOut = new ByteArrayOutputStream();
@@ -126,7 +135,11 @@ public class QatJavaBench {
 
   @Benchmark
   public static void decompress(ThreadState state) throws IOException {
-    QatZipper qzip = new QatZipper.Builder().setAlgorithm(state.algorithm).setLevel(level).build();
+    QatZipper qzip =
+        new QatZipper.Builder()
+            .setAlgorithm(state.algorithm)
+            .setLevel(level)
+            .build();
     ByteArrayOutputStream decompressedOut = new ByteArrayOutputStream();
     int compressedBlockSize = 0;
     for (int offset = 0; offset < state.compressed.length; offset += compressedBlockSize) {
