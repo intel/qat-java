@@ -113,8 +113,8 @@ public class QatZipper {
    */
   private int bytesWritten;
 
-  /** A reference to a QAT session in C. */
-  private long session;
+  /** Id of this object (set by the JNI code) based on algorithm, etc.. */
+  private int qzKey;
 
   /** Zstd compress context. */
   private ZstdCompressCtx zstdCompressCtx;
@@ -479,7 +479,7 @@ public class QatZipper {
     if (!isValid) throw new IllegalStateException("QAT session has been closed");
 
     if (algorithm != Algorithm.ZSTD) {
-      return InternalJNI.maxCompressedSize(session, len);
+      return InternalJNI.maxCompressedSize(qzKey, len);
     }
 
     return (int) Zstd.compressBound(len);
@@ -541,7 +541,7 @@ public class QatZipper {
     bytesRead = bytesWritten = 0;
     int compressedSize =
         InternalJNI.compressByteArray(
-            this, session, src, srcOffset, srcLen, dst, dstOffset, dstLen, retryCount);
+            this, qzKey, src, srcOffset, srcLen, dst, dstOffset, dstLen, retryCount);
 
     // bytesRead is updated by compressByteArray. We only need to update bytesWritten.
     bytesWritten = compressedSize;
@@ -587,7 +587,7 @@ public class QatZipper {
     if (src.hasArray() && dst.hasArray()) {
       compressedSize =
           InternalJNI.compressByteBuffer(
-              session,
+              qzKey,
               src,
               src.array(),
               srcPos,
@@ -600,11 +600,11 @@ public class QatZipper {
     } else if (src.isDirect() && dst.isDirect()) {
       compressedSize =
           InternalJNI.compressDirectByteBuffer(
-              session, src, srcPos, src.remaining(), dst, dstPos, dst.remaining(), retryCount);
+              qzKey, src, srcPos, src.remaining(), dst, dstPos, dst.remaining(), retryCount);
     } else if (src.hasArray() && dst.isDirect()) {
       compressedSize =
           InternalJNI.compressDirectByteBufferDst(
-              session,
+              qzKey,
               src,
               src.array(),
               srcPos,
@@ -616,7 +616,7 @@ public class QatZipper {
     } else if (src.isDirect() && dst.hasArray()) {
       compressedSize =
           InternalJNI.compressDirectByteBufferSrc(
-              session,
+              qzKey,
               src,
               srcPos,
               src.remaining(),
@@ -641,7 +641,7 @@ public class QatZipper {
       int pos = src.position();
       compressedSize =
           InternalJNI.compressByteBuffer(
-              session, src, srcArr, 0, srcLen, dstArr, 0, dstLen, retryCount);
+              qzKey, src, srcArr, 0, srcLen, dstArr, 0, dstLen, retryCount);
       src.position(pos + src.position());
       dst.put(dstArr, 0, compressedSize);
     }
@@ -708,7 +708,7 @@ public class QatZipper {
 
     int decompressedSize =
         InternalJNI.decompressByteArray(
-            this, session, src, srcOffset, srcLen, dst, dstOffset, dstLen, retryCount);
+            this, qzKey, src, srcOffset, srcLen, dst, dstOffset, dstLen, retryCount);
 
     // bytesRead is updated by decompressedByteArray. We only need to update bytesWritten.
     bytesWritten = decompressedSize;
@@ -758,7 +758,7 @@ public class QatZipper {
     if (src.hasArray() && dst.hasArray()) {
       decompressedSize =
           InternalJNI.decompressByteBuffer(
-              session,
+              qzKey,
               src,
               src.array(),
               srcPos,
@@ -771,11 +771,11 @@ public class QatZipper {
     } else if (src.isDirect() && dst.isDirect()) {
       decompressedSize =
           InternalJNI.decompressDirectByteBuffer(
-              session, src, srcPos, src.remaining(), dst, dstPos, dst.remaining(), retryCount);
+              qzKey, src, srcPos, src.remaining(), dst, dstPos, dst.remaining(), retryCount);
     } else if (src.hasArray() && dst.isDirect()) {
       decompressedSize =
           InternalJNI.decompressDirectByteBufferDst(
-              session,
+              qzKey,
               src,
               src.array(),
               srcPos,
@@ -787,7 +787,7 @@ public class QatZipper {
     } else if (src.isDirect() && dst.hasArray()) {
       decompressedSize =
           InternalJNI.decompressDirectByteBufferSrc(
-              session,
+              qzKey,
               src,
               srcPos,
               src.remaining(),
@@ -812,7 +812,7 @@ public class QatZipper {
       int pos = src.position();
       decompressedSize =
           InternalJNI.decompressByteBuffer(
-              session, src, srcArr, 0, srcLen, dstArr, 0, dstLen, retryCount);
+              qzKey, src, srcArr, 0, srcLen, dstArr, 0, dstLen, retryCount);
       src.position(pos + src.position());
       dst.put(dstArr, 0, decompressedSize);
     }
@@ -866,7 +866,7 @@ public class QatZipper {
    */
   public void end() throws RuntimeException {
     if (!isValid) throw new IllegalStateException("Invalid QAT session");
-    InternalJNI.teardown(session);
+    InternalJNI.teardown(qzKey);
     isValid = false;
   }
 }
