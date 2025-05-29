@@ -6,7 +6,6 @@ For more details on Intel® QAT and installation instructions, refer to the [QAT
 Qat-Java currently supports the following compression algorithms:
 - **DEFLATE**
 - **LZ4**
-- **Zstandard (ZSTD)**
 
 ## Prerequisites
 
@@ -14,8 +13,6 @@ This release was validated with the following tools and libraries:
 
 - [QATlib v24.09.0](https://github.com/intel/qatlib)
 - [QATzip v1.3.0](https://github.com/intel/QATzip/releases) and its dependencies
-- [Zstandard v1.5.4](https://github.com/facebook/zstd)
-- [Zstd-jni v1.5.6-1](https://github.com/luben/zstd-jni) or newer (if you're not building from source)
 - GCC 8.5 or newer
 - JDK 17 or newer
 - Clang (for fuzz testing)
@@ -62,7 +59,7 @@ mvn test -Dfuzzing=true
 To run an example from the `com.intel.qat.examples` package, use the following command:
 
 ```
-java -cp .:./target/classes/:path/to/zstd-jni-1.5.6-1.jar com.intel.qat.examples.<ExampleClass>
+java -cp .:./target/classes/ com.intel.qat.examples.<ExampleClass>
 ```
 
 ## Authors

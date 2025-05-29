@@ -33,7 +33,6 @@ public class QatDecompressorInputStreamTests {
   private static byte[] src;
   private static byte[] deflateBytes;
   private static byte[] lz4Bytes;
-  private static byte[] zstdBytes;
   private Random RANDOM = new Random();
 
   @BeforeAll
@@ -51,12 +50,6 @@ public class QatDecompressorInputStreamTests {
       compressedStream.write(src);
     }
     deflateBytes = outputStream2.toByteArray();
-    ByteArrayOutputStream outputStream3 = new ByteArrayOutputStream();
-    try (QatCompressorOutputStream compressedStream =
-        new QatCompressorOutputStream(outputStream3, 16 * 1024, Algorithm.ZSTD)) {
-      compressedStream.write(src);
-    }
-    zstdBytes = outputStream3.toByteArray();
   }
 
   public static byte[] selectInputBytes(Algorithm algo) {
@@ -65,8 +58,6 @@ public class QatDecompressorInputStreamTests {
         return deflateBytes;
       case LZ4:
         return lz4Bytes;
-      case ZSTD:
-        return zstdBytes;
       default:
         throw new RuntimeException();
     }
@@ -77,15 +68,11 @@ public class QatDecompressorInputStreamTests {
       return Stream.of(
           Arguments.of(Mode.AUTO, Algorithm.DEFLATE),
           Arguments.of(Mode.AUTO, Algorithm.LZ4),
-          Arguments.of(Mode.AUTO, Algorithm.ZSTD),
           Arguments.of(Mode.HARDWARE, Algorithm.DEFLATE),
-          Arguments.of(Mode.HARDWARE, Algorithm.LZ4),
-          Arguments.of(Mode.HARDWARE, Algorithm.ZSTD));
+          Arguments.of(Mode.HARDWARE, Algorithm.LZ4));
     } else {
       return Stream.of(
-          Arguments.of(Mode.AUTO, Algorithm.DEFLATE),
-          Arguments.of(Mode.AUTO, Algorithm.LZ4),
-          Arguments.of(Mode.AUTO, Algorithm.ZSTD));
+          Arguments.of(Mode.AUTO, Algorithm.DEFLATE), Arguments.of(Mode.AUTO, Algorithm.LZ4));
     }
   }
 
@@ -144,18 +131,6 @@ public class QatDecompressorInputStreamTests {
           Arguments.of(Mode.AUTO, Algorithm.LZ4, 0),
           Arguments.of(Mode.AUTO, Algorithm.LZ4, 1024),
           Arguments.of(Mode.AUTO, Algorithm.LZ4, 16384));
-    }
-  }
-
-  @Test
-  public void testNullStream() {
-    ByteArrayInputStream inputStream = null;
-    try {
-      try (QatDecompressorInputStream decompressedStream =
-          new QatDecompressorInputStream(inputStream, Algorithm.ZSTD)) {}
-      fail("Failed to catch NullPointerException");
-    } catch (NullPointerException | IOException e) {
-      assertTrue(true);
     }
   }
 

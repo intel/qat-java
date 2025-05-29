@@ -34,7 +34,7 @@ public class QatJavaStreamBench {
   @Param({"6"})
   static int level;
 
-  @Param({"DEFLATE", "LZ4", "ZSTD"})
+  @Param({"DEFLATE", "LZ4"})
   static String algorithm;
 
   @State(Scope.Thread)
@@ -51,9 +51,6 @@ public class QatJavaStreamBench {
             break;
           case "LZ4":
             algorithm = Algorithm.LZ4;
-            break;
-          case "ZSTD":
-            algorithm = Algorithm.ZSTD;
             break;
           default:
             throw new IllegalArgumentException("Invalid algorithm. Supported are DEFLATE and LZ4.");

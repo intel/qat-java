@@ -8,7 +8,6 @@ package com.intel.qat;
 
 import static com.intel.qat.QatZipper.Algorithm;
 
-import com.github.luben.zstd.ZstdException;
 import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -68,7 +67,6 @@ public class QatDecompressorInputStream extends FilterInputStream {
     super(in);
     if (bufferSize <= 0) throw new IllegalArgumentException();
     Objects.requireNonNull(in);
-    if (builder.getAlgorithm().equals(Algorithm.ZSTD)) MAX_BUFFER_SIZE = Integer.MAX_VALUE - 1;
     int inputBufferSize = 0;
     try {
       inputBufferSize = Math.max(bufferSize, in.available());
@@ -258,7 +256,7 @@ public class QatDecompressorInputStream extends FilterInputStream {
                 outputBufferLimit - outputPosition);
         inputPosition += qzip.getBytesRead();
         outputPosition += decompressed;
-      } catch (ZstdException zstde) {
+      } catch (RuntimeException e) {
         growOutputBuffer();
       }
       if (decompressed == 0 && inputPosition == 0) growOutputBuffer();

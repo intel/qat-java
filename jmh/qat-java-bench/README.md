@@ -2,9 +2,9 @@
 A set of JMH benchmarks.
 ```
 Name                | Algorithm
---------------------------------------------
-QatJavaBench        | DEFLATE, LZ4, ZSTD
-QatJavaStreamBench  | DEFLATE, LZ4, ZSTD
+----------------------------------
+QatJavaBench        | DEFLATE, LZ4
+QatJavaStreamBench  | DEFLATE, LZ4
 ```
 
 ## Build
@@ -17,8 +17,8 @@ mvn clean package
 To run the benchmark, use the below command:
 
 ```
-java -jar target/benchmarks.jar QatJavaBench -p file=/path/to/a/text-corpus -p algorithm=<"DEFLATE"|"LZ4"|"ZSTD"> -p level=<level> -p blockSize=<size> <jmh-params>
-java -jar target/benchmarks.jar QatJavaStreamBench -p file=/path/to/a/text-corpus -p algorithm=<"DEFLATE"|"LZ4"|"ZSTD"> -p level=<level> -p blockSize=<size> <jmh-params>
+java -jar target/benchmarks.jar QatJavaBench -p file=/path/to/a/text-corpus -p algorithm=<"DEFLATE"|"LZ4""> -p level=<level> -p blockSize=<size> <jmh-params>
+java -jar target/benchmarks.jar QatJavaStreamBench -p file=/path/to/a/text-corpus -p algorithm=<"DEFLATE"|"LZ4"> -p level=<level> -p blockSize=<size> <jmh-params>
 ```
 
 Examples:

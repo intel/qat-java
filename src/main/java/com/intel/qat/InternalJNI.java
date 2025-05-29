@@ -129,11 +129,5 @@ enum InternalJNI {
       int dstLen,
       int retryCount);
 
-  static native long zstdGetSeqProdFunction();
-
-  static native long zstdCreateSeqProdState();
-
-  static native void zstdFreeSeqProdState(long sequenceProdState);
-
   static native int teardown(int qzKey);
 }

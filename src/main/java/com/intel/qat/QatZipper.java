@@ -6,9 +6,6 @@
 
 package com.intel.qat;
 
-import com.github.luben.zstd.Zstd;
-import com.github.luben.zstd.ZstdCompressCtx;
-import com.github.luben.zstd.ZstdDecompressCtx;
 import java.nio.ByteBuffer;
 import java.nio.ReadOnlyBufferException;
 
@@ -116,25 +113,13 @@ public class QatZipper {
   /** Id of this object (set by the JNI code) based on algorithm, etc.. */
   private int qzKey;
 
-  /** Zstd compress context. */
-  private ZstdCompressCtx zstdCompressCtx;
-
-  /** Zstd decompress context. */
-  private ZstdDecompressCtx zstdDecompressCtx;
-
-  /** Checksum flag, currently valid for only ZSTD. */
-  private boolean checksumFlag;
-
   /** The compression algorithm to use. DEFLATE and LZ4 are supported. */
   public static enum Algorithm {
     /** The deflate compression algorithm. */
     DEFLATE,
 
     /** The LZ4 compression algorithm. */
-    LZ4,
-
-    /** The Zstandard compression algorithm. */
-    ZSTD
+    LZ4
   }
 
   /** The mode of execution for QAT. */
@@ -409,11 +394,6 @@ public class QatZipper {
 
     if (retryCount < 0) throw new IllegalArgumentException("Invalid value for retry count");
 
-    if (algorithm == Algorithm.ZSTD) {
-      zstdCompressCtx = new ZstdCompressCtx();
-      zstdDecompressCtx = new ZstdDecompressCtx();
-    }
-
     int status =
         InternalJNI.setup(
             this,
@@ -423,15 +403,6 @@ public class QatZipper {
             pollingMode.ordinal(),
             dataFormat.ordinal(),
             hwBufferSize.getValue());
-
-    if (algorithm == Algorithm.ZSTD) {
-      final int QZ_OK = 0; // indicates that ZSTD can start QAT device
-      if (mode == Mode.HARDWARE || (mode == Mode.AUTO && status == QZ_OK)) {
-        zstdCompressCtx.registerSequenceProducer(new QatZstdSequenceProducer());
-        zstdCompressCtx.setSequenceProducerFallback(true);
-      }
-      zstdCompressCtx.setLevel(level);
-    }
 
     isValid = true;
   }
@@ -478,11 +449,7 @@ public class QatZipper {
   public int maxCompressedLength(long len) {
     if (!isValid) throw new IllegalStateException("QAT session has been closed");
 
-    if (algorithm != Algorithm.ZSTD) {
-      return InternalJNI.maxCompressedSize(qzKey, len);
-    }
-
-    return (int) Zstd.compressBound(len);
+    return InternalJNI.maxCompressedSize(qzKey, len);
   }
 
   /**
@@ -524,16 +491,7 @@ public class QatZipper {
     if (dstOffset < 0 || dstLen < 0 || dstOffset > dst.length - dstLen)
       throw new ArrayIndexOutOfBoundsException("Destination offset is out of bound");
 
-    if (algorithm != Algorithm.ZSTD) {
-      return compressByteArray(src, srcOffset, srcLen, dst, dstOffset, dstLen);
-    } else {
-      bytesRead = bytesWritten = 0;
-      int compressedSize =
-          zstdCompressCtx.compressByteArray(dst, dstOffset, dstLen, src, srcOffset, srcLen);
-      bytesWritten = compressedSize;
-      bytesRead = srcLen;
-      return compressedSize;
-    }
+    return compressByteArray(src, srcOffset, srcLen, dst, dstOffset, dstLen);
   }
 
   private int compressByteArray(
@@ -569,12 +527,7 @@ public class QatZipper {
 
     if (dst.isReadOnly()) throw new ReadOnlyBufferException();
 
-    if (algorithm != Algorithm.ZSTD) {
-      return compressByteBuffer(src, dst);
-    } else {
-      // ZSTD treats the first parameter as the destination and the second as the source.
-      return zstdCompressCtx.compress(dst, src);
-    }
+    return compressByteBuffer(src, dst);
   }
 
   private int compressByteBuffer(ByteBuffer src, ByteBuffer dst) {
@@ -690,16 +643,7 @@ public class QatZipper {
     if (dstOffset < 0 || dstLen < 0 || dstOffset > dst.length - dstLen)
       throw new ArrayIndexOutOfBoundsException("Destination offset is out of bound");
 
-    if (algorithm != Algorithm.ZSTD) {
-      return decompressByteArray(src, srcOffset, srcLen, dst, dstOffset, dstLen);
-    } else {
-      bytesRead = bytesWritten = 0;
-      int decompressedSize =
-          zstdDecompressCtx.decompressByteArray(dst, dstOffset, dstLen, src, srcOffset, srcLen);
-      bytesWritten = decompressedSize;
-      bytesRead = srcLen;
-      return decompressedSize;
-    }
+    return decompressByteArray(src, srcOffset, srcLen, dst, dstOffset, dstLen);
   }
 
   private int decompressByteArray(
@@ -737,15 +681,7 @@ public class QatZipper {
 
     if (dst.isReadOnly()) throw new ReadOnlyBufferException();
 
-    if (algorithm != Algorithm.ZSTD) {
-      return decompressByteBuffer(src, dst);
-    } else {
-      // ZSTD treats the first parameter as the destination and the second as the source.
-      if (!src.isDirect())
-        throw new IllegalArgumentException(
-            "Zstd-jni requires source buffers to be direct byte buffers");
-      return zstdDecompressCtx.decompress(dst, src);
-    }
+    return decompressByteBuffer(src, dst);
   }
 
   private int decompressByteBuffer(ByteBuffer src, ByteBuffer dst) {
@@ -843,19 +779,6 @@ public class QatZipper {
    */
   public int getBytesWritten() {
     return bytesWritten;
-  }
-
-  /**
-   * Sets a checksum flag. Currently valid only for ZSTD.
-   *
-   * @param checksumFlag the checksum flag.
-   * @throws UnsupportedOperationException if called for a compressor algorithm other than ZSTD.
-   */
-  public void setChecksumFlag(boolean checksumFlag) {
-    if (algorithm != Algorithm.ZSTD)
-      throw new UnsupportedOperationException(
-          "Setting a checksum flag is currently valid only for ZSTD compressor");
-    zstdCompressCtx.setChecksum(checksumFlag);
   }
 
   /**

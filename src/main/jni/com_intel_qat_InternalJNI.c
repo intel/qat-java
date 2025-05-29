@@ -10,7 +10,6 @@
 #include <qatzip.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include <zstd.h>
 
 #include "qatseqprod.h"
 #include "util.h"
@@ -32,7 +31,6 @@
 
 #define DEFLATE_ALGORITHM 0
 #define LZ4_ALGORITHM 1
-#define ZSTD_ALGORITHM 2
 
 /**
  * ZLIB data_format ordinal QatZipper.DataFormat.
@@ -54,35 +52,6 @@ static jfieldID g_nio_bytebuffer_position_id;
  * JVM's lifetime.
  */
 static jfieldID g_qzip_bytes_read_id;
-
-/**
- * Thread-local flag indicating whether the Zstandard (ZSTD) compression
- * algorithm is active. Non-zero when ZSTD is selected for the current thread’s
- * QAT session; zero otherwise. Used to manage ZSTD-specific resources and
- * behavior.
- */
-static _Thread_local int g_algorithm_is_zstd;
-
-/**
- * Thread-local pointer to the Zstandard (ZSTD) sequence producer state.
- * Holds the state for ZSTD compression operations in the current thread’s QAT
- * session. Allocated during ZSTD initialization and freed during cleanup (e.g.,
- * JNI_OnUnload). NULL when ZSTD is not active or state is uninitialized.
- */
-static _Thread_local void *g_zstd_seqprod_state;
-
-/**
- * QZSTD_startQatDevice() must be called only once!
- */
-static pthread_mutex_t g_init_qzstd_mtx = PTHREAD_MUTEX_INITIALIZER;
-static int g_zstd_is_device_available = QZSTD_FAIL;
-static void call_qzstd_once(void) {
-  pthread_mutex_lock(&g_init_qzstd_mtx);
-  if (g_zstd_is_device_available != QZSTD_OK) {
-    g_zstd_is_device_available = QZSTD_startQatDevice();
-  }
-  pthread_mutex_unlock(&g_init_qzstd_mtx);
-}
 
 /**
  * Represents a unique QAT session for specific compression parameters.
@@ -126,7 +95,7 @@ static _Thread_local int g_session_counter;
  * Combines parameters into a 32-bit key using bitwise operations to ensure
  * uniqueness for distinct configurations.
  *
- * @param algorithm    Compression algorithm (e.g., DEFLATE, LZ4, ZSTD).
+ * @param algorithm    Compression algorithm (e.g., DEFLATE, LZ4).
  * @param level        Compression level (1 to COMP_LVL_MAXIMUM).
  * @param sw_backup    Software fallback flag (0 or 1).
  * @param polling_mode Polling mode for QAT (e.g., synchronous, asynchronous).
@@ -510,8 +479,7 @@ JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_initFieldIDs(JNIEnv *env,
  * @param env             JNI environment pointer. Must not be NULL.
  * @param clz             Java class object (unused).
  * @param qz_obj          QatZipper Java object to store session key.
- * @param comp_algo       Compression algorithm identifier (e.g.,
- * ZSTD_ALGORITHM).
+ * @param comp_algo       Compression algorithm identifier.
  * @param level           Compression level (1 to COMP_LVL_MAXIMUM).
  * @param sw_backup       Flag to enable (1) or disable (0) software fallback.
  * @param polling_mode    Polling mode for QAT hardware.
@@ -538,22 +506,6 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_setup(JNIEnv *env,
         env, (*env)->FindClass(env, "java/lang/IllegalArgumentException"),
         "Invalid compression level");
     return QZ_FAIL;
-  }
-
-  // Handle ZSTD algorithm
-  if (comp_algo == ZSTD_ALGORITHM) {
-    call_qzstd_once();
-    if (g_zstd_is_device_available != QZSTD_OK) {
-      if (sw_backup == 0) {
-        (*env)->ThrowNew(
-            env, (*env)->FindClass(env, "java/lang/IllegalStateException"),
-            "Initializing QAT failed");
-        return QZ_FAIL;
-      }
-      return QZ_NO_HW;
-    }
-    g_algorithm_is_zstd = 1;
-    return QZ_OK;
   }
 
   int qz_key = gen_session_key(comp_algo, level, sw_backup, polling_mode,
@@ -1442,91 +1394,6 @@ Java_com_intel_qat_InternalJNI_maxCompressedSize(JNIEnv *env,
 }
 
 /**
- * Returns the address of the QAT sequence producer function for Zstandard
- * compression.
- *
- * @param env  JNI environment pointer (unused)
- * @param clz Java class object (unused)
- * @return    Address of qatSequenceProducer as a jlong, or 0 on error
- */
-JNIEXPORT jlong JNICALL
-Java_com_intel_qat_InternalJNI_zstdGetSeqProdFunction(JNIEnv *env, jclass clz) {
-  (void)env;
-  (void)clz;
-
-  return (jlong)qatSequenceProducer;
-}
-
-/**
- * Creates a Zstandard sequence producer state for QAT compression.
- *
- * @param env  JNI environment pointer (unused)
- * @param clz  Java class object (unused)
- * @return     Pointer to the created QZSTD sequence producer state as a jlong,
- *             or 0 on error
- */
-JNIEXPORT jlong JNICALL
-Java_com_intel_qat_InternalJNI_zstdCreateSeqProdState(JNIEnv *env, jclass clz) {
-  (void)env;
-  (void)clz;
-
-  if (unlikely(g_zstd_is_device_available == -1)) {
-    (*env)->ThrowNew(env,
-                     (*env)->FindClass(env, "java/lang/IllegalStateException"),
-                     "QAT device not available");
-    return 0;
-  }
-
-  // Create sequence producer state
-  g_zstd_seqprod_state = QZSTD_createSeqProdState();
-  if (unlikely(!g_zstd_seqprod_state)) {
-    (*env)->ThrowNew(env,
-                     (*env)->FindClass(env, "java/lang/IllegalStateException"),
-                     "Failed to create Zstandard sequence producer state");
-    return 0;
-  }
-
-  return (jlong)g_zstd_seqprod_state;
-}
-
-/**
- * Frees a Zstandard sequence producer state for QAT compression.
- *
- * @param env           JNI environment pointer (unused)
- * @param clz           Java class object (unused)
- * @param seqprod_state Pointer to the QZSTD sequence producer state to free
- */
-JNIEXPORT void JNICALL
-Java_com_intel_qat_InternalJNI_zstdFreeSeqProdState(JNIEnv *env,
-                                                    jclass clz,
-                                                    jlong seqprod_state) {
-  (void)env;
-  (void)clz;
-  if (unlikely(seqprod_state == 0)) {
-    (*env)->ThrowNew(env,
-                     (*env)->FindClass(env, "java/lang/IllegalStateException"),
-                     "Invalid Zstandard sequence producer state");
-    return;
-  }
-
-  // Check if device is available
-  if (unlikely(g_zstd_is_device_available == -1)) {
-    (*env)->ThrowNew(env,
-                     (*env)->FindClass(env, "java/lang/IllegalStateException"),
-                     "QAT device not available");
-    return;
-  }
-
-  // Free the sequence producer state
-  QZSTD_freeSeqProdState((void *)seqprod_state);
-
-  // Reset global state if it matches the freed state
-  if ((void *)seqprod_state == g_zstd_seqprod_state) {
-    g_zstd_seqprod_state = NULL;
-  }
-}
-
-/**
  * Tears down a QAT session associated with the given session pointer.
  * Decrements the reference count and only destroys the session if no references
  * remain. Updates the thread-local session cache counter if the session is
@@ -1579,30 +1446,4 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_teardown(JNIEnv *env,
   }
 
   return QZ_OK;
-}
-
-/**
- * Cleans up QAT ZSTD resources when the JNI library is unloaded.
- * Frees the ZSTD sequence producer state and stops the QAT device if
- * initialized.
- *
- * @param vm       JavaVM pointer (unused).
- * @param reserved Reserved parameter (unused).
- */
-JNIEXPORT void JNICALL JNI_OnUnload(JavaVM *vm, void *reserved) {
-  (void)vm;
-  (void)reserved;
-
-  JNIEnv *env = NULL;
-
-  if ((*vm)->GetEnv(vm, (void **)&env, JNI_VERSION_1_8) == JNI_OK &&
-      env != NULL) {
-    if (g_zstd_is_device_available == QZSTD_OK) {
-      QZSTD_freeSeqProdState(g_zstd_seqprod_state);
-      QZSTD_stopQatDevice();
-    }
-
-    // Destroy the QZSTD mutex
-    pthread_mutex_destroy(&g_init_qzstd_mtx);
-  }
 }
