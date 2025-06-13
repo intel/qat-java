@@ -7,25 +7,25 @@ package com.intel.qat;
 
 import java.nio.ByteBuffer;
 
-/** Class with static native function declaration */
-class InternalJNI {
-  /** This class contains static native method interface declarations required by JNI. */
-  private InternalJNI() {}
+/** JNI wrapper, for internal use. */
+enum InternalJNI {
+  ;
 
-  /** loads libqatzip.so while loading through static block */
   static {
     Native.loadLibrary();
+    initFieldIDs();
   }
 
   static native void initFieldIDs();
 
-  static native void setup(QatZipper qzip, int algo, int level, int mode, int pmode);
+  static native int setup(
+      QatZipper qzip, int algo, int level, int mode, int pmode, int dataFormat, int hwBufferSize);
 
-  static native int maxCompressedSize(long session, long sourceSize);
+  static native int maxCompressedSize(int qzKey, long sourceSize);
 
   static native int compressByteArray(
       QatZipper qzip,
-      long session,
+      int qzKey,
       byte[] src,
       int srcOff,
       int srcLen,
@@ -36,7 +36,7 @@ class InternalJNI {
 
   static native int decompressByteArray(
       QatZipper qzip,
-      long session,
+      int qzKey,
       byte[] src,
       int srcOff,
       int srcLen,
@@ -46,7 +46,7 @@ class InternalJNI {
       int retryCount);
 
   static native int compressByteBuffer(
-      long session,
+      int qzKey,
       ByteBuffer srcBuffer,
       byte[] src,
       int srcOff,
@@ -57,7 +57,7 @@ class InternalJNI {
       int retryCount);
 
   static native int decompressByteBuffer(
-      long session,
+      int qzKey,
       ByteBuffer srcBuffer,
       byte[] src,
       int srcOff,
@@ -68,7 +68,7 @@ class InternalJNI {
       int retryCount);
 
   static native int compressDirectByteBuffer(
-      long session,
+      int qzKey,
       ByteBuffer src,
       int srcOff,
       int srcLen,
@@ -78,7 +78,7 @@ class InternalJNI {
       int retryCount);
 
   static native int decompressDirectByteBuffer(
-      long session,
+      int qzKey,
       ByteBuffer src,
       int srcOff,
       int srcLen,
@@ -88,7 +88,7 @@ class InternalJNI {
       int retryCount);
 
   static native int compressDirectByteBufferSrc(
-      long session,
+      int qzKey,
       ByteBuffer src,
       int srcOff,
       int srcLen,
@@ -98,7 +98,7 @@ class InternalJNI {
       int retryCount);
 
   static native int decompressDirectByteBufferSrc(
-      long session,
+      int qzKey,
       ByteBuffer src,
       int srcOff,
       int srcLen,
@@ -108,7 +108,7 @@ class InternalJNI {
       int retryCount);
 
   static native int compressDirectByteBufferDst(
-      long session,
+      int qzKey,
       ByteBuffer src,
       byte[] srcArr,
       int srcOff,
@@ -119,7 +119,7 @@ class InternalJNI {
       int retryCount);
 
   static native int decompressDirectByteBufferDst(
-      long session,
+      int qzKey,
       ByteBuffer src,
       byte[] srcArr,
       int srcOff,
@@ -129,5 +129,5 @@ class InternalJNI {
       int dstLen,
       int retryCount);
 
-  static native int teardown(long session);
+  static native int teardown(int qzKey);
 }

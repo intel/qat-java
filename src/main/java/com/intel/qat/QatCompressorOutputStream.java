@@ -7,16 +7,15 @@
 package com.intel.qat;
 
 import static com.intel.qat.QatZipper.Algorithm;
-import static com.intel.qat.QatZipper.Mode;
-import static com.intel.qat.QatZipper.PollingMode;
 
+import com.intel.qat.QatZipper.Builder;
 import java.io.FilterOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Objects;
 
 /**
- * This class implements an OutputStream filter that compresses data using Intel &reg; QuickAssist
+ * This class implements an OutputStream that compresses data using Intel &reg; QuickAssist
  * Technology (QAT).
  */
 public class QatCompressorOutputStream extends FilterOutputStream {
@@ -31,197 +30,41 @@ public class QatCompressorOutputStream extends FilterOutputStream {
   public static final int DEFAULT_BUFFER_SIZE = 1 << 16;
 
   /**
-   * Creates a new output stream with the given paramters.
+   * Creates a new output stream with the given parameters.
    *
    * @param out the output stream
    * @param bufferSize the output buffer size
-   * @param algorithm the compression algorithm (deflate or LZ4).
-   * @param level the compression level.
-   * @param mode the mode of operation (HARDWARE - only hardware, AUTO - hardware with a software
-   * @param pmode the polling mode
+   * @param builder pre configured QatZipper builder
    */
-  public QatCompressorOutputStream(
-      OutputStream out,
-      int bufferSize,
-      Algorithm algorithm,
-      int level,
-      Mode mode,
-      PollingMode pmode) {
+  public QatCompressorOutputStream(OutputStream out, int bufferSize, Builder builder) {
     super(out);
     if (bufferSize <= 0) throw new IllegalArgumentException();
     Objects.requireNonNull(out);
-    qzip = new QatZipper(algorithm, level, mode, pmode);
+    qzip = builder.build();
     inputBuffer = new byte[bufferSize];
     outputBuffer = new byte[qzip.maxCompressedLength(bufferSize)];
     closed = false;
   }
 
   /**
-   * Creates a new output stream with {@link DEFAULT_BUFFER_SIZE}, {@link Algorithm#DEFLATE}, {@link
-   * QatZipper#DEFAULT_COMPRESS_LEVEL}, {@link QatZipper#DEFAULT_MODE}, and {@link
-   * PollingMode#BUSY}.
+   * Creates a new output stream with the given parameters.
    *
    * @param out the output stream
+   * @param algorithm the compression algorithm
    */
-  public QatCompressorOutputStream(OutputStream out) {
-    this(
-        out,
-        DEFAULT_BUFFER_SIZE,
-        Algorithm.DEFLATE,
-        QatZipper.DEFAULT_COMPRESS_LEVEL,
-        QatZipper.DEFAULT_MODE,
-        PollingMode.BUSY);
+  public QatCompressorOutputStream(OutputStream out, Algorithm algorithm) {
+    this(out, DEFAULT_BUFFER_SIZE, algorithm);
   }
 
   /**
-   * Creates a new output stream with {@link Algorithm#DEFLATE}, {@link
-   * QatZipper#DEFAULT_COMPRESS_LEVEL}, {@link QatZipper#DEFAULT_MODE}, and {@link
-   * PollingMode#BUSY}.
+   * Creates a new output stream with the given parameters.
    *
    * @param out the output stream
    * @param bufferSize the output buffer size
-   */
-  public QatCompressorOutputStream(OutputStream out, int bufferSize) {
-    this(
-        out,
-        bufferSize,
-        Algorithm.DEFLATE,
-        QatZipper.DEFAULT_COMPRESS_LEVEL,
-        QatZipper.DEFAULT_MODE,
-        PollingMode.BUSY);
-  }
-
-  /**
-   * Creates a new output stream with given parameters, {@link QatZipper#DEFAULT_COMPRESS_LEVEL},
-   * {@link QatZipper#DEFAULT_MODE}, and {@link PollingMode#BUSY}.
-   *
-   * @param out the output stream
-   * @param bufferSize the output buffer size
-   * @param algorithm the compression algorithm (deflate or LZ4).
+   * @param algorithm the compression algorithm .
    */
   public QatCompressorOutputStream(OutputStream out, int bufferSize, Algorithm algorithm) {
-    this(
-        out,
-        bufferSize,
-        algorithm,
-        QatZipper.DEFAULT_COMPRESS_LEVEL,
-        QatZipper.DEFAULT_MODE,
-        PollingMode.BUSY);
-  }
-
-  /**
-   * Creates a new output stream with given parameters, {@link Algorithm#DEFLATE}, {@link
-   * QatZipper#DEFAULT_COMPRESS_LEVEL}, and {@link PollingMode#BUSY}.
-   *
-   * @param out the output stream
-   * @param bufferSize the output buffer size
-   * @param mode the mode of operation (HARDWARE - only hardware, AUTO - hardware with a software
-   *     failover.)
-   */
-  public QatCompressorOutputStream(OutputStream out, int bufferSize, Mode mode) {
-    this(
-        out,
-        bufferSize,
-        Algorithm.DEFLATE,
-        QatZipper.DEFAULT_COMPRESS_LEVEL,
-        mode,
-        PollingMode.BUSY);
-  }
-
-  /**
-   * Creates a new output stream with given parameters, {@link Algorithm#DEFLATE}, {@link
-   * QatZipper#DEFAULT_COMPRESS_LEVEL}, and {@link PollingMode#BUSY}.
-   *
-   * @param out the output stream
-   * @param bufferSize the output buffer size
-   * @param pmode the polling mode
-   */
-  public QatCompressorOutputStream(OutputStream out, int bufferSize, PollingMode pmode) {
-    this(
-        out,
-        bufferSize,
-        Algorithm.DEFLATE,
-        QatZipper.DEFAULT_COMPRESS_LEVEL,
-        QatZipper.DEFAULT_MODE,
-        pmode);
-  }
-
-  /**
-   * Creates a new output stream with the given parameters, {@link QatZipper#DEFAULT_MODE}, and
-   * {@link PollingMode#BUSY}.
-   *
-   * @param out the output stream
-   * @param bufferSize the output buffer size
-   * @param algorithm the compression algorithm (deflate or LZ4).
-   * @param level the compression level.
-   */
-  public QatCompressorOutputStream(
-      OutputStream out, int bufferSize, Algorithm algorithm, int level) {
-    this(out, bufferSize, algorithm, level, QatZipper.DEFAULT_MODE, PollingMode.BUSY);
-  }
-
-  /**
-   * Creates a new output stream with the given parameters, {@link
-   * QatZipper#DEFAULT_COMPRESS_LEVEL}, and {@link PollingMode#BUSY}.
-   *
-   * @param out the output stream
-   * @param bufferSize the output buffer size
-   * @param algorithm the compression algorithm (deflate or LZ4).
-   * @param mode the mode of operation (HARDWARE - only hardware, AUTO - hardware with a software
-   *     failover.)
-   */
-  public QatCompressorOutputStream(
-      OutputStream out, int bufferSize, Algorithm algorithm, Mode mode) {
-    this(out, bufferSize, algorithm, QatZipper.DEFAULT_COMPRESS_LEVEL, mode, PollingMode.BUSY);
-  }
-
-  /**
-   * Creates a new output stream with the given parameters, {@link
-   * QatZipper#DEFAULT_COMPRESS_LEVEL}, and {@link QatZipper#DEFAULT_MODE}.
-   *
-   * @param out the output stream
-   * @param bufferSize the output buffer size
-   * @param algorithm the compression algorithm (deflate or LZ4).
-   * @param pmode the polling mode
-   */
-  public QatCompressorOutputStream(
-      OutputStream out, int bufferSize, Algorithm algorithm, PollingMode pmode) {
-    this(
-        out,
-        bufferSize,
-        algorithm,
-        QatZipper.DEFAULT_COMPRESS_LEVEL,
-        QatZipper.DEFAULT_MODE,
-        pmode);
-  }
-
-  /**
-   * Creates a new output stream with the given parameters and {@link PollingMode#BUSY}.
-   *
-   * @param out the output stream
-   * @param bufferSize the output buffer size
-   * @param algorithm the compression algorithm (deflate or LZ4).
-   * @param level the compression level.
-   * @param mode the mode of operation (HARDWARE - only hardware, AUTO - hardware with a software
-   *     failover.)
-   */
-  public QatCompressorOutputStream(
-      OutputStream out, int bufferSize, Algorithm algorithm, int level, Mode mode) {
-    this(out, bufferSize, algorithm, level, mode, PollingMode.BUSY);
-  }
-
-  /**
-   * Creates a new output stream with the given parameters and {@link QatZipper#DEFAULT_MODE}.
-   *
-   * @param out the output stream
-   * @param bufferSize the output buffer size
-   * @param algorithm the compression algorithm (deflate or LZ4).
-   * @param level the compression level.
-   * @param pmode the polling mode
-   */
-  public QatCompressorOutputStream(
-      OutputStream out, int bufferSize, Algorithm algorithm, int level, PollingMode pmode) {
-    this(out, bufferSize, algorithm, level, QatZipper.DEFAULT_MODE, pmode);
+    this(out, bufferSize, new Builder().setAlgorithm(algorithm));
   }
 
   /**

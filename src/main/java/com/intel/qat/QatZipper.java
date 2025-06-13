@@ -6,7 +6,6 @@
 
 package com.intel.qat;
 
-import java.lang.ref.Cleaner;
 import java.nio.ByteBuffer;
 import java.nio.ReadOnlyBufferException;
 
@@ -23,17 +22,17 @@ import java.nio.ReadOnlyBufferException;
  * try {
  *   byte[] input = "Hello, world!".getBytes("UTF-8");
  *
- *   QatZipper qzip = new QatZipper();
+ *   QatZipper qzip = new QatZipper.Builder().build();
  *
  *   // Create a buffer with enough size for compression
  *   byte[] output = new byte[qzip.maxCompressedLength(input.length)];
  *
  *   // Compress the bytes
- *   qzip.compress(input, output);
+ *   int clen = qzip.compress(input, output);
  *
  *   // Decompress the bytes into a String
  *   byte[] result = new byte[input.length];
- *   qzip.decompress(output, result);
+ *   qzip.decompress(output, 0, clen, result, 0, result.length);
  *
  *   // Release resources
  *   qzip.end();
@@ -42,7 +41,7 @@ import java.nio.ReadOnlyBufferException;
  *   String outputStr = new String(result, "UTF-8");
  * } catch (java.io.UnsupportedEncodingException e) {
  * //
- * } catch (QatException e) {
+ * } catch (RuntimeException e) {
  * //
  * }
  * }</pre>
@@ -50,31 +49,58 @@ import java.nio.ReadOnlyBufferException;
  * </blockquote>
  *
  * To release QAT resources used by this <code>QatZipper</code>, the <code>end()</code> method
- * should be called explicitly. If not, resources will stay alive until this <code>QatZipper</code>
- * becomes phantom reachable.
+ * should be called explicitly.
  */
 public class QatZipper {
+  /** The default compression algorithm. */
+  public static final Algorithm DEFAULT_ALGORITHM = Algorithm.DEFLATE;
+
   /** The default compression level is 6. */
   public static final int DEFAULT_COMPRESS_LEVEL = 6;
+
+  /** The default execution mode. */
+  public static final Mode DEFAULT_MODE = Mode.AUTO;
 
   /**
    * The default number of times QatZipper attempts to acquire hardware resources is <code>0</code>.
    */
   public static final int DEFAULT_RETRY_COUNT = 0;
 
-  /** The default execution mode. */
-  public static final Mode DEFAULT_MODE = Mode.HARDWARE;
-
   /** The default polling mode. */
   public static final PollingMode DEFAULT_POLLING_MODE = PollingMode.BUSY;
 
-  /** Indicates if a QAT session is valid or not. */
-  private boolean isValid;
+  /** The default data format. */
+  public static final DataFormat DEFAULT_DATA_FORMAT = DataFormat.DEFLATE_GZIP_EXT;
+
+  /** The default hardware buffer size. */
+  public static final HardwareBufferSize DEFAULT_HW_BUFFER_SIZE =
+      HardwareBufferSize.DEFAULT_BUFFER_SIZE;
+
+  /** The current compression algorithm. */
+  private Algorithm algorithm = DEFAULT_ALGORITHM;
+
+  /** The compression level. */
+  private int level = DEFAULT_COMPRESS_LEVEL;
+
+  /** The mode of execution. */
+  private Mode mode = DEFAULT_MODE;
 
   /**
    * The number of retry counts for session creation before Qat-Java gives up and throws an error.
    */
-  private int retryCount;
+  private int retryCount = DEFAULT_RETRY_COUNT;
+
+  /** The polling mode. */
+  private PollingMode pollingMode = DEFAULT_POLLING_MODE;
+
+  /** The data format. */
+  private DataFormat dataFormat = DEFAULT_DATA_FORMAT;
+
+  /** The buffer size for QAT device. */
+  private HardwareBufferSize hwBufferSize = DEFAULT_HW_BUFFER_SIZE;
+
+  /** Indicates if a QAT session is valid or not. */
+  private boolean isValid;
 
   /** Number of bytes read from the source by the most recent call to a compress/decompress. */
   private int bytesRead;
@@ -84,30 +110,16 @@ public class QatZipper {
    */
   private int bytesWritten;
 
-  /** A reference to a QAT session in C. */
-  private long session;
+  /** Id of this object (set by the JNI code) based on algorithm, etc.. */
+  private int qzKey;
 
-  /** Cleaner instance associated with this object. */
-  private static Cleaner cleaner;
+  /** The compression algorithm to use. DEFLATE and LZ4 are supported. */
+  public static enum Algorithm {
+    /** The deflate compression algorithm. */
+    DEFLATE,
 
-  /** Cleaner.Cleanable instance representing QAT cleanup action. */
-  private final Cleaner.Cleanable cleanable;
-
-  static {
-    InternalJNI.initFieldIDs();
-
-    // Needed for applications where a Java security manager is in place -- e.g. OpenSearch.
-    SecurityManager sm = System.getSecurityManager();
-    if (sm == null) {
-      cleaner = Cleaner.create();
-    } else {
-      java.security.PrivilegedAction<Void> pa =
-          () -> {
-            cleaner = Cleaner.create();
-            return null;
-          };
-      java.security.AccessController.doPrivileged(pa);
-    }
+    /** The LZ4 compression algorithm. */
+    LZ4
   }
 
   /** The mode of execution for QAT. */
@@ -153,180 +165,274 @@ public class QatZipper {
     PERIODICAL
   }
 
-  /** The compression algorithm to use. DEFLATE and LZ4 are supported. */
-  public static enum Algorithm {
-    /** The deflate compression algorithm. */
-    DEFLATE,
+  /**
+   * The data format to use. Qat-Java supports the following: <br>
+   *
+   * <ul>
+   *   <li>DEFLATE_4B -- raw DEFLATE format with 4 byte header.
+   *   <li>DEFLATE_GZIP -- DEFLATE wrapped by GZip header and footer.
+   *   <li>DEFLATE_GZIP_EXT -- DEFLATE wrapped by GZip extended header and footer.
+   *   <li>DEFLATE_RAW -- raw DEFLATE format.
+   * </ul>
+   */
+  public static enum DataFormat {
+    /** Raw DEFLATE format with 4 byte header. */
+    DEFLATE_4B,
 
-    /** The LZ4 compression algorithm. */
-    LZ4
+    /** DEFLATE wrapped by GZip header and footer. */
+    DEFLATE_GZIP,
+
+    /** DEFLATE wrapped by GZip extended header and footer. */
+    DEFLATE_GZIP_EXT,
+
+    /** Raw DEFLATE format. */
+    DEFLATE_RAW
   }
 
   /**
-   * Creates a new QatZipper with the specified parameters.
+   * Hardware buffer size the QAT uses internally. <br>
    *
-   * @param algorithm the compression {@link Algorithm}
-   * @param level the compression level.
-   * @param mode the {@link Mode} of QAT execution
-   * @param retryCount the number of attempts to acquire hardware resources
-   * @param pmode {@link PollingMode}
-   * @throws QatException if QAT session cannot be created.
+   * <ul>
+   *   <li>DEFAULT_BUFFER_SIZE -- 64KB
+   *   <li>MAX_BUFFER_SIZE -- 512KB
+   * </ul>
    */
-  public QatZipper(Algorithm algorithm, int level, Mode mode, int retryCount, PollingMode pmode)
-      throws QatException {
-    if (retryCount < 0) throw new IllegalArgumentException("Invalid value for retry count.");
+  public static enum HardwareBufferSize {
+    /** The default buffer size for the QAT device (64KB). */
+    DEFAULT_BUFFER_SIZE(64 * 1024),
 
-    this.retryCount = retryCount;
-    InternalJNI.setup(this, algorithm.ordinal(), level, mode.ordinal(), pmode.ordinal());
+    /** The maximum buffer size allowed for the QAT device (512KB). */
+    MAX_BUFFER_SIZE(512 * 1024);
 
-    // Register a QAT session cleaner for this object
-    cleanable = cleaner.register(this, new QatCleaner(session));
+    private final int value;
+
+    private HardwareBufferSize(int hwBufferSize) {
+      value = hwBufferSize;
+    }
+
+    /**
+     * Gets the value of the hw buffer size.
+     *
+     * @return the value of the buffer size in bytes.
+     */
+    public int getValue() {
+      return value;
+    }
+  }
+
+  /**
+   * Checks if QAT hardware is available.
+   *
+   * @return true if QAT is available, false otherwise.
+   */
+  public static boolean isQatAvailable() {
+    return QatAvailableHolder.IS_QAT_AVAILABLE;
+  }
+
+  /** Defers static initialization until {@link #isQatAvailable()} is invoked. */
+  static class QatAvailableHolder {
+    static final boolean IS_QAT_AVAILABLE;
+
+    static {
+      boolean isQatAvailable;
+      try {
+        final QatZipper qzip = new QatZipper.Builder().setMode(Mode.HARDWARE).build();
+        qzip.end();
+        isQatAvailable = true;
+      } catch (UnsatisfiedLinkError
+          | ExceptionInInitializerError
+          | NoClassDefFoundError
+          | RuntimeException e) {
+        isQatAvailable = false;
+      }
+      IS_QAT_AVAILABLE = isQatAvailable;
+    }
+  }
+
+  /**
+   * Builder is used to build instances of {@link QatZipper} from values configured by the setters.
+   */
+  public static class Builder {
+    private Algorithm algorithm = DEFAULT_ALGORITHM;
+    private int level = DEFAULT_COMPRESS_LEVEL;
+    private Mode mode = DEFAULT_MODE;
+    private int retryCount = DEFAULT_RETRY_COUNT;
+    private PollingMode pollingMode = DEFAULT_POLLING_MODE;
+    private DataFormat dataFormat = DEFAULT_DATA_FORMAT;
+    private HardwareBufferSize hwBufferSize = DEFAULT_HW_BUFFER_SIZE;
+
+    /** Constructs a builder that has default values for QatZipper. */
+    public Builder() {}
+
+    /**
+     * Sets the compression {@link Algorithm}.
+     *
+     * @param algorithm the {@link Algorithm}.
+     * @return This Builder.
+     */
+    public Builder setAlgorithm(Algorithm algorithm) {
+      this.algorithm = algorithm;
+      return this;
+    }
+
+    /**
+     * Gets the compression {@link Algorithm}.
+     *
+     * @return The Algorithm.
+     */
+    Algorithm getAlgorithm() {
+      return this.algorithm;
+    }
+
+    /**
+     * Sets the compression level.
+     *
+     * @param level the compression level.
+     * @return This Builder.
+     */
+    public Builder setLevel(int level) {
+      this.level = level;
+      return this;
+    }
+
+    /**
+     * Sets the mode of execution.
+     *
+     * @param mode the {@link Mode}.
+     * @return This Builder.
+     */
+    public Builder setMode(Mode mode) {
+      this.mode = mode;
+      return this;
+    }
+
+    /**
+     * Sets the number of tries to acquire hardware resouces before giving up.
+     *
+     * @param retryCount the {@link PollingMode}.
+     * @return This Builder.
+     */
+    public Builder setRetryCount(int retryCount) {
+      this.retryCount = retryCount;
+      return this;
+    }
+
+    /**
+     * Sets the {@link PollingMode}.
+     *
+     * @param pollingMode the {@link PollingMode}.
+     * @return This Builder.
+     */
+    public Builder setPollingMode(PollingMode pollingMode) {
+      this.pollingMode = pollingMode;
+      return this;
+    }
+
+    /**
+     * Sets the {@link DataFormat}.
+     *
+     * @param dataFormat the {@link DataFormat}.
+     * @return This Builder.
+     */
+    public Builder setDataFormat(DataFormat dataFormat) {
+      this.dataFormat = dataFormat;
+      return this;
+    }
+
+    /**
+     * Sets the {@link HardwareBufferSize} QAT uses.
+     *
+     * @param hwBufferSize the {@link HardwareBufferSize} for QAT.
+     * @return This Builder.
+     */
+    public Builder setHardwareBufferSize(HardwareBufferSize hwBufferSize) {
+      this.hwBufferSize = hwBufferSize;
+      return this;
+    }
+
+    /**
+     * Returns an instance of {@link QatZipper} created from the fields set on this builder.
+     *
+     * @return A QatZipper.
+     */
+    public QatZipper build() throws RuntimeException {
+      return new QatZipper(this);
+    }
+
+    @Override
+    public String toString() {
+      return "QatZipper{algorithm="
+          + algorithm
+          + ", level="
+          + level
+          + ", mode="
+          + mode
+          + ", retryCount="
+          + retryCount
+          + ", pollingMode="
+          + pollingMode
+          + ", dataFormat="
+          + dataFormat
+          + ", hardwareBufferSize="
+          + hwBufferSize
+          + "}";
+    }
+  }
+
+  private QatZipper(Builder builder) throws RuntimeException {
+    algorithm = builder.algorithm;
+    level = builder.level;
+    mode = builder.mode;
+    retryCount = builder.retryCount;
+    pollingMode = builder.pollingMode;
+    dataFormat = builder.dataFormat;
+    hwBufferSize = builder.hwBufferSize;
+
+    if (retryCount < 0) throw new IllegalArgumentException("Invalid value for retry count");
+
+    int status =
+        InternalJNI.setup(
+            this,
+            algorithm.ordinal(),
+            level,
+            mode.ordinal(),
+            pollingMode.ordinal(),
+            dataFormat.ordinal(),
+            hwBufferSize.getValue());
+
     isValid = true;
   }
 
   /**
-   * Creates a new QatZipper that uses {@link Algorithm#DEFLATE}, {@link DEFAULT_COMPRESS_LEVEL},
-   * {@link DEFAULT_MODE}, {@link DEFAULT_RETRY_COUNT}, and {@link DEFAULT_POLLING_MODE}.
+   * Returns an instance of {@link QatZipper} that uses default values for all parameters.
+   *
+   * <p>return A QatZipper.
    */
   public QatZipper() {
-    this(
-        Algorithm.DEFLATE,
-        DEFAULT_COMPRESS_LEVEL,
-        DEFAULT_MODE,
-        DEFAULT_RETRY_COUNT,
-        DEFAULT_POLLING_MODE);
+    this(new Builder());
   }
 
   /**
-   * Creates a new QatZipper with the specified compression {@link Algorithm}. Uses {@link
-   * DEFAULT_COMPRESS_LEVEL}, {@link DEFAULT_MODE}, {@link DEFAULT_RETRY_COUNT}, and {@link
-   * DEFAULT_POLLING_MODE}.
+   * Returns an instance of {@link QatZipper} that uses the provided algorithm. Default values are
+   * used for all the other parameters.
    *
-   * @param algorithm the compression {@link Algorithm}
+   * @param algorithm the {@link Algorithm}.
+   *     <p>return A QatZipper.
    */
   public QatZipper(Algorithm algorithm) {
-    this(
-        algorithm, DEFAULT_COMPRESS_LEVEL, DEFAULT_MODE, DEFAULT_RETRY_COUNT, DEFAULT_POLLING_MODE);
+    this(new Builder().setAlgorithm(algorithm));
   }
 
   /**
-   * Creates a new QatZipper with the specified execution {@link Mode}. Uses {@link
-   * Algorithm#DEFLATE}, {@link DEFAULT_COMPRESS_LEVEL}, {@link DEFAULT_RETRY_COUNT}, and {@link
-   * DEFAULT_POLLING_MODE}.
+   * Returns an instance of {@link QatZipper} that uses the provided algorithm and compression
+   * level. Default values are used for all the other parameters.
    *
-   * @param mode the {@link Mode} of QAT execution
-   */
-  public QatZipper(Mode mode) {
-    this(
-        Algorithm.DEFLATE, DEFAULT_COMPRESS_LEVEL, mode, DEFAULT_RETRY_COUNT, DEFAULT_POLLING_MODE);
-  }
-
-  /**
-   * Creates a new QatZipper with the specified polling {@link PollingMode}. Uses {@link
-   * Algorithm#DEFLATE}, {@link DEFAULT_COMPRESS_LEVEL}, and {@link DEFAULT_RETRY_COUNT}.
-   *
-   * @param pmode the {@link PollingMode}
-   */
-  public QatZipper(PollingMode pmode) {
-    this(Algorithm.DEFLATE, DEFAULT_COMPRESS_LEVEL, DEFAULT_MODE, DEFAULT_RETRY_COUNT, pmode);
-  }
-
-  /**
-   * Creates a new QatZipper with the specified {@link Algorithm} and compression level. Uses {@link
-   * DEFAULT_MODE}, {@link DEFAULT_RETRY_COUNT}, and {@link DEFAULT_POLLING_MODE}.
-   *
-   * @param algorithm the compression algorithm (deflate or LZ4).
+   * @param algorithm the {@link Algorithm}.
    * @param level the compression level.
+   *     <p>return A QatZipper.
    */
   public QatZipper(Algorithm algorithm, int level) {
-    this(algorithm, level, DEFAULT_MODE, DEFAULT_RETRY_COUNT, DEFAULT_POLLING_MODE);
-  }
-
-  /**
-   * Creates a new QatZipper with the specified {@link Algorithm} and {@link Mode} of execution.
-   * Uses {@link DEFAULT_COMPRESS_LEVEL}, {@link DEFAULT_RETRY_COUNT}, and {@link
-   * DEFAULT_POLLING_MODE}.
-   *
-   * @param algorithm the compression {@link Algorithm}
-   * @param mode the {@link Mode} of QAT execution
-   */
-  public QatZipper(Algorithm algorithm, Mode mode) {
-    this(algorithm, DEFAULT_COMPRESS_LEVEL, mode, DEFAULT_RETRY_COUNT, DEFAULT_POLLING_MODE);
-  }
-
-  /**
-   * Creates a new QatZipper with the specified {@link Algorithm} and {@link PollingMode} of
-   * execution. Uses {@link DEFAULT_COMPRESS_LEVEL}, {@link DEFAULT_MODE}, and {@link
-   * DEFAULT_RETRY_COUNT}
-   *
-   * @param algorithm the compression {@link Algorithm}
-   * @param pmode the {@link PollingMode}
-   */
-  public QatZipper(Algorithm algorithm, PollingMode pmode) {
-    this(algorithm, DEFAULT_COMPRESS_LEVEL, DEFAULT_MODE, DEFAULT_RETRY_COUNT, pmode);
-  }
-
-  /**
-   * Creates a new QatZipper with the specified {@link Algorithm} and {@link Mode} of execution.
-   * Uses {@link DEFAULT_COMPRESS_LEVEL} and {@link DEFAULT_RETRY_COUNT}.
-   *
-   * @param algorithm the compression {@link Algorithm}
-   * @param mode the {@link Mode} of QAT execution
-   * @param pmode the {@link PollingMode}
-   */
-  public QatZipper(Algorithm algorithm, Mode mode, PollingMode pmode) {
-    this(algorithm, DEFAULT_COMPRESS_LEVEL, mode, DEFAULT_RETRY_COUNT, pmode);
-  }
-
-  /**
-   * Creates a new QatZipper with the specified {@link Algorithm}, compression level, and {@link
-   * Mode}. Uses {@link DEFAULT_RETRY_COUNT} and {@link DEFAULT_POLLING_MODE}.
-   *
-   * @param algorithm the compression algorithm (deflate or LZ4).
-   * @param level the compression level.
-   * @param mode the mode of operation (HARDWARE - only hardware, AUTO - hardware with a software
-   *     failover.)
-   */
-  public QatZipper(Algorithm algorithm, int level, Mode mode) {
-    this(algorithm, level, mode, DEFAULT_RETRY_COUNT, DEFAULT_POLLING_MODE);
-  }
-
-  /**
-   * Creates a new QatZipper with the specified {@link Algorithm}, compression level, and {@link
-   * PollingMode}. Uses {@link DEFAULT_MODE} and {@link DEFAULT_RETRY_COUNT}.
-   *
-   * @param algorithm the compression algorithm (deflate or LZ4).
-   * @param level the compression level.
-   * @param pmode the {@link PollingMode}
-   */
-  public QatZipper(Algorithm algorithm, int level, PollingMode pmode) {
-    this(algorithm, level, DEFAULT_MODE, DEFAULT_RETRY_COUNT, pmode);
-  }
-
-  /**
-   * Creates a new QatZipper with the specified parameters and {@link DEFAULT_POLLING_MODE}.
-   *
-   * @param algorithm the compression {@link Algorithm}
-   * @param level the compression level.
-   * @param mode the {@link Mode} of QAT execution
-   * @param retryCount the number of attempts to acquire hardware resources
-   * @throws QatException if QAT session cannot be created.
-   */
-  public QatZipper(Algorithm algorithm, int level, Mode mode, int retryCount) {
-    this(algorithm, level, mode, retryCount, DEFAULT_POLLING_MODE);
-  }
-
-  /**
-   * Creates a new QatZipper with the specified parameters and {@link DEFAULT_RETRY_COUNT}.
-   *
-   * @param algorithm the compression {@link Algorithm}
-   * @param level the compression level.
-   * @param mode the {@link Mode} of QAT execution
-   * @param pmode the {@link PollingMode}
-   * @throws QatException if QAT session cannot be created.
-   */
-  public QatZipper(Algorithm algorithm, int level, Mode mode, PollingMode pmode) {
-    this(algorithm, level, mode, DEFAULT_RETRY_COUNT, pmode);
+    this(new Builder().setAlgorithm(algorithm).setLevel(level));
   }
 
   /**
@@ -337,9 +443,9 @@ public class QatZipper {
    * @return the maximum compression length for the specified length.
    */
   public int maxCompressedLength(long len) {
-    if (!isValid) throw new IllegalStateException("QAT session has been closed.");
+    if (!isValid) throw new IllegalStateException("QAT session has been closed");
 
-    return InternalJNI.maxCompressedSize(session, len);
+    return InternalJNI.maxCompressedSize(qzKey, len);
   }
 
   /**
@@ -369,27 +475,30 @@ public class QatZipper {
    */
   public int compress(
       byte[] src, int srcOffset, int srcLen, byte[] dst, int dstOffset, int dstLen) {
-    if (!isValid) throw new IllegalStateException("QAT session has been closed.");
+    if (!isValid) throw new IllegalStateException("QAT session has been closed");
 
     if (src == null || dst == null || srcLen == 0 || dst.length == 0)
       throw new IllegalArgumentException(
-          "Either source or destination array or both have size 0 or null value.");
+          "Either source or destination array or both have size 0 or null value");
 
     if (srcOffset < 0 || srcLen < 0 || srcOffset > src.length - srcLen)
-      throw new ArrayIndexOutOfBoundsException("Source offset is out of bound.");
+      throw new ArrayIndexOutOfBoundsException("Source offset is out of bound");
 
     if (dstOffset < 0 || dstLen < 0 || dstOffset > dst.length - dstLen)
-      throw new ArrayIndexOutOfBoundsException("Destination offset is out of bound.");
+      throw new ArrayIndexOutOfBoundsException("Destination offset is out of bound");
 
+    return compressByteArray(src, srcOffset, srcLen, dst, dstOffset, dstLen);
+  }
+
+  private int compressByteArray(
+      byte[] src, int srcOffset, int srcLen, byte[] dst, int dstOffset, int dstLen) {
     bytesRead = bytesWritten = 0;
-
     int compressedSize =
         InternalJNI.compressByteArray(
-            this, session, src, srcOffset, srcLen, dst, dstOffset, dstLen, retryCount);
+            this, qzKey, src, srcOffset, srcLen, dst, dstOffset, dstLen, retryCount);
 
     // bytesRead is updated by compressByteArray. We only need to update bytesWritten.
     bytesWritten = compressedSize;
-
     return compressedSize;
   }
 
@@ -406,7 +515,7 @@ public class QatZipper {
    * @return the size of the compressed data in bytes
    */
   public int compress(ByteBuffer src, ByteBuffer dst) {
-    if (!isValid) throw new IllegalStateException("QAT session has been closed.");
+    if (!isValid) throw new IllegalStateException("QAT session has been closed");
 
     if ((src == null || dst == null)
         || (src.position() == src.limit() || dst.position() == dst.limit()))
@@ -414,6 +523,10 @@ public class QatZipper {
 
     if (dst.isReadOnly()) throw new ReadOnlyBufferException();
 
+    return compressByteBuffer(src, dst);
+  }
+
+  private int compressByteBuffer(ByteBuffer src, ByteBuffer dst) {
     final int srcPos = src.position();
     final int dstPos = dst.position();
 
@@ -423,7 +536,7 @@ public class QatZipper {
     if (src.hasArray() && dst.hasArray()) {
       compressedSize =
           InternalJNI.compressByteBuffer(
-              session,
+              qzKey,
               src,
               src.array(),
               srcPos,
@@ -436,11 +549,11 @@ public class QatZipper {
     } else if (src.isDirect() && dst.isDirect()) {
       compressedSize =
           InternalJNI.compressDirectByteBuffer(
-              session, src, srcPos, src.remaining(), dst, dstPos, dst.remaining(), retryCount);
+              qzKey, src, srcPos, src.remaining(), dst, dstPos, dst.remaining(), retryCount);
     } else if (src.hasArray() && dst.isDirect()) {
       compressedSize =
           InternalJNI.compressDirectByteBufferDst(
-              session,
+              qzKey,
               src,
               src.array(),
               srcPos,
@@ -452,7 +565,7 @@ public class QatZipper {
     } else if (src.isDirect() && dst.hasArray()) {
       compressedSize =
           InternalJNI.compressDirectByteBufferSrc(
-              session,
+              qzKey,
               src,
               srcPos,
               src.remaining(),
@@ -477,7 +590,7 @@ public class QatZipper {
       int pos = src.position();
       compressedSize =
           InternalJNI.compressByteBuffer(
-              session, src, srcArr, 0, srcLen, dstArr, 0, dstLen, retryCount);
+              qzKey, src, srcArr, 0, srcLen, dstArr, 0, dstLen, retryCount);
       src.position(pos + src.position());
       dst.put(dstArr, 0, compressedSize);
     }
@@ -515,22 +628,27 @@ public class QatZipper {
    */
   public int decompress(
       byte[] src, int srcOffset, int srcLen, byte[] dst, int dstOffset, int dstLen) {
-    if (!isValid) throw new IllegalStateException("QAT session has been closed.");
+    if (!isValid) throw new IllegalStateException("QAT session has been closed");
 
     if (src == null || dst == null || srcLen == 0 || dst.length == 0)
-      throw new IllegalArgumentException("Empty source or/and destination byte array(s).");
+      throw new IllegalArgumentException("Empty source or/and destination byte array(s)");
 
     if (srcOffset < 0 || srcLen < 0 || srcOffset > src.length - srcLen)
-      throw new ArrayIndexOutOfBoundsException("Source offset is out of bound.");
+      throw new ArrayIndexOutOfBoundsException("Source offset is out of bound");
 
     if (dstOffset < 0 || dstLen < 0 || dstOffset > dst.length - dstLen)
-      throw new ArrayIndexOutOfBoundsException("Destination offset is out of bound.");
+      throw new ArrayIndexOutOfBoundsException("Destination offset is out of bound");
 
+    return decompressByteArray(src, srcOffset, srcLen, dst, dstOffset, dstLen);
+  }
+
+  private int decompressByteArray(
+      byte[] src, int srcOffset, int srcLen, byte[] dst, int dstOffset, int dstLen) {
     bytesRead = bytesWritten = 0;
 
     int decompressedSize =
         InternalJNI.decompressByteArray(
-            this, session, src, srcOffset, srcLen, dst, dstOffset, dstLen, retryCount);
+            this, qzKey, src, srcOffset, srcLen, dst, dstOffset, dstLen, retryCount);
 
     // bytesRead is updated by decompressedByteArray. We only need to update bytesWritten.
     bytesWritten = decompressedSize;
@@ -551,7 +669,7 @@ public class QatZipper {
    * @return the size of the decompressed data in bytes
    */
   public int decompress(ByteBuffer src, ByteBuffer dst) {
-    if (!isValid) throw new IllegalStateException("QAT session has been closed.");
+    if (!isValid) throw new IllegalStateException("QAT session has been closed");
 
     if ((src == null || dst == null)
         || (src.position() == src.limit() || dst.position() == dst.limit()))
@@ -559,6 +677,10 @@ public class QatZipper {
 
     if (dst.isReadOnly()) throw new ReadOnlyBufferException();
 
+    return decompressByteBuffer(src, dst);
+  }
+
+  private int decompressByteBuffer(ByteBuffer src, ByteBuffer dst) {
     final int srcPos = src.position();
     final int dstPos = dst.position();
 
@@ -568,7 +690,7 @@ public class QatZipper {
     if (src.hasArray() && dst.hasArray()) {
       decompressedSize =
           InternalJNI.decompressByteBuffer(
-              session,
+              qzKey,
               src,
               src.array(),
               srcPos,
@@ -581,11 +703,11 @@ public class QatZipper {
     } else if (src.isDirect() && dst.isDirect()) {
       decompressedSize =
           InternalJNI.decompressDirectByteBuffer(
-              session, src, srcPos, src.remaining(), dst, dstPos, dst.remaining(), retryCount);
+              qzKey, src, srcPos, src.remaining(), dst, dstPos, dst.remaining(), retryCount);
     } else if (src.hasArray() && dst.isDirect()) {
       decompressedSize =
           InternalJNI.decompressDirectByteBufferDst(
-              session,
+              qzKey,
               src,
               src.array(),
               srcPos,
@@ -597,7 +719,7 @@ public class QatZipper {
     } else if (src.isDirect() && dst.hasArray()) {
       decompressedSize =
           InternalJNI.decompressDirectByteBufferSrc(
-              session,
+              qzKey,
               src,
               srcPos,
               src.remaining(),
@@ -622,12 +744,12 @@ public class QatZipper {
       int pos = src.position();
       decompressedSize =
           InternalJNI.decompressByteBuffer(
-              session, src, srcArr, 0, srcLen, dstArr, 0, dstLen, retryCount);
+              qzKey, src, srcArr, 0, srcLen, dstArr, 0, dstLen, retryCount);
       src.position(pos + src.position());
       dst.put(dstArr, 0, decompressedSize);
     }
 
-    if (decompressedSize < 0) throw new QatException("QAT: Compression failed");
+    if (decompressedSize < 0) throw new RuntimeException("QAT: Compression failed");
 
     bytesRead = src.position() - srcPos;
     bytesWritten = dst.position() - dstPos;
@@ -659,28 +781,11 @@ public class QatZipper {
    * Ends the current QAT session by freeing up resources. A new session must be used after a
    * successful call of this method.
    *
-   * @throws QatException if QAT session cannot be gracefully ended.
+   * @throws RuntimeException if QAT session cannot be gracefully ended.
    */
-  public void end() throws QatException {
-    if (!isValid) throw new IllegalStateException("QAT session has been closed.");
-    InternalJNI.teardown(session);
+  public void end() throws RuntimeException {
+    if (!isValid) throw new IllegalStateException("Invalid QAT session");
+    InternalJNI.teardown(qzKey);
     isValid = false;
-  }
-
-  /** A class that represents a cleaner action for a QAT session. */
-  static class QatCleaner implements Runnable {
-    private long qzSession;
-
-    /** Creates a new cleaner object that cleans up the specified session. */
-    public QatCleaner(long session) {
-      this.qzSession = session;
-    }
-
-    @Override
-    public void run() {
-      if (qzSession != 0) {
-        InternalJNI.teardown(qzSession);
-      }
-    }
   }
 }

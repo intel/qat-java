@@ -1,68 +1,87 @@
-## Java* Native Interface binding for Intel® QuickAssist Technology
-Qat-Java library provides accelerated compression and decompression using Intel® QuickAssist Technology (QAT) [QATzip](https://github.com/intel/QATzip) library. For more information about Intel® QAT, refer to the [QAT Programmer's Guide](https://www.intel.com/content/www/us/en/content-details/743912/intel-quickassist-technology-intel-qat-software-for-linux-programmers-guide-hardware-version-2-0.html). Additionally, the online [QAT Hardware User Guide](https://intel.github.io/quickassist/index.html) is a valuable resource that provides guidance on setting up and optimizing Intel® QAT.
+## Java* Native Interface Binding for Intel® QuickAssist Technology
 
-Qat-Java currently supports DEFLATE and LZ4 compression algorithms.
+**Qat-Java** is a library that accelerates data compression using Intel® [QuickAssist Technology (QAT)](https://www.intel.com/content/www/us/en/architecture-and-technology/intel-quick-assist-technology-overview.html).  
+For more details on Intel® QAT and installation instructions, refer to the [QAT Documentation](https://intel.github.io/quickassist/index.html).
 
-## Prerequisite
-To use Intel® QAT for compression and decompression, Qat-Java requires the following dependencies to be met.
+Qat-Java currently supports the following compression algorithms:
+- **DEFLATE**
+- **LZ4**
 
-1. **QAT driver** &mdash; download the Intel® QAT driver for Linux from [here](https://www.intel.com/content/www/us/en/download/765501/intel-quickassist-technology-driver-for-linux-hw-version-2-0.html) and then follow these [installation instructions](https://intel.github.io/quickassist/GSG/2.X/index.html).
+## Prerequisites
 
-2. **QATZip** &mdash; the installation instructions for the QATZip library are available at [github.com/intel/QATZip#installation-instructions](https://github.com/intel/QATzip#installation-instructions).
+This release was validated with the following tools and libraries:
 
-In cases where a QAT hardware is not available, Qat-Java can use a software-only execution mode. The instructions for installing and configuring the dependencies for a software-only execution mode are documented [here](SOFTWARE_ONLY_CONFIG.md).
+- [QATlib v24.09.0](https://github.com/intel/qatlib)
+- [QATzip v1.2.0](https://github.com/intel/QATzip/releases) and its dependencies
+- GCC 8.5 or newer
+- JDK 17 or newer
+- Clang (for fuzz testing)
 
 ## Build
-In addition to the prerequisites listed above, building Qat-Java requires the following to be installed:
 
-* Java 11 or above.
-* gcc, CMake , Maven, and clang (for fuzz testing).
+To build Qat-Java, run:
 
-To build qat-java, run the below command:
 ```
 mvn clean package
 ```
 
-Other Maven targets include:
+### Additional Maven Targets
 
-- `compile` &mdash; builds sources.
-- `test` &mdash; builds and runs tests.
-- `package` &mdash; builds and writes jar files into ```target``` directory.
-- `javadoc:javadoc` &mdash; generates javadocs. 
-- `spotless:check` &mdash; check if source code is formatted well.
-- `spotless:apply` &mdash; fixes source code format issues.
-- `site` &mdash; generates Surefire reports into ```target/site```.
+In addition to `mvn clean package`, the following Maven goals are available:
 
-> The build instructions were tested using gcc-8.5.0, cmake-3.10.0, mvn-3.5.4 and clang-16.0.0.
+- `clean` — Cleans the build directory.  
+- `compile` — Compiles the source code.  
+- `test` — Compiles and runs all unit tests.  
+- `package` — Packages the compiled classes into JAR files (in the `target/` directory).  
+- `javadoc:javadoc` — Generates Javadoc API documentation.  
+- `spotless:check` — Checks that the source code is properly formatted.  
+- `spotless:apply` — Automatically fixes code formatting issues.  
+- `site` — Generates Surefire test reports in `target/site/`.
 
 ## Testing
-To run all the unit tests, execute the below command.
+
+To run all unit tests:
+
 ```
-mvn clean test
+mvn test
 ```
 
-You can also install the [Jazzer](https://github.com/CodeIntelligenceTesting/jazzer/blob/main/CONTRIBUTING.md) tool and run Fuzz tests. 
+## Fuzz Testing
+
+To enable fuzz testing, install the [Jazzer](https://github.com/CodeIntelligenceTesting/jazzer/blob/main/CONTRIBUTING.md) tool and run:
+
 ```
-mvn clean test -Dfuzzing=true
+mvn test -Dfuzzing=true
 ```
 
 ## Examples
-You can run the examples in the `com.intel.qat.examples`, use the below command:
+
+To run an example from the `com.intel.qat.examples` package, use the following command:
+
 ```
-java -cp .:./target/classes/ com.intel.qat.examples.<example-class>
+java -cp .:./target/classes/ com.intel.qat.examples.<ExampleClass>
 ```
 
-Or using this command:
-```
-java --module-path target/classes  -m com.intel.qat/com.intel.qat.examples.<example-class>
-```
+## Authors
+
+- **Mulugeta Mammo** — [mulugeta.mammo@intel.com](mailto:mulugeta.mammo@intel.com)  
+- **Olasoji Denloye** — [olasoji.denloye@intel.com](mailto:olasoji.denloye@intel.com)  
+- **Praveen Nishchal** — [praveen.nishchal@intel.com](mailto:praveen.nishchal@intel.com)
+
+**Zstandard compression contributions** by:
+- Jacob Greenfield  
+- Matthew West  
+- Tommy Parisi
 
 ## Contributing
-Thanks for your interest! Please see the [CONTRIBUTING.md](CONTRIBUTING.md) document for information on how to contribute.
 
-## Contacts ##
-For more information on this library, contact Mammo, Mulugeta (mulugeta.mammo@intel.com) or  Denloye, Olasoji (olasoji.denloye@intel.com).
+Thank you for your interest in contributing!  
+Please refer to the [CONTRIBUTING.md](CONTRIBUTING.md) document for details on how to get involved.
 
-&nbsp;
+## Contact
 
-><b id="f1">*</b> Java is a registered trademark of Oracle and/or its affiliates.
+For questions or more information about this library, contact:  
+- [mulugeta.mammo@intel.com](mailto:mulugeta.mammo@intel.com)  
+- [olasoji.denloye@intel.com](mailto:olasoji.denloye@intel.com)
+
+<sub><b id="f1">*</b> Java is a registered trademark of Oracle and/or its affiliates.</sub>
