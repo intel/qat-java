@@ -68,11 +68,6 @@ java -cp .:./target/classes/ com.intel.qat.examples.<ExampleClass>
 - **Olasoji Denloye** — [olasoji.denloye@intel.com](mailto:olasoji.denloye@intel.com)  
 - **Praveen Nishchal** — [praveen.nishchal@intel.com](mailto:praveen.nishchal@intel.com)
 
-**Zstandard compression contributions** by:
-- Jacob Greenfield  
-- Matthew West  
-- Tommy Parisi
-
 ## Contributing
 
 Thank you for your interest in contributing!  
