@@ -11,7 +11,7 @@ Qat-Java currently supports the following compression algorithms:
 
 This release was validated with the following tools and libraries:
 
-- [QATlib v24.09.0](https://github.com/intel/qatlib)
+- [QATlib v23.08.0](https://github.com/intel/qatlib)
 - [QATzip v1.2.0](https://github.com/intel/QATzip/releases) and its dependencies
 - GCC 8.5 or newer
 - JDK 17 or newer
