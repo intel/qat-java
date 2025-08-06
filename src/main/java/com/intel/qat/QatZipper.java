@@ -79,6 +79,9 @@ public class QatZipper {
   public static final HardwareBufferSize DEFAULT_HW_BUFFER_SIZE =
       HardwareBufferSize.DEFAULT_BUFFER_SIZE;
 
+  /** The default log level is LogLevel.LOG_NONE. */
+  public static final LogLevel DEFAULT_LOG_LEVEL = LogLevel.NONE;
+
   /** The current compression algorithm. */
   private Algorithm algorithm = DEFAULT_ALGORITHM;
 
@@ -101,6 +104,9 @@ public class QatZipper {
 
   /** The buffer size for QAT device. */
   private HardwareBufferSize hwBufferSize = DEFAULT_HW_BUFFER_SIZE;
+
+  /** The log level. */
+  private LogLevel logLevel = DEFAULT_LOG_LEVEL;
 
   /** Indicates if a QAT session is valid or not. */
   private boolean isValid;
@@ -239,6 +245,33 @@ public class QatZipper {
     }
   }
 
+  /** The QAT log level. */
+  public static enum LogLevel {
+    /** None. */
+    NONE,
+
+    /** Fatal errors. */
+    FATAL,
+
+    /** Errors. */
+    ERROR,
+
+    /** Warning. */
+    WARNING,
+
+    /** Info. */
+    INFO,
+
+    /** Simple debug messages. */
+    DEBUG1,
+
+    /** Detailed debug messages. */
+    DEBUG2,
+
+    /** Extra detailed debug messages. */
+    DEBUG3
+  }
+
   /**
    * Checks if QAT hardware is available.
    *
@@ -279,6 +312,7 @@ public class QatZipper {
     private PollingMode pollingMode = DEFAULT_POLLING_MODE;
     private DataFormat dataFormat = DEFAULT_DATA_FORMAT;
     private HardwareBufferSize hwBufferSize = DEFAULT_HW_BUFFER_SIZE;
+    private LogLevel logLevel = DEFAULT_LOG_LEVEL;
 
     /** Constructs a builder that has default values for QatZipper. */
     public Builder() {}
@@ -370,6 +404,17 @@ public class QatZipper {
     }
 
     /**
+     * Sets the {@link LogLevel}.
+     *
+     * @param logLevel the {@link LogLevel}.
+     * @return This Builder.
+     */
+    public Builder setLogLevel(LogLevel logLevel) {
+      this.logLevel = logLevel;
+      return this;
+    }
+
+    /**
      * Returns an instance of {@link QatZipper} created from the fields set on this builder.
      *
      * @return A QatZipper.
@@ -394,6 +439,8 @@ public class QatZipper {
           + dataFormat
           + ", hardwareBufferSize="
           + hwBufferSize
+          + ", logLevel="
+          + logLevel
           + "}";
     }
   }
@@ -406,6 +453,7 @@ public class QatZipper {
     pollingMode = builder.pollingMode;
     dataFormat = builder.dataFormat;
     hwBufferSize = builder.hwBufferSize;
+    logLevel = builder.logLevel;
 
     if (retryCount < 0) throw new IllegalArgumentException("Invalid value for retry count");
 
@@ -423,6 +471,10 @@ public class QatZipper {
             pollingMode.ordinal(),
             dataFormat.ordinal(),
             hwBufferSize.getValue());
+
+    if (logLevel != LogLevel.NONE) {
+      InternalJNI.setLogLevel(logLevel.ordinal());
+    }
 
     if (algorithm == Algorithm.ZSTD) {
       final int QZ_OK = 0; // indicates that ZSTD can start QAT device
@@ -639,10 +691,8 @@ public class QatZipper {
       dst.position(dst.position() - dstLen);
 
       int pos = src.position();
-      compressedSize =
-          InternalJNI.compressByteBuffer(
-              qzKey, src, srcArr, 0, srcLen, dstArr, 0, dstLen, retryCount);
-      src.position(pos + src.position());
+      compressedSize = compressByteArray(srcArr, 0, srcLen, dstArr, 0, dstLen);
+      src.position(pos + getBytesRead());
       dst.put(dstArr, 0, compressedSize);
     }
 
@@ -741,9 +791,9 @@ public class QatZipper {
       return decompressByteBuffer(src, dst);
     } else {
       // ZSTD treats the first parameter as the destination and the second as the source.
-      if (!src.isDirect())
+      if (!src.isDirect() || !dst.isDirect())
         throw new IllegalArgumentException(
-            "Zstd-jni requires source buffers to be direct byte buffers");
+            "Zstd-jni requires both source and destination buffers to be direct byte buffers");
       return zstdDecompressCtx.decompress(dst, src);
     }
   }
@@ -753,7 +803,6 @@ public class QatZipper {
     final int dstPos = dst.position();
 
     bytesRead = bytesWritten = 0;
-
     int decompressedSize = 0;
     if (src.hasArray() && dst.hasArray()) {
       decompressedSize =
@@ -810,10 +859,8 @@ public class QatZipper {
       dst.position(dst.position() - dstLen);
 
       int pos = src.position();
-      decompressedSize =
-          InternalJNI.decompressByteBuffer(
-              qzKey, src, srcArr, 0, srcLen, dstArr, 0, dstLen, retryCount);
-      src.position(pos + src.position());
+      decompressedSize = decompressByteArray(srcArr, 0, srcLen, dstArr, 0, dstLen);
+      src.position(pos + getBytesRead());
       dst.put(dstArr, 0, decompressedSize);
     }
 

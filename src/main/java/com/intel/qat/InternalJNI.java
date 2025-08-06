@@ -136,4 +136,6 @@ enum InternalJNI {
   static native void zstdFreeSeqProdState(long sequenceProdState);
 
   static native int teardown(int qzKey);
+
+  static native int setLogLevel(int logLevel);
 }

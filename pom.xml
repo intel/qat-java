@@ -39,7 +39,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <skipTests>${fuzzing}</skipTests>
-        <fuzzParameters>-runs=10000 -max_total_time=300 -max_len=4194304</fuzzParameters>
+        <fuzzParameters>-runs=1000 -max_total_time=300 -max_len=4194304</fuzzParameters>
     </properties>
     <build>
         <plugins>

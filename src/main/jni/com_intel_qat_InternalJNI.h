@@ -163,6 +163,13 @@ Java_com_intel_qat_InternalJNI_zstdFreeSeqProdState(JNIEnv *, jclass, jlong);
  */
 JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_teardown(JNIEnv *, jclass, jint);
 
+/*
+ * Class:     com_intel_qat_InternalJNI
+ * Method:    setLogLevel
+ * Signature: (I)V
+ */
+JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_setLogLevel(JNIEnv *, jclass, jint);
+
 #ifdef __cplusplus
 }
 #endif
