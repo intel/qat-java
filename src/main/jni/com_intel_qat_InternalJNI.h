@@ -18,12 +18,12 @@ JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_initFieldIDs(JNIEnv *,
 /*
  * Class:     com_intel_qat_InternalJNI
  * Method:    setup
- * Signature: (Lcom/intel/qat/QatZipper;IIIIII)I
+ * Signature: (Lcom/intel/qat/QatZipper;IIIIIII)I
  */
 JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_setup(JNIEnv *, jclass,
                                                             jobject, jint, jint,
                                                             jint, jint, jint,
-                                                            jint);
+                                                            jint, jint);
 
 /*
  * Class:     com_intel_qat_InternalJNI

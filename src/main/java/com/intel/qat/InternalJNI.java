@@ -19,7 +19,14 @@ enum InternalJNI {
   static native void initFieldIDs();
 
   static native int setup(
-      QatZipper qzip, int algo, int level, int mode, int pmode, int dataFormat, int hwBufferSize);
+      QatZipper qzip,
+      int algo,
+      int level,
+      int mode,
+      int pmode,
+      int dataFormat,
+      int hwBufferSize,
+      int logLevel);
 
   static native int maxCompressedSize(int qzKey, long sourceSize);
 

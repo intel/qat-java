@@ -45,7 +45,7 @@ public class QatJavaBench {
     public ThreadState() {
       try {
 
-        switch (QatJavaBench.algorithm) {
+        switch (QatJavaBench.algorithm.toUpperCase()) {
           case "DEFLATE":
             algorithm = Algorithm.DEFLATE;
             break;

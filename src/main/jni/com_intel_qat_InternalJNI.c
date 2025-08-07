@@ -40,6 +40,14 @@
  */
 #define ZLIB_DATA_FORMAT 4
 
+/*  QATzip log API
+ *  could change the log level on runtime
+ */
+extern void logMessage(QzLogLevel_T level,
+                       const char *file,
+                       int line,
+                       const char *format,
+                       ...);
 /**
  * Stores the JNI field ID for the 'position' field of java.nio.ByteBuffer.
  * Used to access or modify the current position of a ByteBuffer instance.
@@ -542,7 +550,7 @@ static inline __attribute__((always_inline)) int decompress(
     int *bytes_read,
     int *bytes_written,
     int retry_count) {
-
+  
   int rc = qzDecompress(sess, src_ptr, &src_len, dst_ptr, &dst_len);
 
   if (likely(rc == QZ_OK)) {
@@ -600,7 +608,8 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_setup(JNIEnv *env,
                                                             jint sw_backup,
                                                             jint polling_mode,
                                                             jint data_format,
-                                                            jint hw_buff_sz) {
+                                                            jint hw_buff_sz,
+                                                            jint log_level) {
   (void)clz;
 
   // Validate inputs
@@ -611,6 +620,9 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_setup(JNIEnv *env,
         "Invalid compression level");
     return QZ_FAIL;
   }
+
+  // Set Log level
+  qzSetLogLevel(log_level);
 
   // Handle ZSTD algorithm
   if (comp_algo == ZSTD_ALGORITHM) {
@@ -632,6 +644,10 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_setup(JNIEnv *env,
                                data_format, hw_buff_sz);
 
   QzSessionHandle_T *sess_ptr = get_session(qz_key);
+  logMessage(LOG_DEBUG1, __FILE__, __LINE__,
+             sess_ptr ? "re-using a session, id is %#x\n"
+                      : "creating a new session, id is %#x\n",
+             qz_key);
   if (!sess_ptr) {
     sess_ptr = create_session(env, qz_key);
   }
@@ -676,6 +692,12 @@ Java_com_intel_qat_InternalJNI_compressByteArray(JNIEnv *env,
                                                  jint retry_count) {
   (void)clz;
 
+  logMessage(
+      LOG_DEBUG1, __FILE__, __LINE__,
+      "compressByteArray: src_pos = %d, src_len = %d, dst_pos = %d, dst_len = "
+      "%d\n",
+      src_pos, src_len, dst_pos, dst_len);
+
   QzSession_T *qz_session = get_or_create_session(env, qz_key)->qz_session;
   if (unlikely(!qz_session)) {
     (*env)->ThrowNew(env,
@@ -702,6 +724,7 @@ Java_com_intel_qat_InternalJNI_compressByteArray(JNIEnv *env,
                      "Failed to access destination array");
     return -1;
   }
+
   // Perform compression
   int bytes_read = 0;
   int bytes_written = 0;
@@ -760,6 +783,12 @@ Java_com_intel_qat_InternalJNI_decompressByteArray(JNIEnv *env,
                                                    jint dst_len,
                                                    jint retry_count) {
   (void)clz;
+
+  logMessage(
+      LOG_DEBUG1, __FILE__, __LINE__,
+      "decompressByteArray: src_pos = %d, src_len = %d, dst_pos = %d, dst_len "
+      "= %d\n",
+      src_pos, src_len, dst_pos, dst_len);
 
   QzSession_T *qz_session = get_or_create_session(env, qz_key)->qz_session;
   if (unlikely(!qz_session)) {
@@ -845,6 +874,12 @@ Java_com_intel_qat_InternalJNI_compressByteBuffer(JNIEnv *env,
                                                   jint dst_len,
                                                   jint retry_count) {
   (void)clz;
+
+  logMessage(
+      LOG_DEBUG1, __FILE__, __LINE__,
+      "compressByteBuffer: src_pos = %d, src_len = %d, dst_pos = %d, dst_len = "
+      "%d\n",
+      src_pos, src_len, dst_pos, dst_len);
 
   QzSession_T *qz_session = get_or_create_session(env, qz_key)->qz_session;
   if (unlikely(!qz_session)) {
@@ -932,6 +967,12 @@ Java_com_intel_qat_InternalJNI_decompressByteBuffer(JNIEnv *env,
                                                     jint retry_count) {
   (void)clz;
 
+  logMessage(
+      LOG_DEBUG1, __FILE__, __LINE__,
+      "decompressByteBuffer: src_pos = %d, src_len = %d, dst_pos = %d, dst_len "
+      "= %d\n",
+      src_pos, src_len, dst_pos, dst_len);
+
   QzSession_T *qz_session = get_or_create_session(env, qz_key)->qz_session;
   if (unlikely(!qz_session)) {
     (*env)->ThrowNew(env,
@@ -1017,6 +1058,12 @@ Java_com_intel_qat_InternalJNI_compressDirectByteBuffer(JNIEnv *env,
                                                         jint retry_count) {
   (void)clz;
 
+  logMessage(
+      LOG_DEBUG1, __FILE__, __LINE__,
+      "compressDirectByteBuffer: src_pos = %d, src_len = %d, dst_pos = %d, "
+      "dst_len = %d\n",
+      src_pos, src_len, dst_pos, dst_len);
+
   QzSession_T *qz_session = get_or_create_session(env, qz_key)->qz_session;
   if (unlikely(!qz_session)) {
     (*env)->ThrowNew(env,
@@ -1097,6 +1144,12 @@ Java_com_intel_qat_InternalJNI_decompressDirectByteBuffer(JNIEnv *env,
                                                           jint retry_count) {
   (void)clz;
 
+  logMessage(
+      LOG_DEBUG1, __FILE__, __LINE__,
+      "decompressByteBuffer: src_pos = %d, src_len = %d, dst_pos = %d, dst_len "
+      "= %d\n",
+      src_pos, src_len, dst_pos, dst_len);
+
   QzSession_T *qz_session = get_or_create_session(env, qz_key)->qz_session;
   if (unlikely(!qz_session)) {
     (*env)->ThrowNew(env,
@@ -1175,6 +1228,12 @@ Java_com_intel_qat_InternalJNI_compressDirectByteBufferSrc(JNIEnv *env,
                                                            jint dst_len,
                                                            jint retry_count) {
   (void)clz;
+
+  logMessage(
+      LOG_DEBUG1, __FILE__, __LINE__,
+      "compressDirectByteBufferSrc: src_pos = %d, src_len = %d, dst_pos = %d, "
+      "dst_len = %d\n",
+      src_pos, src_len, dst_pos, dst_len);
 
   QzSession_T *qz_session = get_or_create_session(env, qz_key)->qz_session;
   if (unlikely(!qz_session)) {
@@ -1256,6 +1315,12 @@ Java_com_intel_qat_InternalJNI_decompressDirectByteBufferSrc(JNIEnv *env,
                                                              jint dst_len,
                                                              jint retry_count) {
   (void)clz;
+
+  logMessage(
+      LOG_DEBUG1, __FILE__, __LINE__,
+      "decompressDirectByteBufferSrc: src_pos = %d, src_len = %d, dst_pos = "
+      "%d, dst_len = %d\n",
+      src_pos, src_len, dst_pos, dst_len);
 
   QzSession_T *qz_session = get_or_create_session(env, qz_key)->qz_session;
   if (unlikely(!qz_session)) {
@@ -1340,6 +1405,12 @@ Java_com_intel_qat_InternalJNI_compressDirectByteBufferDst(JNIEnv *env,
                                                            jint dst_len,
                                                            jint retry_count) {
   (void)clz;
+
+  logMessage(
+      LOG_DEBUG1, __FILE__, __LINE__,
+      "compressDirectByteBufferDst: src_pos = %d, src_len = %d, dst_pos = %d, "
+      "dst_len = %d\n",
+      src_pos, src_len, dst_pos, dst_len);
 
   QzSession_T *qz_session = get_or_create_session(env, qz_key)->qz_session;
   if (unlikely(!qz_session)) {
@@ -1428,6 +1499,12 @@ Java_com_intel_qat_InternalJNI_decompressDirectByteBufferDst(JNIEnv *env,
                                                              jint dst_len,
                                                              jint retry_count) {
   (void)clz;
+
+  logMessage(
+      LOG_DEBUG1, __FILE__, __LINE__,
+      "decompressDirectByteBufferDst: src_pos = %d, src_len = %d, dst_pos = "
+      "%d, dst_len = %d\n",
+      src_pos, src_len, dst_pos, dst_len);
 
   QzSession_T *qz_session = get_or_create_session(env, qz_key)->qz_session;
   if (unlikely(!qz_session)) {

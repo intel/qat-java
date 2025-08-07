@@ -249,26 +249,19 @@ public class QatZipper {
   public static enum LogLevel {
     /** None. */
     NONE,
-
     /** Fatal errors. */
     FATAL,
-
     /** Errors. */
     ERROR,
-
     /** Warning. */
     WARNING,
-
     /** Info. */
     INFO,
-
-    /** Simple debug messages. */
+    /** Debug messages. */
     DEBUG1,
-
-    /** Detailed debug messages. */
+    /** Test messages. */
     DEBUG2,
-
-    /** Extra detailed debug messages. */
+    /** Memory related messages. */
     DEBUG3
   }
 
@@ -470,7 +463,8 @@ public class QatZipper {
             mode.ordinal(),
             pollingMode.ordinal(),
             dataFormat.ordinal(),
-            hwBufferSize.getValue());
+            hwBufferSize.getValue(),
+            logLevel.ordinal());
 
     if (logLevel != LogLevel.NONE) {
       InternalJNI.setLogLevel(logLevel.ordinal());
