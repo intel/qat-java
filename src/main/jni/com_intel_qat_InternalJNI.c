@@ -644,6 +644,8 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_setup(JNIEnv *env,
                                data_format, hw_buff_sz);
 
   QzSessionHandle_T *sess_ptr = get_session(qz_key);
+
+  // Log message if current level is either LOG_DEBUG1,2 or 3
   logMessage(LOG_DEBUG1, __FILE__, __LINE__,
              sess_ptr ? "re-using a session, id is %#x\n"
                       : "creating a new session, id is %#x\n",
@@ -692,6 +694,7 @@ Java_com_intel_qat_InternalJNI_compressByteArray(JNIEnv *env,
                                                  jint retry_count) {
   (void)clz;
 
+  // Log message if current level is either LOG_DEBUG1,2 or 3
   logMessage(
       LOG_DEBUG1, __FILE__, __LINE__,
       "compressByteArray: src_pos = %d, src_len = %d, dst_pos = %d, dst_len = "
@@ -784,6 +787,7 @@ Java_com_intel_qat_InternalJNI_decompressByteArray(JNIEnv *env,
                                                    jint retry_count) {
   (void)clz;
 
+  // Log message if current level is either LOG_DEBUG1,2 or 3
   logMessage(
       LOG_DEBUG1, __FILE__, __LINE__,
       "decompressByteArray: src_pos = %d, src_len = %d, dst_pos = %d, dst_len "
@@ -875,6 +879,7 @@ Java_com_intel_qat_InternalJNI_compressByteBuffer(JNIEnv *env,
                                                   jint retry_count) {
   (void)clz;
 
+  // Log message if current level is either LOG_DEBUG1,2 or 3
   logMessage(
       LOG_DEBUG1, __FILE__, __LINE__,
       "compressByteBuffer: src_pos = %d, src_len = %d, dst_pos = %d, dst_len = "
@@ -967,6 +972,7 @@ Java_com_intel_qat_InternalJNI_decompressByteBuffer(JNIEnv *env,
                                                     jint retry_count) {
   (void)clz;
 
+  // Log message if current level is either LOG_DEBUG1,2 or 3
   logMessage(
       LOG_DEBUG1, __FILE__, __LINE__,
       "decompressByteBuffer: src_pos = %d, src_len = %d, dst_pos = %d, dst_len "
@@ -1058,6 +1064,7 @@ Java_com_intel_qat_InternalJNI_compressDirectByteBuffer(JNIEnv *env,
                                                         jint retry_count) {
   (void)clz;
 
+  // Log message if current level is either LOG_DEBUG1,2 or 3
   logMessage(
       LOG_DEBUG1, __FILE__, __LINE__,
       "compressDirectByteBuffer: src_pos = %d, src_len = %d, dst_pos = %d, "
@@ -1144,6 +1151,7 @@ Java_com_intel_qat_InternalJNI_decompressDirectByteBuffer(JNIEnv *env,
                                                           jint retry_count) {
   (void)clz;
 
+  // Log message if current level is either LOG_DEBUG1,2 or 3
   logMessage(
       LOG_DEBUG1, __FILE__, __LINE__,
       "decompressByteBuffer: src_pos = %d, src_len = %d, dst_pos = %d, dst_len "
@@ -1229,6 +1237,7 @@ Java_com_intel_qat_InternalJNI_compressDirectByteBufferSrc(JNIEnv *env,
                                                            jint retry_count) {
   (void)clz;
 
+  // Log message if current level is either LOG_DEBUG1,2 or 3
   logMessage(
       LOG_DEBUG1, __FILE__, __LINE__,
       "compressDirectByteBufferSrc: src_pos = %d, src_len = %d, dst_pos = %d, "
@@ -1316,6 +1325,7 @@ Java_com_intel_qat_InternalJNI_decompressDirectByteBufferSrc(JNIEnv *env,
                                                              jint retry_count) {
   (void)clz;
 
+  // Log message if current level is either LOG_DEBUG1,2 or 3
   logMessage(
       LOG_DEBUG1, __FILE__, __LINE__,
       "decompressDirectByteBufferSrc: src_pos = %d, src_len = %d, dst_pos = "
@@ -1406,6 +1416,7 @@ Java_com_intel_qat_InternalJNI_compressDirectByteBufferDst(JNIEnv *env,
                                                            jint retry_count) {
   (void)clz;
 
+  // Log message if current level is either LOG_DEBUG1,2 or 3
   logMessage(
       LOG_DEBUG1, __FILE__, __LINE__,
       "compressDirectByteBufferDst: src_pos = %d, src_len = %d, dst_pos = %d, "
@@ -1500,6 +1511,7 @@ Java_com_intel_qat_InternalJNI_decompressDirectByteBufferDst(JNIEnv *env,
                                                              jint retry_count) {
   (void)clz;
 
+  // Log message if current level is either LOG_DEBUG1,2 or 3
   logMessage(
       LOG_DEBUG1, __FILE__, __LINE__,
       "decompressDirectByteBufferDst: src_pos = %d, src_len = %d, dst_pos = "
