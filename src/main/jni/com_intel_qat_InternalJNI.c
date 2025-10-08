@@ -386,7 +386,10 @@ static QzSessionHandle_T *get_or_create_session(JNIEnv *env, int32_t qz_key) {
 
   // Create a new session and update the reference count
   sess_ptr = create_session(env, qz_key);
-  sess_ptr->reference_count++;
+
+  if (sess_ptr) {
+    sess_ptr->reference_count++;
+  }
 
   return sess_ptr;
 }
@@ -653,6 +656,15 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_setup(JNIEnv *env,
   if (!sess_ptr) {
     sess_ptr = create_session(env, qz_key);
   }
+
+
+  if ((*env)->ExceptionCheck(env)) {
+    (*env)->ThrowNew(
+        env, (*env)->FindClass(env, "java/lang/IllegalStateException"),
+        "Initializing QAT failed");
+    return QZ_FAIL;
+  }
+
   // Update the reference count
   sess_ptr->reference_count++;
 
