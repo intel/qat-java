@@ -77,16 +77,34 @@ static _Thread_local int g_algorithm_is_zstd;
  */
 static _Thread_local void *g_zstd_seqprod_state;
 
+/**
+ * Thread-local variable that stores the current logging level.
+ * Each thread maintains its own log level, allowing thread-specific
+ * logging control. Messages are only logged if this value is >= 1.
+ */
 static _Thread_local int g_log_level;
 
-static inline void logMessage(const char *file,
-                              int line,
-                              const char *format,
-                              ...) {
+/**
+ * Logs a formatted message to stderr with file and line information.
+ *
+ * This function logs messages only when the thread-local g_log_level is
+ * greater than 0 (LogLevel.NONE). Messages are prefixed with "[Info]"
+ * followed by the file name and line number. A newline is automatically
+ * appended if the format string doesn't end with one.
+ *
+ * @param line   The line number where the log is called
+ * @param format A printf-style format string for the log message
+ * @param ...    Variable arguments corresponding to the format string
+ *
+ * @note This function is thread-safe as it uses thread-local storage for log
+ * level
+ * @note Output is flushed immediately to ensure messages appear promptly
+ */
+static inline void logMessage(int line, const char *format, ...) {
   // We log only if log_level is greater than LogLevel.NONE (0)
   if (g_log_level < 1) return;
 
-  fprintf(stderr, "[Info] %s:%d: ", file, line);
+  fprintf(stderr, "[Info] %s:%d: ", THIS_FILE, line);
 
   va_list args;
   va_start(args, format);
@@ -672,7 +690,7 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_setup(JNIEnv *env,
 
   QzSessionHandle_T *sess_ptr = get_session(qz_key);
 
-  logMessage(THIS_FILE, __LINE__,
+  logMessage(__LINE__,
              sess_ptr ? "re-using a session, id is %#x\n"
                       : "creating a new session, id is %#x\n",
              qz_key);
@@ -729,7 +747,7 @@ Java_com_intel_qat_InternalJNI_compressByteArray(JNIEnv *env,
   (void)clz;
 
   logMessage(
-      THIS_FILE, __LINE__,
+      __LINE__,
       "compressByteArray: src_pos = %d, src_len = %d, dst_pos = %d, dst_len = "
       "%d\n",
       src_pos, src_len, dst_pos, dst_len);
@@ -821,7 +839,7 @@ Java_com_intel_qat_InternalJNI_decompressByteArray(JNIEnv *env,
   (void)clz;
 
   logMessage(
-      THIS_FILE, __LINE__,
+      __LINE__,
       "decompressByteArray: src_pos = %d, src_len = %d, dst_pos = %d, dst_len "
       "= %d\n",
       src_pos, src_len, dst_pos, dst_len);
@@ -912,7 +930,7 @@ Java_com_intel_qat_InternalJNI_compressByteBuffer(JNIEnv *env,
   (void)clz;
 
   logMessage(
-      THIS_FILE, __LINE__,
+      __LINE__,
       "compressByteBuffer: src_pos = %d, src_len = %d, dst_pos = %d, dst_len = "
       "%d\n",
       src_pos, src_len, dst_pos, dst_len);
@@ -1004,7 +1022,7 @@ Java_com_intel_qat_InternalJNI_decompressByteBuffer(JNIEnv *env,
   (void)clz;
 
   logMessage(
-      THIS_FILE, __LINE__,
+      __LINE__,
       "decompressByteBuffer: src_pos = %d, src_len = %d, dst_pos = %d, dst_len "
       "= %d\n",
       src_pos, src_len, dst_pos, dst_len);
@@ -1095,7 +1113,7 @@ Java_com_intel_qat_InternalJNI_compressDirectByteBuffer(JNIEnv *env,
   (void)clz;
 
   logMessage(
-      THIS_FILE, __LINE__,
+      __LINE__,
       "compressDirectByteBuffer: src_pos = %d, src_len = %d, dst_pos = %d, "
       "dst_len = %d\n",
       src_pos, src_len, dst_pos, dst_len);
@@ -1181,7 +1199,7 @@ Java_com_intel_qat_InternalJNI_decompressDirectByteBuffer(JNIEnv *env,
   (void)clz;
 
   logMessage(
-      THIS_FILE, __LINE__,
+      __LINE__,
       "decompressByteBuffer: src_pos = %d, src_len = %d, dst_pos = %d, dst_len "
       "= %d\n",
       src_pos, src_len, dst_pos, dst_len);
@@ -1266,7 +1284,7 @@ Java_com_intel_qat_InternalJNI_compressDirectByteBufferSrc(JNIEnv *env,
   (void)clz;
 
   logMessage(
-      THIS_FILE, __LINE__,
+      __LINE__,
       "compressDirectByteBufferSrc: src_pos = %d, src_len = %d, dst_pos = %d, "
       "dst_len = %d\n",
       src_pos, src_len, dst_pos, dst_len);
@@ -1353,7 +1371,7 @@ Java_com_intel_qat_InternalJNI_decompressDirectByteBufferSrc(JNIEnv *env,
   (void)clz;
 
   logMessage(
-      THIS_FILE, __LINE__,
+      __LINE__,
       "decompressDirectByteBufferSrc: src_pos = %d, src_len = %d, dst_pos = "
       "%d, dst_len = %d\n",
       src_pos, src_len, dst_pos, dst_len);
@@ -1443,7 +1461,7 @@ Java_com_intel_qat_InternalJNI_compressDirectByteBufferDst(JNIEnv *env,
   (void)clz;
 
   logMessage(
-      THIS_FILE, __LINE__,
+      __LINE__,
       "compressDirectByteBufferDst: src_pos = %d, src_len = %d, dst_pos = %d, "
       "dst_len = %d\n",
       src_pos, src_len, dst_pos, dst_len);
@@ -1537,7 +1555,7 @@ Java_com_intel_qat_InternalJNI_decompressDirectByteBufferDst(JNIEnv *env,
   (void)clz;
 
   logMessage(
-      THIS_FILE, __LINE__,
+      __LINE__,
       "decompressDirectByteBufferDst: src_pos = %d, src_len = %d, dst_pos = "
       "%d, dst_len = %d\n",
       src_pos, src_len, dst_pos, dst_len);
