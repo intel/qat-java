@@ -429,9 +429,11 @@ static QzSessionHandle_T *get_or_create_session(JNIEnv *env, int32_t qz_key) {
   // Create a new session and update the reference count
   sess_ptr = create_session(env, qz_key);
 
-  if (sess_ptr) {
-    sess_ptr->reference_count++;
+  if ((*env)->ExceptionCheck(env)) {
+    return NULL;
   }
+
+  sess_ptr->reference_count++;
 
   return sess_ptr;
 }
@@ -699,9 +701,6 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_setup(JNIEnv *env,
   }
 
   if ((*env)->ExceptionCheck(env)) {
-    (*env)->ThrowNew(env,
-                     (*env)->FindClass(env, "java/lang/IllegalStateException"),
-                     "Initializing QAT failed");
     return QZ_FAIL;
   }
 
@@ -752,13 +751,11 @@ Java_com_intel_qat_InternalJNI_compressByteArray(JNIEnv *env,
       "%d\n",
       src_pos, src_len, dst_pos, dst_len);
 
-  QzSession_T *qz_session = get_or_create_session(env, qz_key)->qz_session;
-  if (unlikely(!qz_session)) {
-    (*env)->ThrowNew(env,
-                     (*env)->FindClass(env, "java/lang/IllegalStateException"),
-                     "Invalid QAT session");
-    return -1;
+  QzSessionHandle_T *sess_ptr = get_or_create_session(env, qz_key);
+  if ((*env)->ExceptionCheck(env)) {
+    return QZ_FAIL;
   }
+  QzSession_T *qz_session = sess_ptr->qz_session; 
 
   // Access arrays with critical regions
   uint8_t *src_ptr =
@@ -844,13 +841,11 @@ Java_com_intel_qat_InternalJNI_decompressByteArray(JNIEnv *env,
       "= %d\n",
       src_pos, src_len, dst_pos, dst_len);
 
-  QzSession_T *qz_session = get_or_create_session(env, qz_key)->qz_session;
-  if (unlikely(!qz_session)) {
-    (*env)->ThrowNew(env,
-                     (*env)->FindClass(env, "java/lang/IllegalStateException"),
-                     "Invalid QAT session");
-    return -1;
+  QzSessionHandle_T *sess_ptr = get_or_create_session(env, qz_key);
+  if ((*env)->ExceptionCheck(env)) {
+    return QZ_FAIL;
   }
+  QzSession_T *qz_session = sess_ptr->qz_session; 
 
   // Access arrays with critical regions
   uint8_t *src_ptr =
@@ -935,13 +930,11 @@ Java_com_intel_qat_InternalJNI_compressByteBuffer(JNIEnv *env,
       "%d\n",
       src_pos, src_len, dst_pos, dst_len);
 
-  QzSession_T *qz_session = get_or_create_session(env, qz_key)->qz_session;
-  if (unlikely(!qz_session)) {
-    (*env)->ThrowNew(env,
-                     (*env)->FindClass(env, "java/lang/IllegalStateException"),
-                     "Invalid QAT session");
-    return -1;
+  QzSessionHandle_T *sess_ptr = get_or_create_session(env, qz_key);
+  if ((*env)->ExceptionCheck(env)) {
+    return QZ_FAIL;
   }
+  QzSession_T *qz_session = sess_ptr->qz_session; 
 
   // Access arrays with critical regions
   uint8_t *src_ptr =
@@ -1027,13 +1020,11 @@ Java_com_intel_qat_InternalJNI_decompressByteBuffer(JNIEnv *env,
       "= %d\n",
       src_pos, src_len, dst_pos, dst_len);
 
-  QzSession_T *qz_session = get_or_create_session(env, qz_key)->qz_session;
-  if (unlikely(!qz_session)) {
-    (*env)->ThrowNew(env,
-                     (*env)->FindClass(env, "java/lang/IllegalStateException"),
-                     "Invalid QAT session");
-    return -1;
+  QzSessionHandle_T *sess_ptr = get_or_create_session(env, qz_key);
+  if ((*env)->ExceptionCheck(env)) {
+    return QZ_FAIL;
   }
+  QzSession_T *qz_session = sess_ptr->qz_session; 
 
   // Access arrays with critical regions
   uint8_t *src_ptr =
@@ -1118,13 +1109,11 @@ Java_com_intel_qat_InternalJNI_compressDirectByteBuffer(JNIEnv *env,
       "dst_len = %d\n",
       src_pos, src_len, dst_pos, dst_len);
 
-  QzSession_T *qz_session = get_or_create_session(env, qz_key)->qz_session;
-  if (unlikely(!qz_session)) {
-    (*env)->ThrowNew(env,
-                     (*env)->FindClass(env, "java/lang/IllegalStateException"),
-                     "Invalid QAT session");
-    return -1;
+  QzSessionHandle_T *sess_ptr = get_or_create_session(env, qz_key);
+  if ((*env)->ExceptionCheck(env)) {
+    return QZ_FAIL;
   }
+  QzSession_T *qz_session = sess_ptr->qz_session; 
 
   // Access direct buffers
   uint8_t *src_ptr = (uint8_t *)(*env)->GetDirectBufferAddress(env, src_buf);
@@ -1204,13 +1193,11 @@ Java_com_intel_qat_InternalJNI_decompressDirectByteBuffer(JNIEnv *env,
       "= %d\n",
       src_pos, src_len, dst_pos, dst_len);
 
-  QzSession_T *qz_session = get_or_create_session(env, qz_key)->qz_session;
-  if (unlikely(!qz_session)) {
-    (*env)->ThrowNew(env,
-                     (*env)->FindClass(env, "java/lang/IllegalStateException"),
-                     "Invalid QAT session");
-    return -1;
+  QzSessionHandle_T *sess_ptr = get_or_create_session(env, qz_key);
+  if ((*env)->ExceptionCheck(env)) {
+    return QZ_FAIL;
   }
+  QzSession_T *qz_session = sess_ptr->qz_session; 
 
   // Access direct buffers
   uint8_t *src_ptr = (uint8_t *)(*env)->GetDirectBufferAddress(env, src_buf);
@@ -1289,13 +1276,11 @@ Java_com_intel_qat_InternalJNI_compressDirectByteBufferSrc(JNIEnv *env,
       "dst_len = %d\n",
       src_pos, src_len, dst_pos, dst_len);
 
-  QzSession_T *qz_session = get_or_create_session(env, qz_key)->qz_session;
-  if (unlikely(!qz_session)) {
-    (*env)->ThrowNew(env,
-                     (*env)->FindClass(env, "java/lang/IllegalStateException"),
-                     "Invalid QAT session");
-    return -1;
+  QzSessionHandle_T *sess_ptr = get_or_create_session(env, qz_key);
+  if ((*env)->ExceptionCheck(env)) {
+    return QZ_FAIL;
   }
+  QzSession_T *qz_session = sess_ptr->qz_session; 
 
   // Access source buffer and destination array
   uint8_t *src_ptr = (uint8_t *)(*env)->GetDirectBufferAddress(env, src_buf);
@@ -1376,13 +1361,11 @@ Java_com_intel_qat_InternalJNI_decompressDirectByteBufferSrc(JNIEnv *env,
       "%d, dst_len = %d\n",
       src_pos, src_len, dst_pos, dst_len);
 
-  QzSession_T *qz_session = get_or_create_session(env, qz_key)->qz_session;
-  if (unlikely(!qz_session)) {
-    (*env)->ThrowNew(env,
-                     (*env)->FindClass(env, "java/lang/IllegalStateException"),
-                     "Invalid QAT session");
-    return -1;
+  QzSessionHandle_T *sess_ptr = get_or_create_session(env, qz_key);
+  if ((*env)->ExceptionCheck(env)) {
+    return QZ_FAIL;
   }
+  QzSession_T *qz_session = sess_ptr->qz_session; 
 
   // Access source buffer and destination array
   uint8_t *src_ptr = (uint8_t *)(*env)->GetDirectBufferAddress(env, src_buf);
@@ -1466,13 +1449,11 @@ Java_com_intel_qat_InternalJNI_compressDirectByteBufferDst(JNIEnv *env,
       "dst_len = %d\n",
       src_pos, src_len, dst_pos, dst_len);
 
-  QzSession_T *qz_session = get_or_create_session(env, qz_key)->qz_session;
-  if (unlikely(!qz_session)) {
-    (*env)->ThrowNew(env,
-                     (*env)->FindClass(env, "java/lang/IllegalStateException"),
-                     "Invalid QAT session");
-    return -1;
+  QzSessionHandle_T *sess_ptr = get_or_create_session(env, qz_key);
+  if ((*env)->ExceptionCheck(env)) {
+    return QZ_FAIL;
   }
+  QzSession_T *qz_session = sess_ptr->qz_session; 
 
   // Access source array and destination buffer
   uint8_t *src_ptr =
@@ -1560,13 +1541,11 @@ Java_com_intel_qat_InternalJNI_decompressDirectByteBufferDst(JNIEnv *env,
       "%d, dst_len = %d\n",
       src_pos, src_len, dst_pos, dst_len);
 
-  QzSession_T *qz_session = get_or_create_session(env, qz_key)->qz_session;
-  if (unlikely(!qz_session)) {
-    (*env)->ThrowNew(env,
-                     (*env)->FindClass(env, "java/lang/IllegalStateException"),
-                     "Invalid QAT session");
-    return -1;
+  QzSessionHandle_T *sess_ptr = get_or_create_session(env, qz_key);
+  if ((*env)->ExceptionCheck(env)) {
+    return QZ_FAIL;
   }
+  QzSession_T *qz_session = sess_ptr->qz_session; 
 
   // Access source array and destination buffer
   uint8_t *src_ptr =
@@ -1633,13 +1612,11 @@ Java_com_intel_qat_InternalJNI_maxCompressedSize(JNIEnv *env,
   (void)env;
   (void)clz;
 
-  QzSession_T *qz_session = get_or_create_session(env, qz_key)->qz_session;
-  if (unlikely(!qz_session)) {
-    (*env)->ThrowNew(env,
-                     (*env)->FindClass(env, "java/lang/IllegalStateException"),
-                     "Invalid QAT session");
-    return -1;
+  QzSessionHandle_T *sess_ptr = get_or_create_session(env, qz_key);
+  if ((*env)->ExceptionCheck(env)) {
+    return QZ_FAIL;
   }
+  QzSession_T *qz_session = sess_ptr->qz_session; 
 
   return qzMaxCompressedLength(src_size, qz_session);
 }
