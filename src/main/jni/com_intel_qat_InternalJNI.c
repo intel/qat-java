@@ -40,14 +40,11 @@
  */
 #define ZLIB_DATA_FORMAT 4
 
-/*  QATzip log API
- *  could change the log level on runtime
+/**
+ * This file name, for logMessage.
  */
-extern void logMessage(QzLogLevel_T level,
-                       const char *file,
-                       int line,
-                       const char *format,
-                       ...);
+#define THIS_FILE "com_intel_qat_InternalJNI.c"
+
 /**
  * Stores the JNI field ID for the 'position' field of java.nio.ByteBuffer.
  * Used to access or modify the current position of a ByteBuffer instance.
@@ -79,6 +76,33 @@ static _Thread_local int g_algorithm_is_zstd;
  * JNI_OnUnload). NULL when ZSTD is not active or state is uninitialized.
  */
 static _Thread_local void *g_zstd_seqprod_state;
+
+static _Thread_local int g_log_level;
+
+static inline void logMessage(const char *file,
+                              int line,
+                              const char *format,
+                              ...) {
+  // We log only if log_level is greater than LogLevel.NONE (0)
+  if (g_log_level < 1) return;
+
+  fprintf(stderr, "[Info] %s:%d: ", file, line);
+
+  va_list args;
+  va_start(args, format);
+  vfprintf(stderr, format, args);
+  va_end(args);
+
+  if (format[0] != '\0') {
+    size_t len = 0;
+    while (format[len] != '\0') len++;
+    if (format[len - 1] != '\n') {
+      fprintf(stderr, "\n");
+    }
+  }
+
+  fflush(stderr);
+}
 
 /**
  * QZSTD_startQatDevice() must be called only once!
@@ -553,7 +577,6 @@ static inline __attribute__((always_inline)) int decompress(
     int *bytes_read,
     int *bytes_written,
     int retry_count) {
-  
   int rc = qzDecompress(sess, src_ptr, &src_len, dst_ptr, &dst_len);
 
   if (likely(rc == QZ_OK)) {
@@ -625,6 +648,7 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_setup(JNIEnv *env,
   }
 
   // Set Log level
+  g_log_level = log_level;
   qzSetLogLevel(log_level);
 
   // Handle ZSTD algorithm
@@ -648,8 +672,7 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_setup(JNIEnv *env,
 
   QzSessionHandle_T *sess_ptr = get_session(qz_key);
 
-  // Log message if current level is either LOG_DEBUG1,2 or 3
-  logMessage(LOG_DEBUG1, __FILE__, __LINE__,
+  logMessage(THIS_FILE, __LINE__,
              sess_ptr ? "re-using a session, id is %#x\n"
                       : "creating a new session, id is %#x\n",
              qz_key);
@@ -657,11 +680,10 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_setup(JNIEnv *env,
     sess_ptr = create_session(env, qz_key);
   }
 
-
   if ((*env)->ExceptionCheck(env)) {
-    (*env)->ThrowNew(
-        env, (*env)->FindClass(env, "java/lang/IllegalStateException"),
-        "Initializing QAT failed");
+    (*env)->ThrowNew(env,
+                     (*env)->FindClass(env, "java/lang/IllegalStateException"),
+                     "Initializing QAT failed");
     return QZ_FAIL;
   }
 
@@ -706,9 +728,8 @@ Java_com_intel_qat_InternalJNI_compressByteArray(JNIEnv *env,
                                                  jint retry_count) {
   (void)clz;
 
-  // Log message if current level is either LOG_DEBUG1,2 or 3
   logMessage(
-      LOG_DEBUG1, __FILE__, __LINE__,
+      THIS_FILE, __LINE__,
       "compressByteArray: src_pos = %d, src_len = %d, dst_pos = %d, dst_len = "
       "%d\n",
       src_pos, src_len, dst_pos, dst_len);
@@ -799,9 +820,8 @@ Java_com_intel_qat_InternalJNI_decompressByteArray(JNIEnv *env,
                                                    jint retry_count) {
   (void)clz;
 
-  // Log message if current level is either LOG_DEBUG1,2 or 3
   logMessage(
-      LOG_DEBUG1, __FILE__, __LINE__,
+      THIS_FILE, __LINE__,
       "decompressByteArray: src_pos = %d, src_len = %d, dst_pos = %d, dst_len "
       "= %d\n",
       src_pos, src_len, dst_pos, dst_len);
@@ -891,9 +911,8 @@ Java_com_intel_qat_InternalJNI_compressByteBuffer(JNIEnv *env,
                                                   jint retry_count) {
   (void)clz;
 
-  // Log message if current level is either LOG_DEBUG1,2 or 3
   logMessage(
-      LOG_DEBUG1, __FILE__, __LINE__,
+      THIS_FILE, __LINE__,
       "compressByteBuffer: src_pos = %d, src_len = %d, dst_pos = %d, dst_len = "
       "%d\n",
       src_pos, src_len, dst_pos, dst_len);
@@ -984,9 +1003,8 @@ Java_com_intel_qat_InternalJNI_decompressByteBuffer(JNIEnv *env,
                                                     jint retry_count) {
   (void)clz;
 
-  // Log message if current level is either LOG_DEBUG1,2 or 3
   logMessage(
-      LOG_DEBUG1, __FILE__, __LINE__,
+      THIS_FILE, __LINE__,
       "decompressByteBuffer: src_pos = %d, src_len = %d, dst_pos = %d, dst_len "
       "= %d\n",
       src_pos, src_len, dst_pos, dst_len);
@@ -1076,9 +1094,8 @@ Java_com_intel_qat_InternalJNI_compressDirectByteBuffer(JNIEnv *env,
                                                         jint retry_count) {
   (void)clz;
 
-  // Log message if current level is either LOG_DEBUG1,2 or 3
   logMessage(
-      LOG_DEBUG1, __FILE__, __LINE__,
+      THIS_FILE, __LINE__,
       "compressDirectByteBuffer: src_pos = %d, src_len = %d, dst_pos = %d, "
       "dst_len = %d\n",
       src_pos, src_len, dst_pos, dst_len);
@@ -1163,9 +1180,8 @@ Java_com_intel_qat_InternalJNI_decompressDirectByteBuffer(JNIEnv *env,
                                                           jint retry_count) {
   (void)clz;
 
-  // Log message if current level is either LOG_DEBUG1,2 or 3
   logMessage(
-      LOG_DEBUG1, __FILE__, __LINE__,
+      THIS_FILE, __LINE__,
       "decompressByteBuffer: src_pos = %d, src_len = %d, dst_pos = %d, dst_len "
       "= %d\n",
       src_pos, src_len, dst_pos, dst_len);
@@ -1249,9 +1265,8 @@ Java_com_intel_qat_InternalJNI_compressDirectByteBufferSrc(JNIEnv *env,
                                                            jint retry_count) {
   (void)clz;
 
-  // Log message if current level is either LOG_DEBUG1,2 or 3
   logMessage(
-      LOG_DEBUG1, __FILE__, __LINE__,
+      THIS_FILE, __LINE__,
       "compressDirectByteBufferSrc: src_pos = %d, src_len = %d, dst_pos = %d, "
       "dst_len = %d\n",
       src_pos, src_len, dst_pos, dst_len);
@@ -1337,9 +1352,8 @@ Java_com_intel_qat_InternalJNI_decompressDirectByteBufferSrc(JNIEnv *env,
                                                              jint retry_count) {
   (void)clz;
 
-  // Log message if current level is either LOG_DEBUG1,2 or 3
   logMessage(
-      LOG_DEBUG1, __FILE__, __LINE__,
+      THIS_FILE, __LINE__,
       "decompressDirectByteBufferSrc: src_pos = %d, src_len = %d, dst_pos = "
       "%d, dst_len = %d\n",
       src_pos, src_len, dst_pos, dst_len);
@@ -1428,9 +1442,8 @@ Java_com_intel_qat_InternalJNI_compressDirectByteBufferDst(JNIEnv *env,
                                                            jint retry_count) {
   (void)clz;
 
-  // Log message if current level is either LOG_DEBUG1,2 or 3
   logMessage(
-      LOG_DEBUG1, __FILE__, __LINE__,
+      THIS_FILE, __LINE__,
       "compressDirectByteBufferDst: src_pos = %d, src_len = %d, dst_pos = %d, "
       "dst_len = %d\n",
       src_pos, src_len, dst_pos, dst_len);
@@ -1523,9 +1536,8 @@ Java_com_intel_qat_InternalJNI_decompressDirectByteBufferDst(JNIEnv *env,
                                                              jint retry_count) {
   (void)clz;
 
-  // Log message if current level is either LOG_DEBUG1,2 or 3
   logMessage(
-      LOG_DEBUG1, __FILE__, __LINE__,
+      THIS_FILE, __LINE__,
       "decompressDirectByteBufferDst: src_pos = %d, src_len = %d, dst_pos = "
       "%d, dst_len = %d\n",
       src_pos, src_len, dst_pos, dst_len);
@@ -1759,11 +1771,13 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_teardown(JNIEnv *env,
  *
  * @param env      JNI environment pointer. Must not be NULL.
  * @param clz      Java class object (unused).
- * @param log_level the log level (none|fatal|error|warning|info|debug1|debug2|debug3).
+ * @param log_level the log level
+ * (none|fatal|error|warning|info|debug1|debug2|debug3).
  */
-JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_setLogLevel(JNIEnv *env,
-                                                                  jclass clz,
-                                                                  jint log_level) {
+JNIEXPORT void JNICALL
+Java_com_intel_qat_InternalJNI_setLogLevel(JNIEnv *env,
+                                           jclass clz,
+                                           jint log_level) {
   (void)env;
   (void)clz;
   qzSetLogLevel(log_level);
