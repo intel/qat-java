@@ -66,7 +66,7 @@ public class FuzzerTest {
   }
 
   private static void testByteArrayCompression(byte[] sourceData, QatZipper.Algorithm algorithm) {
-    QatZipper qzip = new QatZipper.Builder().setAlgorithm(algorithm).build();
+    QatZipper qzip = new QatZipper.Builder().algorithm(algorithm).build();
     try {
       byte[] compressed = new byte[qzip.maxCompressedLength(sourceData.length)];
       byte[] decompressed = new byte[sourceData.length];
@@ -85,7 +85,7 @@ public class FuzzerTest {
   private static void testByteArrayWithOffsets(byte[] sourceData, QatZipper.Algorithm algorithm) {
     if (sourceData.length == 0) return;
 
-    QatZipper qzip = new QatZipper.Builder().setAlgorithm(algorithm).build();
+    QatZipper qzip = new QatZipper.Builder().algorithm(algorithm).build();
     try {
       int offset = RANDOM.nextInt(sourceData.length);
       int length = sourceData.length - offset;
@@ -110,7 +110,7 @@ public class FuzzerTest {
 
   private static void testByteBufferCompression(
       byte[] sourceData, QatZipper.Algorithm algorithm, boolean direct) {
-    QatZipper qzip = new QatZipper.Builder().setAlgorithm(algorithm).build();
+    QatZipper qzip = new QatZipper.Builder().algorithm(algorithm).build();
     try {
       // ZSTD requires direct source buffers, so force direct for source when using ZSTD
       boolean useDirectSource = direct || (algorithm == QatZipper.Algorithm.ZSTD);
@@ -143,7 +143,7 @@ public class FuzzerTest {
       return;
     }
 
-    QatZipper qzip = new QatZipper.Builder().setAlgorithm(algorithm).build();
+    QatZipper qzip = new QatZipper.Builder().algorithm(algorithm).build();
     try {
       // Test various buffer type combinations
       testBufferCombination(qzip, sourceData, false, true, false); // heap->direct->heap
@@ -215,7 +215,7 @@ public class FuzzerTest {
 
   private static void testZstdSpecificTests(byte[] sourceData) {
     // Test ZSTD-specific features like checksum functionality
-    QatZipper qzip = new QatZipper.Builder().setAlgorithm(QatZipper.Algorithm.ZSTD).build();
+    QatZipper qzip = new QatZipper.Builder().algorithm(QatZipper.Algorithm.ZSTD).build();
     try {
       // Test with checksum disabled (this should work)
       qzip.setChecksumFlag(false);
@@ -246,9 +246,9 @@ public class FuzzerTest {
 
     QatZipper qzip =
         new QatZipper.Builder()
-            .setAlgorithm(algorithm)
-            .setLevel(compressionLevel)
-            .setRetryCount(retryCount)
+            .algorithm(algorithm)
+            .level(compressionLevel)
+            .retryCount(retryCount)
             .build();
     try {
       byte[] compressed = new byte[qzip.maxCompressedLength(sourceData.length)];

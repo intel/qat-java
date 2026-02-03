@@ -125,7 +125,7 @@
                 <version>3.6.3</version>
                 <configuration>
                     <source>8</source>
-                    <javadocVersion>23.0.2</javadocVersion>
+                    <javadocVersion>${java.version}</javadocVersion>
                     <detectJavaApiLink>false</detectJavaApiLink>
                     <excludePackageNames>com.intel.qat.examples</excludePackageNames>
                 </configuration>

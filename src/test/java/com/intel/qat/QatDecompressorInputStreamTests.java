@@ -95,11 +95,11 @@ public class QatDecompressorInputStreamTests {
   }
 
   private QatZipper.Builder createQatBuilder(Algorithm algorithm) {
-    return new QatZipper.Builder().setAlgorithm(algorithm);
+    return new QatZipper.Builder().algorithm(algorithm);
   }
 
   private QatZipper.Builder createQatBuilder(Algorithm algorithm, Mode mode) {
-    return new QatZipper.Builder().setAlgorithm(algorithm).setMode(mode);
+    return new QatZipper.Builder().algorithm(algorithm).mode(mode);
   }
 
   private void performDecompressionTest(

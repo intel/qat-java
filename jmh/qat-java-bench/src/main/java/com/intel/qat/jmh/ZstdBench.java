@@ -7,6 +7,8 @@
 package com.intel.qat.jmh;
 
 import com.github.luben.zstd.Zstd;
+import com.github.luben.zstd.ZstdCompressCtx;
+import com.github.luben.zstd.ZstdDecompressCtx;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -50,26 +52,27 @@ public class ZstdBench {
     @Param({""})
     public String inputFilePath;
 
-    @Param({"3"})
+    @Param({"6"})
     public int compressionLevel;
 
     @Param({"65536"})
     public int blockSizeBytes;
 
     private byte[] inputData;
-    private byte[] compressionBuffer;
     private byte[] compressedData;
     private byte[] decompressedData;
     private int[] compressedBlockSizes;
     private int[] compressedBlockOffsets;
     private int totalCompressedSize;
     private int numberOfBlocks;
+    private ZstdCompressCtx compressCtx;
+    private ZstdDecompressCtx decompressCtx;
 
     @Setup
     public void setup() throws IOException {
       validateInputFile();
-      loadAndPrepareBuffers();
-      compressInputDataInBlocks();
+      initializeContexts();
+      loadAndCompressOnce();
       buildOffsetTable();
       verifyCompressionResults();
       logCompressionStatistics();
@@ -78,8 +81,14 @@ public class ZstdBench {
     @TearDown
     public void tearDown() {
       // Clean up to allow garbage collection
+      if (compressCtx != null) {
+        compressCtx.close();
+      }
+      if (decompressCtx != null) {
+        decompressCtx.close();
+      }
+
       inputData = null;
-      compressionBuffer = null;
       compressedData = null;
       decompressedData = null;
       compressedBlockSizes = null;
@@ -95,7 +104,13 @@ public class ZstdBench {
       }
     }
 
-    private void loadAndPrepareBuffers() throws IOException {
+    private void initializeContexts() {
+      compressCtx = new ZstdCompressCtx();
+      compressCtx.setLevel(compressionLevel);
+      decompressCtx = new ZstdDecompressCtx();
+    }
+
+    private void loadAndCompressOnce() throws IOException {
       inputData = Files.readAllBytes(Paths.get(inputFilePath));
       int inputLength = inputData.length;
 
@@ -110,41 +125,36 @@ public class ZstdBench {
         maxCompressedSize += Zstd.compressBound(blockLength);
       }
 
-      compressionBuffer = new byte[(int) maxCompressedSize];
+      compressedData = new byte[(int) maxCompressedSize];
       decompressedData = new byte[inputLength];
-    }
 
-    private int calculateNumberOfBlocks(int dataLength, int blockSize) {
-      return (dataLength + blockSize - 1) / blockSize;
-    }
-
-    private void compressInputDataInBlocks() {
       int currentCompressedOffset = 0;
-      int inputLength = inputData.length;
+      int maxCompressedBlockSize = (int) Zstd.compressBound(blockSizeBytes);
 
       for (int blockIndex = 0; blockIndex < numberOfBlocks; blockIndex++) {
         int inputOffset = blockIndex * blockSizeBytes;
-        int blockLength = Math.min(blockSizeBytes, inputLength - inputOffset);
+        int blockLength = Math.min(blockSizeBytes, inputData.length - inputOffset);
 
         // Compress the block using compressByteArray
         int compressedBlockSize =
             (int)
-                Zstd.compressByteArray(
-                    compressionBuffer,
+                compressCtx.compressByteArray(
+                    compressedData,
                     currentCompressedOffset,
-                    compressionBuffer.length - currentCompressedOffset,
+                    compressedData.length - currentCompressedOffset,
                     inputData,
                     inputOffset,
-                    blockLength,
-                    compressionLevel);
+                    blockLength);
 
         compressedBlockSizes[blockIndex] = compressedBlockSize;
         currentCompressedOffset += compressedBlockSize;
       }
 
       totalCompressedSize = currentCompressedOffset;
-      compressedData = new byte[totalCompressedSize];
-      System.arraycopy(compressionBuffer, 0, compressedData, 0, totalCompressedSize);
+    }
+
+    private int calculateNumberOfBlocks(int dataLength, int blockSize) {
+      return (dataLength + blockSize - 1) / blockSize;
     }
 
     private void buildOffsetTable() {
@@ -167,7 +177,7 @@ public class ZstdBench {
         // Decompress the block using decompressByteArray
         int decompressedSize =
             (int)
-                Zstd.decompressByteArray(
+                decompressCtx.decompressByteArray(
                     decompressedData,
                     currentDecompressedOffset,
                     blockLength,
@@ -228,14 +238,13 @@ public class ZstdBench {
 
       int compressedBlockSize =
           (int)
-              Zstd.compressByteArray(
-                  state.compressionBuffer,
+              state.compressCtx.compressByteArray(
+                  state.compressedData,
                   currentCompressedOffset,
-                  state.compressionBuffer.length - currentCompressedOffset,
+                  state.compressedData.length - currentCompressedOffset,
                   state.inputData,
                   inputOffset,
-                  blockLength,
-                  state.compressionLevel);
+                  blockLength);
 
       currentCompressedOffset += compressedBlockSize;
     }
@@ -263,7 +272,7 @@ public class ZstdBench {
 
       int decompressedSize =
           (int)
-              Zstd.decompressByteArray(
+              state.decompressCtx.decompressByteArray(
                   state.decompressedData,
                   currentDecompressedOffset,
                   blockLength,

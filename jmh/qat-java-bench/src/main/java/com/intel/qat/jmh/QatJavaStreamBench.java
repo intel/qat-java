@@ -115,7 +115,7 @@ public class QatJavaStreamBench {
     private void compressInputDataUsingStream() throws IOException {
       ByteArrayOutputStream compressedOutput = new ByteArrayOutputStream();
       QatZipper.Builder builder =
-          new QatZipper.Builder().setAlgorithm(compressionAlgorithm).setLevel(compressionLevel);
+          new QatZipper.Builder().algorithm(compressionAlgorithm).level(compressionLevel);
 
       try (QatCompressorOutputStream qatOutputStream =
           new QatCompressorOutputStream(compressedOutput, bufferSizeBytes, builder)) {
@@ -128,7 +128,7 @@ public class QatJavaStreamBench {
     private void verifyDecompression() throws IOException {
       ByteArrayInputStream compressedInput = new ByteArrayInputStream(compressedData);
       QatZipper.Builder builder =
-          new QatZipper.Builder().setAlgorithm(compressionAlgorithm).setLevel(compressionLevel);
+          new QatZipper.Builder().algorithm(compressionAlgorithm).level(compressionLevel);
 
       int totalBytesRead = 0;
       byte[] buffer = new byte[bufferSizeBytes];
@@ -183,9 +183,7 @@ public class QatJavaStreamBench {
   public byte[] compress(ThreadState state) throws IOException {
     ByteArrayOutputStream compressedOutput = new ByteArrayOutputStream();
     QatZipper.Builder builder =
-        new QatZipper.Builder()
-            .setAlgorithm(state.compressionAlgorithm)
-            .setLevel(state.compressionLevel);
+        new QatZipper.Builder().algorithm(state.compressionAlgorithm).level(state.compressionLevel);
 
     try (QatCompressorOutputStream qatOutputStream =
         new QatCompressorOutputStream(compressedOutput, state.bufferSizeBytes, builder)) {
@@ -207,9 +205,7 @@ public class QatJavaStreamBench {
   public int decompress(ThreadState state) throws IOException {
     ByteArrayInputStream compressedInput = new ByteArrayInputStream(state.compressedData);
     QatZipper.Builder builder =
-        new QatZipper.Builder()
-            .setAlgorithm(state.compressionAlgorithm)
-            .setLevel(state.compressionLevel);
+        new QatZipper.Builder().algorithm(state.compressionAlgorithm).level(state.compressionLevel);
 
     int totalBytesRead = 0;
     byte[] buffer = new byte[state.bufferSizeBytes];

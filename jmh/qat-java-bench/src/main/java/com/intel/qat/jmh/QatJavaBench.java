@@ -75,8 +75,8 @@ public class QatJavaBench {
       validateInputFile();
       compressionAlgorithm = parseAlgorithm(algorithmName);
       qzip = createQatZipper(compressionAlgorithm, compressionLevel);
-
-      loadAndCompressInputFile();
+      loadAndCompressOnce();
+      buildOffsetTable();
       verifyCompressionResults();
       logCompressionStatistics();
     }
@@ -112,29 +112,27 @@ public class QatJavaBench {
     }
 
     private QatZipper createQatZipper(Algorithm algorithm, int level) {
-      return new QatZipper.Builder().setAlgorithm(algorithm).setLevel(level).build();
+      return new QatZipper.Builder().algorithm(algorithm).level(level).build();
     }
 
-    private void loadAndCompressInputFile() throws IOException {
+    private void loadAndCompressOnce() throws IOException {
       inputData = Files.readAllBytes(Paths.get(inputFilePath));
-      decompressedData = new byte[inputData.length];
+      int inputLength = inputData.length;
 
-      numberOfBlocks = calculateNumberOfBlocks(inputData.length, blockSizeBytes);
+      numberOfBlocks = calculateNumberOfBlocks(inputLength, blockSizeBytes);
       compressedBlockSizes = new int[numberOfBlocks];
       compressedBlockOffsets = new int[numberOfBlocks];
 
-      int maxCompressedBlockSize = qzip.maxCompressedLength(blockSizeBytes);
-      compressedData = new byte[numberOfBlocks * maxCompressedBlockSize];
+      // Calculate max compressed size for all blocks
+      long maxCompressedSize = 0;
+      for (int i = 0; i < numberOfBlocks; i++) {
+        int blockLength = Math.min(blockSizeBytes, inputLength - i * blockSizeBytes);
+        maxCompressedSize += qzip.maxCompressedLength(blockLength);
+      }
 
-      compressBlocks();
-      buildOffsetTable();
-    }
+      compressedData = new byte[(int) maxCompressedSize];
+      decompressedData = new byte[inputLength];
 
-    private int calculateNumberOfBlocks(int dataLength, int blockSize) {
-      return (dataLength + blockSize - 1) / blockSize;
-    }
-
-    private void compressBlocks() {
       int currentCompressedOffset = 0;
 
       for (int blockIndex = 0; blockIndex < numberOfBlocks; blockIndex++) {
@@ -148,13 +146,17 @@ public class QatJavaBench {
                 blockLength,
                 compressedData,
                 currentCompressedOffset,
-                qzip.maxCompressedLength(blockSizeBytes));
+                compressedData.length - currentCompressedOffset);
 
         compressedBlockSizes[blockIndex] = blockCompressedSize;
         currentCompressedOffset += blockCompressedSize;
       }
 
       totalCompressedSize = currentCompressedOffset;
+    }
+
+    private int calculateNumberOfBlocks(int dataLength, int blockSize) {
+      return (dataLength + blockSize - 1) / blockSize;
     }
 
     private void buildOffsetTable() {
@@ -214,8 +216,7 @@ public class QatJavaBench {
    * @return Compressed data (prevents JIT optimization)
    */
   @Benchmark
-  public byte[] compress(ThreadState state) {
-    int maxCompressedBlockSize = state.qzip.maxCompressedLength(state.blockSizeBytes);
+  public int compress(ThreadState state) {
     int currentCompressedOffset = 0;
 
     for (int blockIndex = 0; blockIndex < state.numberOfBlocks; blockIndex++) {
@@ -229,12 +230,12 @@ public class QatJavaBench {
               blockLength,
               state.compressedData,
               currentCompressedOffset,
-              maxCompressedBlockSize);
+              state.compressedData.length - currentCompressedOffset);
 
       currentCompressedOffset += blockCompressedSize;
     }
 
-    return state.compressedData;
+    return currentCompressedOffset;
   }
 
   /**
@@ -244,7 +245,7 @@ public class QatJavaBench {
    * @return Decompressed data (prevents JIT optimization)
    */
   @Benchmark
-  public byte[] decompress(ThreadState state) {
+  public int decompress(ThreadState state) {
     int currentDecompressedOffset = 0;
 
     for (int blockIndex = 0; blockIndex < state.numberOfBlocks; blockIndex++) {
@@ -265,6 +266,6 @@ public class QatJavaBench {
       currentDecompressedOffset += blockLength;
     }
 
-    return state.decompressedData;
+    return currentDecompressedOffset;
   }
 }

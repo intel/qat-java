@@ -44,7 +44,7 @@ public class QatDecompressorInputStream extends FilterInputStream {
    * @param algorithm the compression algorithm.
    */
   public QatDecompressorInputStream(InputStream in, int bufferSize, Algorithm algorithm) {
-    this(in, bufferSize, new QatZipper.Builder().setAlgorithm(algorithm));
+    this(in, bufferSize, new QatZipper.Builder().algorithm(algorithm));
   }
 
   /**
