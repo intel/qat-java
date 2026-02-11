@@ -1072,7 +1072,8 @@ class QatZipperTests {
   @DisplayName("Default constants have expected values")
   void testDefaultConstants() {
     assertEquals(QatZipper.Algorithm.DEFLATE, QatZipper.DEFAULT_ALGORITHM);
-    assertEquals(6, QatZipper.DEFAULT_COMPRESS_LEVEL);
+    assertEquals(6, QatZipper.DEFAULT_COMPRESSION_LEVEL_DEFLATE);
+    assertEquals(3, QatZipper.DEFAULT_COMPRESSION_LEVEL_ZSTD);
     assertEquals(QatZipper.Mode.AUTO, QatZipper.DEFAULT_MODE);
     assertEquals(0, QatZipper.DEFAULT_RETRY_COUNT);
     assertEquals(QatZipper.PollingMode.BUSY, QatZipper.DEFAULT_POLLING_MODE);

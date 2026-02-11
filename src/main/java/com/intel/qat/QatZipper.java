@@ -79,8 +79,11 @@ public class QatZipper {
   /** The default compression algorithm. */
   public static final Algorithm DEFAULT_ALGORITHM = Algorithm.DEFLATE;
 
-  /** The default compression level is 6. */
-  public static final int DEFAULT_COMPRESS_LEVEL = 6;
+  /** The default compression level for DEFLATE is 6. */
+  public static final int DEFAULT_COMPRESSION_LEVEL_DEFLATE = 6;
+
+  /** The default compression level for ZSTD is 3. */
+  public static final int DEFAULT_COMPRESSION_LEVEL_ZSTD = 3;
 
   /** The default execution mode. */
   public static final Mode DEFAULT_MODE = Mode.AUTO;
@@ -277,7 +280,10 @@ public class QatZipper {
    */
   public static class Builder {
     private Algorithm algorithm = DEFAULT_ALGORITHM;
-    private int level = DEFAULT_COMPRESS_LEVEL;
+    private int level =
+        algorithm == Algorithm.ZSTD
+            ? DEFAULT_COMPRESSION_LEVEL_ZSTD
+            : DEFAULT_COMPRESSION_LEVEL_DEFLATE;
     private Mode mode = DEFAULT_MODE;
     private int retryCount = DEFAULT_RETRY_COUNT;
     private PollingMode pollingMode = DEFAULT_POLLING_MODE;
