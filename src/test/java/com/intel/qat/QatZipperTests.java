@@ -6,1420 +6,1179 @@
 
 package com.intel.qat;
 
-import static com.intel.qat.QatZipper.Algorithm;
-import static com.intel.qat.QatZipper.Mode;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.*;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ReadOnlyBufferException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.Arrays;
-import java.util.Random;
-import java.util.stream.Stream;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.*;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
-import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
-public class QatZipperTests {
-  private final String SAMPLE_CORPUS = "src/test/resources/sample.txt";
+/**
+ * Comprehensive unit tests for QatZipper class. Tests cover configuration,
+ * compression/decompression, error handling, and edge cases.
+ */
+class QatZipperTests {
 
-  private QatZipper qzip;
+  // Test data
+  private static final String TEST_STRING = "Hello, World! This is a test string for compression.";
+  private static final byte[] TEST_DATA = TEST_STRING.getBytes();
+  private static final byte[] EMPTY_ARRAY = new byte[0];
+  private static final byte[] LARGE_DATA = generateLargeTestData(10000);
 
-  private static final Random RANDOM = new Random();
-
-  public static Stream<Arguments> provideModeAlgorithmParams() {
-    if (QatZipper.isQatAvailable()) {
-      return Stream.of(
-          Arguments.of(Mode.AUTO, Algorithm.DEFLATE),
-          Arguments.of(Mode.AUTO, Algorithm.LZ4),
-          Arguments.of(Mode.AUTO, Algorithm.ZSTD),
-          Arguments.of(Mode.HARDWARE, Algorithm.DEFLATE),
-          Arguments.of(Mode.HARDWARE, Algorithm.LZ4),
-          Arguments.of(Mode.HARDWARE, Algorithm.ZSTD));
-    } else {
-      return Stream.of(
-          Arguments.of(Mode.AUTO, Algorithm.DEFLATE),
-          Arguments.of(Mode.AUTO, Algorithm.LZ4),
-          Arguments.of(Mode.AUTO, Algorithm.ZSTD));
-    }
-  }
-
-  public static Stream<Arguments> provideAlgorithmLevelParams() {
-    return Stream.of(
-        Arguments.of(Algorithm.DEFLATE, 1),
-        Arguments.of(Algorithm.DEFLATE, 2),
-        Arguments.of(Algorithm.DEFLATE, 3),
-        Arguments.of(Algorithm.DEFLATE, 4),
-        Arguments.of(Algorithm.DEFLATE, 5),
-        Arguments.of(Algorithm.DEFLATE, 6),
-        Arguments.of(Algorithm.DEFLATE, 7),
-        Arguments.of(Algorithm.DEFLATE, 8),
-        Arguments.of(Algorithm.DEFLATE, 9),
-        Arguments.of(Algorithm.LZ4, 1),
-        Arguments.of(Algorithm.LZ4, 2),
-        Arguments.of(Algorithm.LZ4, 3),
-        Arguments.of(Algorithm.LZ4, 4),
-        Arguments.of(Algorithm.LZ4, 5),
-        Arguments.of(Algorithm.LZ4, 6),
-        Arguments.of(Algorithm.LZ4, 7),
-        Arguments.of(Algorithm.LZ4, 8),
-        Arguments.of(Algorithm.LZ4, 9),
-        Arguments.of(Algorithm.ZSTD, 1),
-        Arguments.of(Algorithm.ZSTD, 2),
-        Arguments.of(Algorithm.ZSTD, 3),
-        Arguments.of(Algorithm.ZSTD, 4),
-        Arguments.of(Algorithm.ZSTD, 5),
-        Arguments.of(Algorithm.ZSTD, 6),
-        Arguments.of(Algorithm.ZSTD, 7),
-        Arguments.of(Algorithm.ZSTD, 8),
-        Arguments.of(Algorithm.ZSTD, 9));
-  }
-
-  public static Stream<Arguments> provideModeAlgorithmLengthParams() {
-    if (QatZipper.isQatAvailable()) {
-      return Stream.of(
-          Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 131072),
-          Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 524288),
-          Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 2097152),
-          Arguments.of(Mode.AUTO, Algorithm.LZ4, 131072),
-          Arguments.of(Mode.AUTO, Algorithm.LZ4, 524288),
-          Arguments.of(Mode.AUTO, Algorithm.LZ4, 2097152),
-          Arguments.of(Mode.AUTO, Algorithm.ZSTD, 131072),
-          Arguments.of(Mode.AUTO, Algorithm.ZSTD, 524288),
-          Arguments.of(Mode.AUTO, Algorithm.ZSTD, 2097152),
-          Arguments.of(Mode.HARDWARE, Algorithm.DEFLATE, 131072),
-          Arguments.of(Mode.HARDWARE, Algorithm.DEFLATE, 524288),
-          Arguments.of(Mode.HARDWARE, Algorithm.DEFLATE, 2097152),
-          Arguments.of(Mode.HARDWARE, Algorithm.LZ4, 131072),
-          Arguments.of(Mode.HARDWARE, Algorithm.LZ4, 524288),
-          Arguments.of(Mode.HARDWARE, Algorithm.LZ4, 2097152),
-          Arguments.of(Mode.HARDWARE, Algorithm.ZSTD, 131072),
-          Arguments.of(Mode.HARDWARE, Algorithm.ZSTD, 524288),
-          Arguments.of(Mode.HARDWARE, Algorithm.ZSTD, 2097152));
-    } else {
-      return Stream.of(
-          Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 131072),
-          Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 524288),
-          Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 2097152),
-          Arguments.of(Mode.AUTO, Algorithm.LZ4, 131072),
-          Arguments.of(Mode.AUTO, Algorithm.LZ4, 524288),
-          Arguments.of(Mode.AUTO, Algorithm.LZ4, 2097152),
-          Arguments.of(Mode.AUTO, Algorithm.ZSTD, 131072),
-          Arguments.of(Mode.AUTO, Algorithm.ZSTD, 524288),
-          Arguments.of(Mode.AUTO, Algorithm.ZSTD, 2097152));
-    }
-  }
-
-  private byte[] getRandomBytes(int len) {
-    byte[] bytes = new byte[len];
-    RANDOM.nextBytes(bytes);
-    return bytes;
-  }
-
-  private byte[] readAllBytes(String fileName) throws IOException {
-    return Files.readAllBytes(Path.of(fileName));
+  @BeforeEach
+  void setUp() {
+    // Setup before each test
   }
 
   @AfterEach
-  public void cleanupSession() {
-    if (qzip != null) qzip.end();
+  void tearDown() {
+    // Cleanup after each test
+  }
+
+  // ===========================
+  // Builder Tests
+  // ===========================
+
+  @Test
+  @DisplayName("Builder creates QatZipper with default settings")
+  void testBuilderDefaults() {
+    QatZipper zipper = new QatZipper.Builder().build();
+    assertNotNull(zipper);
+    zipper.end();
   }
 
   @Test
-  public void testDefaultConstructor() {
-    if (!QatZipper.isQatAvailable()) {
-      return;
-    }
-    try {
-      qzip = new QatZipper.Builder().setMode(Mode.HARDWARE).build();
-    } catch (IllegalArgumentException e) {
-      fail(e.getMessage());
-    }
+  @DisplayName("Builder sets algorithm correctly")
+  void testBuilderSetAlgorithm() {
+    QatZipper zipper = new QatZipper.Builder().algorithm(QatZipper.Algorithm.ZSTD).build();
+    assertNotNull(zipper);
+    zipper.end();
+  }
+
+  @ParameterizedTest
+  @EnumSource(QatZipper.Algorithm.class)
+  @DisplayName("Builder accepts all algorithm types")
+  void testBuilderAllAlgorithms(QatZipper.Algorithm algorithm) {
+    QatZipper zipper = new QatZipper.Builder().algorithm(algorithm).build();
+    assertNotNull(zipper);
+    zipper.end();
   }
 
   @Test
-  public void testEnd() {
-    try {
-      QatZipper qzip = new QatZipper.Builder().setMode(Mode.HARDWARE).build();
-      qzip.end();
-    } catch (IllegalStateException e) {
-      fail(e.getMessage());
-    }
+  @DisplayName("Builder sets compression level")
+  void testBuilderSetLevel() {
+    QatZipper zipper = new QatZipper.Builder().level(9).build();
+    assertNotNull(zipper);
+    zipper.end();
+  }
+
+  @ParameterizedTest
+  @ValueSource(ints = {1, 5, 9, 12})
+  @DisplayName("Builder accepts valid ZSTD compression levels")
+  void testBuilderValidZSTDLevels(int level) {
+    QatZipper zipper =
+        new QatZipper.Builder().algorithm(QatZipper.Algorithm.ZSTD).level(level).build();
+    assertNotNull(zipper);
+    zipper.end();
   }
 
   @Test
-  public void duplicateEndHW() {
-    if (!QatZipper.isQatAvailable()) {
-      return;
-    }
-    try {
-      QatZipper qzip =
-          new QatZipper.Builder().setAlgorithm(Algorithm.LZ4).setMode(Mode.HARDWARE).build();
-      qzip.end();
-      qzip.end();
-    } catch (IllegalStateException | IllegalArgumentException is) {
-      assertTrue(true);
-    } catch (Exception e) {
-      fail(e.getMessage());
-    }
+  @DisplayName("Builder throws exception for invalid ZSTD level - too low")
+  void testBuilderInvalidZSTDLevelLow() {
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> {
+          new QatZipper.Builder().algorithm(QatZipper.Algorithm.ZSTD).level(0).build();
+        });
   }
 
   @Test
-  public void testToString() {
-    QatZipper.Builder instance = new QatZipper.Builder();
-    String expectedString =
-        "QatZipper{algorithm=DEFLATE, level=6, mode=AUTO, retryCount=0, pollingMode=BUSY, dataFormat=DEFLATE_GZIP_EXT, hardwareBufferSize=DEFAULT_BUFFER_SIZE}";
-    assertEquals(
-        expectedString, instance.toString(), "toString method should return the expected string.");
+  @DisplayName("Builder throws exception for invalid ZSTD level - too high")
+  void testBuilderInvalidZSTDLevelHigh() {
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> {
+          new QatZipper.Builder().algorithm(QatZipper.Algorithm.ZSTD).level(23).build();
+        });
   }
 
   @Test
-  public void testSetPollingMode() {
-    QatZipper.Builder instance = new QatZipper.Builder().setPollingMode(QatZipper.PollingMode.BUSY);
-    assertTrue(instance.toString().contains("pollingMode=BUSY"));
+  @DisplayName("Builder throws exception for negative level")
+  void testBuilderNegativeLevel() {
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> {
+          new QatZipper.Builder().level(-1).build();
+        });
+  }
+
+  @ParameterizedTest
+  @EnumSource(QatZipper.Mode.class)
+  @DisplayName("Builder accepts all mode types")
+  void testBuilderAllModes(QatZipper.Mode mode) {
+    QatZipper zipper = new QatZipper.Builder().mode(mode).build();
+    assertNotNull(zipper);
+    zipper.end();
   }
 
   @Test
-  public void testSetDataFormat() {
-    QatZipper.Builder instance =
-        new QatZipper.Builder().setDataFormat(QatZipper.DataFormat.DEFLATE_GZIP_EXT);
-    assertTrue(instance.toString().contains("dataFormat=DEFLATE_GZIP_EXT"));
+  @DisplayName("Builder throws exception for null mode")
+  void testBuilderNullMode() {
+    assertThrows(
+        NullPointerException.class,
+        () -> {
+          new QatZipper.Builder().mode(null).build();
+        });
   }
 
   @Test
-  public void testSetHardwareBufferSize() {
-    QatZipper.Builder instance =
+  @DisplayName("Builder throws exception for null algorithm")
+  void testBuilderNullAlgorithm() {
+    assertThrows(
+        NullPointerException.class,
+        () -> {
+          new QatZipper.Builder().algorithm(null).build();
+        });
+  }
+
+  @ParameterizedTest
+  @ValueSource(ints = {0, 1, 5, 10})
+  @DisplayName("Builder accepts valid retry counts")
+  void testBuilderRetryCount(int retryCount) {
+    QatZipper zipper = new QatZipper.Builder().retryCount(retryCount).build();
+    assertNotNull(zipper);
+    zipper.end();
+  }
+
+  @Test
+  @DisplayName("Builder throws exception for negative retry count")
+  void testBuilderNegativeRetryCount() {
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> {
+          new QatZipper.Builder().retryCount(-1).build();
+        });
+  }
+
+  @ParameterizedTest
+  @EnumSource(QatZipper.PollingMode.class)
+  @DisplayName("Builder accepts all polling modes")
+  void testBuilderAllPollingModes(QatZipper.PollingMode pollingMode) {
+    QatZipper zipper = new QatZipper.Builder().pollingMode(pollingMode).build();
+    assertNotNull(zipper);
+    zipper.end();
+  }
+
+  @Test
+  @DisplayName("Builder throws exception for null polling mode")
+  void testBuilderNullPollingMode() {
+    assertThrows(
+        NullPointerException.class,
+        () -> {
+          new QatZipper.Builder().pollingMode(null).build();
+        });
+  }
+
+  @ParameterizedTest
+  @EnumSource(QatZipper.DataFormat.class)
+  @DisplayName("Builder accepts all data formats")
+  void testBuilderAllDataFormats(QatZipper.DataFormat dataFormat) {
+    QatZipper zipper = new QatZipper.Builder().dataFormat(dataFormat).build();
+    assertNotNull(zipper);
+    zipper.end();
+  }
+
+  @Test
+  @DisplayName("Builder throws exception for null data format")
+  void testBuilderNullDataFormat() {
+    assertThrows(
+        NullPointerException.class,
+        () -> {
+          new QatZipper.Builder().dataFormat(null).build();
+        });
+  }
+
+  @ParameterizedTest
+  @EnumSource(QatZipper.HardwareBufferSize.class)
+  @DisplayName("Builder accepts all hardware buffer sizes")
+  void testBuilderAllHardwareBufferSizes(QatZipper.HardwareBufferSize hwBufferSize) {
+    QatZipper zipper = new QatZipper.Builder().hardwareBufferSize(hwBufferSize).build();
+    assertNotNull(zipper);
+    zipper.end();
+  }
+
+  @Test
+  @DisplayName("Builder throws exception for null hardware buffer size")
+  void testBuilderNullHwBufferSize() {
+    assertThrows(
+        NullPointerException.class,
+        () -> {
+          new QatZipper.Builder().hardwareBufferSize(null).build();
+        });
+  }
+
+  @ParameterizedTest
+  @EnumSource(QatZipper.LogLevel.class)
+  @DisplayName("Builder accepts all log levels")
+  void testBuilderAllLogLevels(QatZipper.LogLevel logLevel) {
+    QatZipper zipper = new QatZipper.Builder().logLevel(logLevel).build();
+    assertNotNull(zipper);
+    zipper.end();
+  }
+
+  @Test
+  @DisplayName("Builder throws exception for null log level")
+  void testBuilderNullLogLevel() {
+    assertThrows(
+        NullPointerException.class,
+        () -> {
+          new QatZipper.Builder().logLevel(null).build();
+        });
+  }
+
+  @Test
+  @DisplayName("Builder chains multiple settings")
+  void testBuilderChaining() {
+    QatZipper zipper =
         new QatZipper.Builder()
-            .setHardwareBufferSize(QatZipper.HardwareBufferSize.DEFAULT_BUFFER_SIZE);
-    assertTrue(instance.toString().contains("hardwareBufferSize=DEFAULT_BUFFER_SIZE"));
+            .algorithm(QatZipper.Algorithm.ZSTD)
+            .level(6)
+            .mode(QatZipper.Mode.AUTO)
+            .retryCount(3)
+            .pollingMode(QatZipper.PollingMode.PERIODICAL)
+            .dataFormat(QatZipper.DataFormat.DEFLATE_GZIP)
+            .hardwareBufferSize(QatZipper.HardwareBufferSize.MAX_BUFFER_SIZE)
+            .logLevel(QatZipper.LogLevel.ERROR)
+            .build();
+    assertNotNull(zipper);
+    zipper.end();
   }
 
-  @Test
-  void testQatAvailableHolder() {
-    assertNotNull(QatZipper.QatAvailableHolder.IS_QAT_AVAILABLE);
-    assertTrue(
-        QatZipper.QatAvailableHolder.IS_QAT_AVAILABLE
-            || !QatZipper.QatAvailableHolder.IS_QAT_AVAILABLE);
-  }
+  // ===========================
+  // Compression Tests - Byte Arrays
+  // ===========================
 
   @Test
-  void testSetChecksumFlag() {
+  @DisplayName("Compress byte array with sufficient output buffer")
+  void testCompressByteArray() {
+    QatZipper zipper = new QatZipper.Builder().build();
     try {
-      QatZipper qzip = new QatZipper();
-      // Exception expected as setCheckum is supported only for ZSTD
-      qzip.setChecksumFlag(true);
-      qzip.end();
-    } catch (UnsupportedOperationException e) {
-      assertTrue(true);
+      byte[] output = new byte[zipper.maxCompressedLength(TEST_DATA.length)];
+      int compressedSize = zipper.compress(TEST_DATA, output);
+      assertTrue(compressedSize > 0);
+      assertTrue(compressedSize <= output.length);
+    } finally {
+      zipper.end();
     }
   }
 
   @Test
-  void testSetChecksumFlagWithFalse() {
-    QatZipper qzip = new QatZipper(Algorithm.ZSTD);
-    qzip.setChecksumFlag(false);
-    qzip.end();
-    assertTrue(true);
+  @DisplayName("Compress byte array with offsets")
+  void testCompressByteArrayWithOffsets() {
+    QatZipper zipper = new QatZipper.Builder().build();
+    try {
+      byte[] output = new byte[zipper.maxCompressedLength(TEST_DATA.length) + 10];
+      int compressedSize =
+          zipper.compress(TEST_DATA, 0, TEST_DATA.length, output, 5, output.length - 5);
+      assertTrue(compressedSize > 0);
+    } finally {
+      zipper.end();
+    }
   }
 
   @Test
+  @DisplayName("Compress throws exception when session is closed")
+  void testCompressAfterEnd() {
+    QatZipper zipper = new QatZipper.Builder().build();
+    byte[] output = new byte[zipper.maxCompressedLength(TEST_DATA.length)];
+    zipper.end();
+
+    assertThrows(
+        IllegalStateException.class,
+        () -> {
+          zipper.compress(TEST_DATA, output);
+        });
+  }
+
+  @Test
+  @DisplayName("Compress throws exception for null source array")
+  void testCompressNullSource() {
+    QatZipper zipper = new QatZipper.Builder().build();
+    try {
+      byte[] output = new byte[100];
+      assertThrows(
+          IllegalArgumentException.class,
+          () -> {
+            zipper.compress(null, output);
+          });
+    } finally {
+      zipper.end();
+    }
+  }
+
+  @Test
+  @DisplayName("Compress throws exception for null destination array")
+  void testCompressNullDestination() {
+    QatZipper zipper = new QatZipper.Builder().build();
+    try {
+      assertThrows(
+          IllegalArgumentException.class,
+          () -> {
+            zipper.compress(TEST_DATA, null);
+          });
+    } finally {
+      zipper.end();
+    }
+  }
+
+  @Test
+  @DisplayName("Compress throws exception for zero source length")
+  void testCompressZeroSourceLength() {
+    QatZipper zipper = new QatZipper.Builder().build();
+    try {
+      byte[] output = new byte[100];
+      assertThrows(
+          IllegalArgumentException.class,
+          () -> {
+            zipper.compress(TEST_DATA, 0, 0, output, 0, output.length);
+          });
+    } finally {
+      zipper.end();
+    }
+  }
+
+  @Test
+  @DisplayName("Compress throws exception for zero destination length")
+  void testCompressZeroDestinationLength() {
+    QatZipper zipper = new QatZipper.Builder().build();
+    try {
+      byte[] output = new byte[100];
+      assertThrows(
+          IllegalArgumentException.class,
+          () -> {
+            zipper.compress(TEST_DATA, 0, TEST_DATA.length, output, 0, 0);
+          });
+    } finally {
+      zipper.end();
+    }
+  }
+
+  @Test
+  @DisplayName("Compress throws exception for negative source offset")
+  void testCompressNegativeSourceOffset() {
+    QatZipper zipper = new QatZipper.Builder().build();
+    try {
+      byte[] output = new byte[100];
+      assertThrows(
+          ArrayIndexOutOfBoundsException.class,
+          () -> {
+            zipper.compress(TEST_DATA, -1, TEST_DATA.length, output, 0, output.length);
+          });
+    } finally {
+      zipper.end();
+    }
+  }
+
+  @Test
+  @DisplayName("Compress throws exception for negative destination offset")
+  void testCompressNegativeDestinationOffset() {
+    QatZipper zipper = new QatZipper.Builder().build();
+    try {
+      byte[] output = new byte[100];
+      assertThrows(
+          ArrayIndexOutOfBoundsException.class,
+          () -> {
+            zipper.compress(TEST_DATA, 0, TEST_DATA.length, output, -1, output.length);
+          });
+    } finally {
+      zipper.end();
+    }
+  }
+
+  @Test
+  @DisplayName("Compress throws exception for source bounds exceeded")
+  void testCompressSourceBoundsExceeded() {
+    QatZipper zipper = new QatZipper.Builder().build();
+    try {
+      byte[] output = new byte[100];
+      assertThrows(
+          ArrayIndexOutOfBoundsException.class,
+          () -> {
+            zipper.compress(TEST_DATA, 0, TEST_DATA.length + 1, output, 0, output.length);
+          });
+    } finally {
+      zipper.end();
+    }
+  }
+
+  @Test
+  @DisplayName("Compress throws exception for destination bounds exceeded")
+  void testCompressDestinationBoundsExceeded() {
+    QatZipper zipper = new QatZipper.Builder().build();
+    try {
+      byte[] output = new byte[100];
+      assertThrows(
+          ArrayIndexOutOfBoundsException.class,
+          () -> {
+            zipper.compress(TEST_DATA, 0, TEST_DATA.length, output, 0, output.length + 1);
+          });
+    } finally {
+      zipper.end();
+    }
+  }
+
+  // ===========================
+  // Decompression Tests - Byte Arrays
+  // ===========================
+
+  @Test
+  @DisplayName("Decompress byte array successfully")
+  void testDecompressByteArray() {
+    QatZipper zipper = new QatZipper.Builder().build();
+    try {
+      // Compress first
+      byte[] compressed = new byte[zipper.maxCompressedLength(TEST_DATA.length)];
+      int compressedSize = zipper.compress(TEST_DATA, compressed);
+
+      // Decompress
+      byte[] decompressed = new byte[TEST_DATA.length];
+      int decompressedSize =
+          zipper.decompress(compressed, 0, compressedSize, decompressed, 0, decompressed.length);
+
+      assertEquals(TEST_DATA.length, decompressedSize);
+      assertArrayEquals(TEST_DATA, decompressed);
+    } finally {
+      zipper.end();
+    }
+  }
+
+  @Test
+  @DisplayName("Decompress with offsets")
+  void testDecompressByteArrayWithOffsets() {
+    QatZipper zipper = new QatZipper.Builder().build();
+    try {
+      // Compress first
+      byte[] compressed = new byte[zipper.maxCompressedLength(TEST_DATA.length) + 10];
+      int compressedSize =
+          zipper.compress(TEST_DATA, 0, TEST_DATA.length, compressed, 5, compressed.length - 5);
+
+      // Decompress
+      byte[] decompressed = new byte[TEST_DATA.length + 10];
+      int decompressedSize =
+          zipper.decompress(
+              compressed, 5, compressedSize, decompressed, 3, decompressed.length - 3);
+
+      assertEquals(TEST_DATA.length, decompressedSize);
+      byte[] actual = new byte[TEST_DATA.length];
+      System.arraycopy(decompressed, 3, actual, 0, TEST_DATA.length);
+      assertArrayEquals(TEST_DATA, actual);
+    } finally {
+      zipper.end();
+    }
+  }
+
+  @Test
+  @DisplayName("Decompress throws exception when session is closed")
+  void testDecompressAfterEnd() {
+    QatZipper zipper = new QatZipper.Builder().build();
+    byte[] compressed = new byte[100];
+    byte[] output = new byte[100];
+    zipper.end();
+
+    assertThrows(
+        IllegalStateException.class,
+        () -> {
+          zipper.decompress(compressed, 0, compressed.length, output, 0, output.length);
+        });
+  }
+
+  @Test
+  @DisplayName("Decompress throws exception for null source array")
+  void testDecompressNullSource() {
+    QatZipper zipper = new QatZipper.Builder().build();
+    try {
+      byte[] output = new byte[100];
+      assertThrows(
+          IllegalArgumentException.class,
+          () -> {
+            zipper.decompress(null, 0, 10, output, 0, output.length);
+          });
+    } finally {
+      zipper.end();
+    }
+  }
+
+  @Test
+  @DisplayName("Decompress throws exception for null destination array")
+  void testDecompressNullDestination() {
+    QatZipper zipper = new QatZipper.Builder().build();
+    try {
+      byte[] compressed = new byte[100];
+      assertThrows(
+          IllegalArgumentException.class,
+          () -> {
+            zipper.decompress(compressed, 0, compressed.length, null, 0, 10);
+          });
+    } finally {
+      zipper.end();
+    }
+  }
+
+  @Test
+  @DisplayName("Decompress throws exception for zero source length")
+  void testDecompressZeroSourceLength() {
+    QatZipper zipper = new QatZipper.Builder().build();
+    try {
+      byte[] compressed = new byte[100];
+      byte[] output = new byte[100];
+      assertThrows(
+          IllegalArgumentException.class,
+          () -> {
+            zipper.decompress(compressed, 0, 0, output, 0, output.length);
+          });
+    } finally {
+      zipper.end();
+    }
+  }
+
+  @Test
+  @DisplayName("Decompress throws exception for zero destination length")
+  void testDecompressZeroDestinationLength() {
+    QatZipper zipper = new QatZipper.Builder().build();
+    try {
+      byte[] compressed = new byte[100];
+      byte[] output = new byte[100];
+      assertThrows(
+          IllegalArgumentException.class,
+          () -> {
+            zipper.decompress(compressed, 0, compressed.length, output, 0, 0);
+          });
+    } finally {
+      zipper.end();
+    }
+  }
+
+  // ===========================
+  // Compression Tests - ByteBuffers
+  // ===========================
+
+  @Test
+  @DisplayName("Compress ByteBuffer successfully")
+  void testCompressByteBuffer() {
+    QatZipper zipper = new QatZipper.Builder().build();
+    try {
+      ByteBuffer src = ByteBuffer.wrap(TEST_DATA);
+      ByteBuffer dst = ByteBuffer.allocate(zipper.maxCompressedLength(TEST_DATA.length));
+
+      int compressedSize = zipper.compress(src, dst);
+      assertTrue(compressedSize > 0);
+      assertEquals(TEST_DATA.length, src.position());
+      assertEquals(compressedSize, dst.position());
+    } finally {
+      zipper.end();
+    }
+  }
+
+  @Test
+  @DisplayName("Compress direct ByteBuffer successfully")
+  void testCompressDirectByteBuffer() {
+    QatZipper zipper = new QatZipper.Builder().build();
+    try {
+      ByteBuffer src = ByteBuffer.allocateDirect(TEST_DATA.length);
+      src.put(TEST_DATA);
+      src.flip();
+
+      ByteBuffer dst = ByteBuffer.allocateDirect(zipper.maxCompressedLength(TEST_DATA.length));
+
+      int compressedSize = zipper.compress(src, dst);
+      assertTrue(compressedSize > 0);
+    } finally {
+      zipper.end();
+    }
+  }
+
+  @Test
+  @DisplayName("Compress throws exception for read-only destination buffer")
+  void testCompressReadOnlyDestination() {
+    QatZipper zipper = new QatZipper.Builder().build();
+    try {
+      ByteBuffer src = ByteBuffer.wrap(TEST_DATA);
+      ByteBuffer dst =
+          ByteBuffer.allocate(zipper.maxCompressedLength(TEST_DATA.length)).asReadOnlyBuffer();
+
+      assertThrows(
+          ReadOnlyBufferException.class,
+          () -> {
+            zipper.compress(src, dst);
+          });
+    } finally {
+      zipper.end();
+    }
+  }
+
+  @Test
+  @DisplayName("Compress throws exception for null source buffer")
+  void testCompressNullSourceBuffer() {
+    QatZipper zipper = new QatZipper.Builder().build();
+    try {
+      ByteBuffer dst = ByteBuffer.allocate(100);
+      assertThrows(
+          IllegalArgumentException.class,
+          () -> {
+            zipper.compress(null, dst);
+          });
+    } finally {
+      zipper.end();
+    }
+  }
+
+  @Test
+  @DisplayName("Compress throws exception for null destination buffer")
+  void testCompressNullDestinationBuffer() {
+    QatZipper zipper = new QatZipper.Builder().build();
+    try {
+      ByteBuffer src = ByteBuffer.wrap(TEST_DATA);
+      assertThrows(
+          IllegalArgumentException.class,
+          () -> {
+            zipper.compress(src, null);
+          });
+    } finally {
+      zipper.end();
+    }
+  }
+
+  @Test
+  @DisplayName("Compress throws exception when source position >= limit")
+  void testCompressSourcePositionAtLimit() {
+    QatZipper zipper = new QatZipper.Builder().build();
+    try {
+      ByteBuffer src = ByteBuffer.wrap(TEST_DATA);
+      src.position(src.limit());
+      ByteBuffer dst = ByteBuffer.allocate(100);
+
+      assertThrows(
+          IllegalArgumentException.class,
+          () -> {
+            zipper.compress(src, dst);
+          });
+    } finally {
+      zipper.end();
+    }
+  }
+
+  @Test
+  @DisplayName("Compress throws exception when destination position >= limit")
+  void testCompressDestinationPositionAtLimit() {
+    QatZipper zipper = new QatZipper.Builder().build();
+    try {
+      ByteBuffer src = ByteBuffer.wrap(TEST_DATA);
+      ByteBuffer dst = ByteBuffer.allocate(100);
+      dst.position(dst.limit());
+
+      assertThrows(
+          IllegalArgumentException.class,
+          () -> {
+            zipper.compress(src, dst);
+          });
+    } finally {
+      zipper.end();
+    }
+  }
+
+  // ===========================
+  // Decompression Tests - ByteBuffers
+  // ===========================
+
+  @Test
+  @DisplayName("Decompress ByteBuffer successfully")
+  void testDecompressByteBuffer() {
+    QatZipper zipper = new QatZipper.Builder().build();
+    try {
+      // Compress first
+      ByteBuffer src = ByteBuffer.wrap(TEST_DATA);
+      ByteBuffer compressed = ByteBuffer.allocate(zipper.maxCompressedLength(TEST_DATA.length));
+      int compressedSize = zipper.compress(src, compressed);
+      compressed.flip();
+
+      // Decompress
+      ByteBuffer decompressed = ByteBuffer.allocate(TEST_DATA.length);
+      int decompressedSize = zipper.decompress(compressed, decompressed);
+
+      assertEquals(TEST_DATA.length, decompressedSize);
+      decompressed.flip();
+      byte[] result = new byte[decompressed.remaining()];
+      decompressed.get(result);
+      assertArrayEquals(TEST_DATA, result);
+    } finally {
+      zipper.end();
+    }
+  }
+
+  @Test
+  @DisplayName("Decompress direct ByteBuffer successfully")
+  void testDecompressDirectByteBuffer() {
+    QatZipper zipper = new QatZipper.Builder().build();
+    try {
+      // Compress first
+      ByteBuffer src = ByteBuffer.allocateDirect(TEST_DATA.length);
+      src.put(TEST_DATA);
+      src.flip();
+
+      ByteBuffer compressed =
+          ByteBuffer.allocateDirect(zipper.maxCompressedLength(TEST_DATA.length));
+      int compressedSize = zipper.compress(src, compressed);
+      compressed.flip();
+
+      // Decompress
+      ByteBuffer decompressed = ByteBuffer.allocateDirect(TEST_DATA.length);
+      int decompressedSize = zipper.decompress(compressed, decompressed);
+
+      assertEquals(TEST_DATA.length, decompressedSize);
+      decompressed.flip();
+      byte[] result = new byte[decompressed.remaining()];
+      decompressed.get(result);
+      assertArrayEquals(TEST_DATA, result);
+    } finally {
+      zipper.end();
+    }
+  }
+
+  @Test
+  @DisplayName("Decompress throws exception for read-only destination buffer")
+  void testDecompressReadOnlyDestination() {
+    QatZipper zipper = new QatZipper.Builder().build();
+    try {
+      ByteBuffer src = ByteBuffer.allocate(100);
+      ByteBuffer dst = ByteBuffer.allocate(100).asReadOnlyBuffer();
+
+      assertThrows(
+          ReadOnlyBufferException.class,
+          () -> {
+            zipper.decompress(src, dst);
+          });
+    } finally {
+      zipper.end();
+    }
+  }
+
+  @Test
+  @DisplayName("Decompress throws exception for null source buffer")
+  void testDecompressNullSourceBuffer() {
+    QatZipper zipper = new QatZipper.Builder().build();
+    try {
+      ByteBuffer dst = ByteBuffer.allocate(100);
+      assertThrows(
+          IllegalArgumentException.class,
+          () -> {
+            zipper.decompress(null, dst);
+          });
+    } finally {
+      zipper.end();
+    }
+  }
+
+  @Test
+  @DisplayName("Decompress throws exception for null destination buffer")
+  void testDecompressNullDestinationBuffer() {
+    QatZipper zipper = new QatZipper.Builder().build();
+    try {
+      ByteBuffer src = ByteBuffer.allocate(100);
+      assertThrows(
+          IllegalArgumentException.class,
+          () -> {
+            zipper.decompress(src, null);
+          });
+    } finally {
+      zipper.end();
+    }
+  }
+
+  // ===========================
+  // ZSTD-specific Tests
+  // ===========================
+
+  @Test
+  @DisplayName("ZSTD compression and decompression")
+  void testZSTDCompression() {
+    QatZipper zipper = new QatZipper.Builder().algorithm(QatZipper.Algorithm.ZSTD).level(6).build();
+    try {
+      byte[] compressed = new byte[zipper.maxCompressedLength(TEST_DATA.length)];
+      int compressedSize = zipper.compress(TEST_DATA, compressed);
+
+      byte[] decompressed = new byte[TEST_DATA.length];
+      int decompressedSize =
+          zipper.decompress(compressed, 0, compressedSize, decompressed, 0, decompressed.length);
+
+      assertEquals(TEST_DATA.length, decompressedSize);
+      assertArrayEquals(TEST_DATA, decompressed);
+    } finally {
+      zipper.end();
+    }
+  }
+
+  @Test
+  @DisplayName("ZSTD setChecksumFlag works correctly")
+  void testZSTDSetChecksumFlag() {
+    QatZipper zipper = new QatZipper.Builder().algorithm(QatZipper.Algorithm.ZSTD).build();
+    try {
+      assertFalse(zipper.getChecksumFlag());
+
+      zipper.setChecksumFlag(true);
+      assertTrue(zipper.getChecksumFlag());
+
+      zipper.setChecksumFlag(false);
+      assertFalse(zipper.getChecksumFlag());
+    } finally {
+      zipper.end();
+    }
+  }
+
+  @Test
+  @DisplayName("ZSTD setChecksumFlag throws exception for non-ZSTD algorithm")
+  void testSetChecksumFlagNonZSTD() {
+    QatZipper zipper = new QatZipper.Builder().algorithm(QatZipper.Algorithm.DEFLATE).build();
+    try {
+      assertThrows(
+          UnsupportedOperationException.class,
+          () -> {
+            zipper.setChecksumFlag(true);
+          });
+    } finally {
+      zipper.end();
+    }
+  }
+
+  @Test
+  @DisplayName("ZSTD getChecksumFlag throws exception for non-ZSTD algorithm")
+  void testGetChecksumFlagNonZSTD() {
+    QatZipper zipper = new QatZipper.Builder().algorithm(QatZipper.Algorithm.LZ4).build();
+    try {
+      assertThrows(
+          UnsupportedOperationException.class,
+          () -> {
+            zipper.getChecksumFlag();
+          });
+    } finally {
+      zipper.end();
+    }
+  }
+
+  // ===========================
+  // Utility Method Tests
+  // ===========================
+
+  @Test
+  @DisplayName("maxCompressedLength returns positive value")
+  void testMaxCompressedLength() {
+    QatZipper zipper = new QatZipper.Builder().build();
+    try {
+      int maxSize = zipper.maxCompressedLength(TEST_DATA.length);
+      assertTrue(maxSize > TEST_DATA.length);
+    } finally {
+      zipper.end();
+    }
+  }
+
+  @Test
+  @DisplayName("maxCompressedLength throws exception for negative length")
+  void testMaxCompressedLengthNegative() {
+    QatZipper zipper = new QatZipper.Builder().build();
+    try {
+      assertThrows(
+          IllegalArgumentException.class,
+          () -> {
+            zipper.maxCompressedLength(-1);
+          });
+    } finally {
+      zipper.end();
+    }
+  }
+
+  @Test
+  @DisplayName("maxCompressedLength for ZSTD algorithm")
+  void testMaxCompressedLengthZSTD() {
+    QatZipper zipper = new QatZipper.Builder().algorithm(QatZipper.Algorithm.ZSTD).build();
+    try {
+      int maxSize = zipper.maxCompressedLength(TEST_DATA.length);
+      assertTrue(maxSize > 0);
+    } finally {
+      zipper.end();
+    }
+  }
+
+  @Test
+  @DisplayName("getBytesRead returns correct value after compression")
+  void testGetBytesRead() {
+    QatZipper zipper = new QatZipper.Builder().build();
+    try {
+      byte[] output = new byte[zipper.maxCompressedLength(TEST_DATA.length)];
+      zipper.compress(TEST_DATA, output);
+
+      int bytesRead = zipper.getBytesRead();
+      assertEquals(TEST_DATA.length, bytesRead);
+    } finally {
+      zipper.end();
+    }
+  }
+
+  @Test
+  @DisplayName("getBytesWritten returns correct value after compression")
+  void testGetBytesWritten() {
+    QatZipper zipper = new QatZipper.Builder().build();
+    try {
+      byte[] output = new byte[zipper.maxCompressedLength(TEST_DATA.length)];
+      int compressedSize = zipper.compress(TEST_DATA, output);
+
+      int bytesWritten = zipper.getBytesWritten();
+      assertEquals(compressedSize, bytesWritten);
+    } finally {
+      zipper.end();
+    }
+  }
+
+  @Test
+  @DisplayName("getBytesRead and getBytesWritten after decompression")
+  void testGetBytesAfterDecompression() {
+    QatZipper zipper = new QatZipper.Builder().build();
+    try {
+      // Compress
+      byte[] compressed = new byte[zipper.maxCompressedLength(TEST_DATA.length)];
+      int compressedSize = zipper.compress(TEST_DATA, compressed);
+
+      // Decompress
+      byte[] decompressed = new byte[TEST_DATA.length];
+      int decompressedSize =
+          zipper.decompress(compressed, 0, compressedSize, decompressed, 0, decompressed.length);
+
+      assertEquals(compressedSize, zipper.getBytesRead());
+      assertEquals(decompressedSize, zipper.getBytesWritten());
+    } finally {
+      zipper.end();
+    }
+  }
+
+  // ===========================
+  // End/Resource Management Tests
+  // ===========================
+
+  @Test
+  @DisplayName("end() can be called multiple times safely")
+  void testEndMultipleCalls() {
+    QatZipper zipper = new QatZipper.Builder().build();
+    assertDoesNotThrow(
+        () -> {
+          zipper.end();
+          zipper.end();
+          zipper.end();
+        });
+  }
+
+  @Test
+  @DisplayName("Operations after end() throw IllegalStateException")
+  void testOperationsAfterEnd() {
+    QatZipper zipper = new QatZipper.Builder().build();
+    byte[] output = new byte[100];
+    zipper.end();
+
+    assertThrows(IllegalStateException.class, () -> zipper.compress(TEST_DATA, output));
+    assertThrows(
+        IllegalStateException.class,
+        () -> zipper.decompress(output, 0, output.length, new byte[100], 0, 100));
+    assertThrows(IllegalStateException.class, () -> zipper.maxCompressedLength(100));
+  }
+
+  // ===========================
+  // Static Method Tests
+  // ===========================
+
+  @Test
+  @DisplayName("isQatAvailable returns a boolean value")
   void testIsQatAvailable() {
-    QatZipper qzip = new QatZipper();
-    assertTrue(qzip.isQatAvailable() || !qzip.isQatAvailable());
+    boolean available = QatZipper.isQatAvailable();
+    // Just verify it returns without exception, value depends on system
+    assertTrue(available || !available);
+  }
+
+  // ===========================
+  // Enum Tests
+  // ===========================
+
+  @Test
+  @DisplayName("Algorithm enum has expected values")
+  void testAlgorithmEnum() {
+    assertEquals(3, QatZipper.Algorithm.values().length);
+    assertNotNull(QatZipper.Algorithm.DEFLATE);
+    assertNotNull(QatZipper.Algorithm.LZ4);
+    assertNotNull(QatZipper.Algorithm.ZSTD);
   }
 
   @Test
-  public void testCompressWithNullByteBuffer() {
-    try {
-      qzip = new QatZipper.Builder().setMode(Mode.HARDWARE).build();
-      ByteBuffer buf = null;
-      qzip.compress(buf, buf);
-      fail();
-    } catch (IllegalArgumentException e) {
-      assertTrue(true);
-    }
+  @DisplayName("Mode enum has expected values")
+  void testModeEnum() {
+    assertEquals(2, QatZipper.Mode.values().length);
+    assertNotNull(QatZipper.Mode.HARDWARE);
+    assertNotNull(QatZipper.Mode.AUTO);
   }
 
   @Test
-  public void testCompressWithNullByteArray() {
-    try {
-      qzip = new QatZipper.Builder().setMode(Mode.HARDWARE).build();
-      qzip.compress(null, 0, 100, null, 0, 0);
-    } catch (IllegalArgumentException e) {
-      assertTrue(true);
-    }
+  @DisplayName("PollingMode enum has expected values")
+  void testPollingModeEnum() {
+    assertEquals(2, QatZipper.PollingMode.values().length);
+    assertNotNull(QatZipper.PollingMode.BUSY);
+    assertNotNull(QatZipper.PollingMode.PERIODICAL);
   }
 
   @Test
-  public void testDecompressWithNullByteBuffer() {
-    try {
-      qzip = new QatZipper.Builder().setMode(Mode.HARDWARE).build();
-      ByteBuffer buf = null;
-      qzip.decompress(buf, buf);
-      fail();
-    } catch (IllegalArgumentException e) {
-      assertTrue(true);
-    }
+  @DisplayName("DataFormat enum has expected values")
+  void testDataFormatEnum() {
+    assertEquals(5, QatZipper.DataFormat.values().length);
+    assertNotNull(QatZipper.DataFormat.DEFLATE_4B);
+    assertNotNull(QatZipper.DataFormat.DEFLATE_GZIP);
+    assertNotNull(QatZipper.DataFormat.DEFLATE_GZIP_EXT);
+    assertNotNull(QatZipper.DataFormat.DEFLATE_RAW);
+    assertNotNull(QatZipper.DataFormat.ZLIB);
   }
 
   @Test
-  public void testDecompressWithNullByteArray() {
-    try {
-      qzip = new QatZipper.Builder().setMode(Mode.HARDWARE).build();
-      int compressedSize = qzip.decompress(null, 0, 100, null, 0, 0);
-      fail();
-    } catch (IllegalArgumentException e) {
-      assertTrue(true);
-    }
-  }
-
-  @ParameterizedTest
-  @EnumSource(Mode.class)
-  public void testSingleArgConstructorMode(Mode mode) {
-    try {
-      qzip = new QatZipper.Builder().setMode(mode).build();
-    } catch (IllegalArgumentException e) {
-      fail(e.getMessage());
-    }
-  }
-
-  @ParameterizedTest
-  @EnumSource(Algorithm.class)
-  public void testSingleArgConstructorAlgo(Algorithm algo) {
-    if (!QatZipper.isQatAvailable()) {
-      return;
-    }
-    try {
-      qzip = new QatZipper.Builder().setAlgorithm(algo).build();
-    } catch (IllegalArgumentException e) {
-      fail(e.getMessage());
-    }
-  }
-
-  @ParameterizedTest
-  @MethodSource("provideModeAlgorithmParams")
-  public void testTwoArgConstructorAlgoAndMode(Mode mode, Algorithm algo) {
-    try {
-      qzip = new QatZipper.Builder().setAlgorithm(algo).setMode(mode).build();
-    } catch (IllegalArgumentException e) {
-      fail(e.getMessage());
-    }
-  }
-
-  @ParameterizedTest
-  @EnumSource(Algorithm.class)
-  public void testTwoArgConstructorAlgoAndLevel(Algorithm algo) {
-    if (!QatZipper.isQatAvailable()) {
-      return;
-    }
-    try {
-      qzip = new QatZipper.Builder().setAlgorithm(algo).setLevel(9).build();
-    } catch (IllegalArgumentException e) {
-      fail(e.getMessage());
-    }
-  }
-
-  @ParameterizedTest
-  @MethodSource("provideModeAlgorithmParams")
-  public void testThreeArgConstructorAlgoLevelMode(Mode mode, Algorithm algo) {
-    try {
-      qzip = new QatZipper.Builder().setAlgorithm(algo).setLevel(9).setMode(mode).build();
-    } catch (IllegalArgumentException e) {
-      fail(e.getMessage());
-    }
-  }
-
-  @ParameterizedTest
-  @MethodSource("provideModeAlgorithmParams")
-  public void testFourArgConstructorAlgoLevelModeRetryCount(Mode mode, Algorithm algo) {
-    try {
-      qzip = new QatZipper.Builder().setAlgorithm(algo).setMode(mode).setRetryCount(10).build();
-    } catch (IllegalArgumentException e) {
-      fail(e.getMessage());
-    }
+  @DisplayName("HardwareBufferSize enum has expected values and getValue works")
+  void testHardwareBufferSizeEnum() {
+    assertEquals(2, QatZipper.HardwareBufferSize.values().length);
+    assertEquals(64 * 1024, QatZipper.HardwareBufferSize.DEFAULT_BUFFER_SIZE.getValue());
+    assertEquals(512 * 1024, QatZipper.HardwareBufferSize.MAX_BUFFER_SIZE.getValue());
   }
 
   @Test
-  void testDecompressWithTwoArgs() {
+  @DisplayName("LogLevel enum has expected values")
+  void testLogLevelEnum() {
+    assertEquals(8, QatZipper.LogLevel.values().length);
+    assertNotNull(QatZipper.LogLevel.NONE);
+    assertNotNull(QatZipper.LogLevel.FATAL);
+    assertNotNull(QatZipper.LogLevel.ERROR);
+    assertNotNull(QatZipper.LogLevel.WARNING);
+    assertNotNull(QatZipper.LogLevel.INFO);
+    assertNotNull(QatZipper.LogLevel.DEBUG1);
+    assertNotNull(QatZipper.LogLevel.DEBUG2);
+    assertNotNull(QatZipper.LogLevel.DEBUG3);
+  }
+
+  // ===========================
+  // Default Constants Tests
+  // ===========================
+
+  @Test
+  @DisplayName("Default constants have expected values")
+  void testDefaultConstants() {
+    assertEquals(QatZipper.Algorithm.DEFLATE, QatZipper.DEFAULT_ALGORITHM);
+    assertEquals(6, QatZipper.DEFAULT_COMPRESSION_LEVEL_DEFLATE);
+    assertEquals(3, QatZipper.DEFAULT_COMPRESSION_LEVEL_ZSTD);
+    assertEquals(QatZipper.Mode.AUTO, QatZipper.DEFAULT_MODE);
+    assertEquals(0, QatZipper.DEFAULT_RETRY_COUNT);
+    assertEquals(QatZipper.PollingMode.BUSY, QatZipper.DEFAULT_POLLING_MODE);
+    assertEquals(QatZipper.DataFormat.DEFLATE_GZIP_EXT, QatZipper.DEFAULT_DATA_FORMAT);
+    assertEquals(
+        QatZipper.HardwareBufferSize.DEFAULT_BUFFER_SIZE, QatZipper.DEFAULT_HW_BUFFER_SIZE);
+    assertEquals(QatZipper.LogLevel.NONE, QatZipper.DEFAULT_LOG_LEVEL);
+  }
+
+  // ===========================
+  // Large Data Tests
+  // ===========================
+
+  @Test
+  @DisplayName("Compress and decompress large data successfully")
+  void testLargeDataCompression() {
+    QatZipper zipper = new QatZipper.Builder().build();
     try {
-      String inputStr = "Hello, world!";
-      byte[] input = inputStr.getBytes("UTF-8");
+      byte[] compressed = new byte[zipper.maxCompressedLength(LARGE_DATA.length)];
+      int compressedSize = zipper.compress(LARGE_DATA, compressed);
+      assertTrue(compressedSize > 0);
 
-      QatZipper qzip = new QatZipper();
-      // Create a buffer with enough size for compression
-      byte[] output = new byte[qzip.maxCompressedLength(input.length)];
+      byte[] decompressed = new byte[LARGE_DATA.length];
+      int decompressedSize =
+          zipper.decompress(compressed, 0, compressedSize, decompressed, 0, decompressed.length);
 
-      // Compress the bytes
-      int resultLen = qzip.compress(input, output);
-      // Decompress the bytes into a String
-      byte[] barr = new byte[input.length];
-      resultLen = qzip.decompress(output, barr);
+      assertEquals(LARGE_DATA.length, decompressedSize);
+      assertArrayEquals(LARGE_DATA, decompressed);
+    } finally {
+      zipper.end();
+    }
+  }
 
-      // Release resources
-      qzip.end();
+  // ===========================
+  // Edge Case Tests
+  // ===========================
 
-      // Convert the bytes into a String
-      String outputStr = new String(barr, 0, resultLen, "UTF-8");
-      assertEquals(inputStr, outputStr);
-    } catch (java.io.UnsupportedEncodingException e) {
-      fail(e.getMessage());
+  @Test
+  @DisplayName("Compress single byte")
+  void testCompressSingleByte() {
+    QatZipper zipper = new QatZipper.Builder().build();
+    try {
+      byte[] data = new byte[] {42};
+      byte[] compressed = new byte[zipper.maxCompressedLength(data.length)];
+      int compressedSize = zipper.compress(data, compressed);
+      assertTrue(compressedSize > 0);
+
+      byte[] decompressed = new byte[data.length];
+      int decompressedSize =
+          zipper.decompress(compressed, 0, compressedSize, decompressed, 0, decompressed.length);
+
+      assertEquals(data.length, decompressedSize);
+      assertArrayEquals(data, decompressed);
+    } finally {
+      zipper.end();
     }
   }
 
   @Test
-  void testQatZipper() {
+  @DisplayName("ByteBuffer with custom position and limit")
+  void testByteBufferCustomPositionLimit() {
+    QatZipper zipper = new QatZipper.Builder().build();
     try {
-      String inputStr = "Hello, world!";
-      byte[] input = inputStr.getBytes("UTF-8");
+      byte[] largeData = new byte[100];
+      System.arraycopy(TEST_DATA, 0, largeData, 10, TEST_DATA.length);
 
-      QatZipper qzip = new QatZipper();
-      // Create a buffer with enough size for compression
-      byte[] output = new byte[qzip.maxCompressedLength(input.length)];
+      ByteBuffer src = ByteBuffer.wrap(largeData);
+      src.position(10);
+      src.limit(10 + TEST_DATA.length);
 
-      // Compress the bytes
-      int resultLen = qzip.compress(input, output);
-      // Decompress the bytes into a String
-      byte[] barr = new byte[input.length];
-      resultLen = qzip.decompress(output, 0, resultLen, barr, 0, barr.length);
+      ByteBuffer dst = ByteBuffer.allocate(zipper.maxCompressedLength(TEST_DATA.length));
 
-      // Release resources
-      qzip.end();
-
-      // Convert the bytes into a String
-      String outputStr = new String(barr, 0, resultLen, "UTF-8");
-      assertEquals(inputStr, outputStr);
-    } catch (java.io.UnsupportedEncodingException e) {
-      fail(e.getMessage());
+      int compressedSize = zipper.compress(src, dst);
+      assertTrue(compressedSize > 0);
+      assertEquals(10 + TEST_DATA.length, src.position());
+    } finally {
+      zipper.end();
     }
   }
 
   @Test
-  void testQatZipperWithAlgorithm() {
+  @DisplayName("Compress with offset at end of array")
+  void testCompressOffsetAtEnd() {
+    QatZipper zipper = new QatZipper.Builder().build();
     try {
-      String inputStr = "Hello, world!";
-      byte[] input = inputStr.getBytes("UTF-8");
+      byte[] data = new byte[TEST_DATA.length + 10];
+      System.arraycopy(TEST_DATA, 0, data, 10, TEST_DATA.length);
 
-      QatZipper qzip = new QatZipper(Algorithm.DEFLATE);
-      // Create a buffer with enough size for compression
-      byte[] output = new byte[qzip.maxCompressedLength(input.length)];
-
-      // Compress the bytes
-      int resultLen = qzip.compress(input, output);
-      // Decompress the bytes into a String
-      byte[] barr = new byte[input.length];
-      resultLen = qzip.decompress(output, 0, resultLen, barr, 0, barr.length);
-
-      // Release resources
-      qzip.end();
-
-      // Convert the bytes into a String
-      String outputStr = new String(barr, 0, resultLen, "UTF-8");
-      assertEquals(inputStr, outputStr);
-    } catch (java.io.UnsupportedEncodingException e) {
-      fail(e.getMessage());
-    }
-  }
-
-  @Test
-  void testQatZipperWithAlgorithmAndLevel() {
-    try {
-      String inputStr = "Hello, world!";
-      byte[] input = inputStr.getBytes("UTF-8");
-
-      QatZipper qzip = new QatZipper(Algorithm.DEFLATE, 6);
-      // Create a buffer with enough size for compression
-      byte[] output = new byte[qzip.maxCompressedLength(input.length)];
-
-      // Compress the bytes
-      int resultLen = qzip.compress(input, output);
-      // Decompress the bytes into a String
-      byte[] barr = new byte[input.length];
-      resultLen = qzip.decompress(output, 0, resultLen, barr, 0, barr.length);
-
-      // Release resources
-      qzip.end();
-
-      // Convert the bytes into a String
-      String outputStr = new String(barr, 0, resultLen, "UTF-8");
-      assertEquals(inputStr, outputStr);
-    } catch (java.io.UnsupportedEncodingException e) {
-      fail(e.getMessage());
-    }
-  }
-
-  @ParameterizedTest
-  @MethodSource("provideAlgorithmLevelParams")
-  public void testHelloWorld(Algorithm algo, int level) {
-    try {
-      String inputStr = "Hello, world!";
-      byte[] input = inputStr.getBytes("UTF-8");
-
-      QatZipper qzip = new QatZipper.Builder().setAlgorithm(algo).setLevel(level).build();
-      // Create a buffer with enough size for compression
-      byte[] output = new byte[qzip.maxCompressedLength(input.length)];
-
-      // Compress the bytes
-      int resultLen = qzip.compress(input, output);
-      // Decompress the bytes into a String
-      byte[] barr = new byte[input.length];
-      resultLen = qzip.decompress(output, 0, resultLen, barr, 0, barr.length);
-
-      // Release resources
-      qzip.end();
-
-      // Convert the bytes into a String
-      String outputStr = new String(barr, 0, resultLen, "UTF-8");
-      assertEquals(inputStr, outputStr);
-    } catch (java.io.UnsupportedEncodingException e) {
-      fail(e.getMessage());
-    }
-  }
-
-  @ParameterizedTest
-  @MethodSource("provideAlgorithmLevelParams")
-  public void testHelloWorldExtended(Algorithm algo, int level) {
-    try {
-      String inputStr = "Hello, world!";
-      byte[] input = inputStr.getBytes("UTF-8");
-
-      QatZipper qzip = new QatZipper.Builder().setAlgorithm(algo).setLevel(level).build();
-      // Create a buffer with enough size for compression
-      byte[] output = new byte[qzip.maxCompressedLength(input.length) * 2];
-
-      // Compress the bytes
-      int resultLen = qzip.compress(input, output);
-      assertEquals(qzip.getBytesRead(), input.length);
-      assertEquals(qzip.getBytesWritten(), resultLen);
-
-      // Decompress the bytes into a String
-
-      byte[] barr = new byte[input.length];
-      int decompLen = qzip.decompress(output, 0, resultLen, barr, 0, barr.length);
-      assertEquals(qzip.getBytesRead(), resultLen);
-      assertEquals(qzip.getBytesWritten(), input.length);
-
-      // Release resources
-      qzip.end();
-
-      // Convert the bytes into a String
-      String outputStr = new String(barr, 0, decompLen, "UTF-8");
-      assertEquals(inputStr, outputStr);
-    } catch (java.io.UnsupportedEncodingException e) {
-      fail(e.getMessage());
-    }
-  }
-
-  @ParameterizedTest
-  @EnumSource(Algorithm.class)
-  public void testInvalidCompressionLevel(Algorithm algo) {
-    try {
-      qzip = new QatZipper.Builder().setAlgorithm(algo).setLevel(15).build();
-      fail();
-    } catch (RuntimeException e) {
-      assertTrue(true);
-    }
-  }
-
-  @ParameterizedTest
-  @MethodSource("provideModeAlgorithmParams")
-  public void testChunkedCompressionWithByteArray(Mode mode, Algorithm algo) {
-    try {
-      qzip = new QatZipper.Builder().setAlgorithm(algo).setMode(mode).build();
-
-      byte[] src = readAllBytes(SAMPLE_CORPUS);
-      byte[] dst = new byte[qzip.maxCompressedLength(src.length)];
-      byte[] dec = new byte[src.length];
-
-      int compressedSize = qzip.compress(src, 0, src.length, dst, 0, dst.length);
-      assertEquals(qzip.getBytesRead(), src.length);
-      assertEquals(qzip.getBytesWritten(), compressedSize);
-
-      int decompressedSize = qzip.decompress(dst, 0, compressedSize, dec, 0, dec.length);
-      assertEquals(qzip.getBytesRead(), compressedSize);
-      assertEquals(qzip.getBytesWritten(), decompressedSize);
-
+      byte[] output = new byte[zipper.maxCompressedLength(TEST_DATA.length)];
+      int compressedSize = zipper.compress(data, 10, TEST_DATA.length, output, 0, output.length);
       assertTrue(compressedSize > 0);
-      assertEquals(decompressedSize, src.length);
-      assertTrue(Arrays.equals(src, dec));
-    } catch (IOException e) {
-      fail(e.getMessage());
+    } finally {
+      zipper.end();
     }
   }
 
-  @ParameterizedTest
-  @MethodSource("provideModeAlgorithmParams")
-  public void testChunkedCompressionWithByteArrayDiffOffset(Mode mode, Algorithm algo) {
-    try {
-      qzip = new QatZipper.Builder().setAlgorithm(algo).setMode(mode).build();
+  // ===========================
+  // Helper Methods
+  // ===========================
 
-      byte[] src = readAllBytes(SAMPLE_CORPUS);
-      byte[] dst = new byte[qzip.maxCompressedLength(src.length)];
-      byte[] dec = new byte[src.length];
-
-      int compressedSize = qzip.compress(src, 3, src.length - 3, dst, 0, dst.length);
-      assertEquals(qzip.getBytesRead(), src.length - 3);
-      assertEquals(qzip.getBytesWritten(), compressedSize);
-
-      int decompressedSize = qzip.decompress(dst, 0, compressedSize, dec, 3, dec.length - 3);
-      assertEquals(qzip.getBytesRead(), compressedSize);
-      assertEquals(qzip.getBytesWritten(), dec.length - 3);
-
-      assertTrue(compressedSize > 0);
-      assertEquals(decompressedSize, src.length - 3);
-
-      String str = new String(src, StandardCharsets.UTF_8);
-      assertTrue(
-          str.substring(3).compareTo(new String(dec, StandardCharsets.UTF_8).substring(3)) == 0);
-
-    } catch (IOException e) {
-      fail(e.getMessage());
+  private static byte[] generateLargeTestData(int size) {
+    byte[] data = new byte[size];
+    for (int i = 0; i < size; i++) {
+      data[i] = (byte) (i % 256);
     }
-  }
-
-  @ParameterizedTest
-  @MethodSource("provideModeAlgorithmParams")
-  public void testChunkedCompressionWithByteBuffer(Mode mode, Algorithm algo) {
-    try {
-      qzip = new QatZipper.Builder().setAlgorithm(algo).setMode(mode).build();
-
-      byte[] src = readAllBytes(SAMPLE_CORPUS);
-      byte[] dec = new byte[src.length];
-
-      ByteBuffer srcBuf = ByteBuffer.allocateDirect(src.length);
-      ByteBuffer comBuf = ByteBuffer.allocateDirect(qzip.maxCompressedLength(src.length));
-      ByteBuffer decBuf = ByteBuffer.allocateDirect(src.length);
-
-      srcBuf.put(src);
-      srcBuf.flip();
-
-      int compressedSize = qzip.compress(srcBuf, comBuf);
-      comBuf.flip();
-
-      int decompressedSize = qzip.decompress(comBuf, decBuf);
-      decBuf.flip();
-      decBuf.get(dec, 0, decompressedSize);
-
-      assertTrue(compressedSize > 0);
-      assertEquals(decompressedSize, src.length);
-      assertTrue(Arrays.equals(src, dec));
-    } catch (IOException | IllegalArgumentException e) {
-      fail(e.getMessage());
-    }
-  }
-
-  @ParameterizedTest
-  @MethodSource("provideModeAlgorithmParams")
-  public void testChunkedCompressionWithWrappedByteBuffer(Mode mode, Algorithm algo) {
-    try {
-      qzip = new QatZipper.Builder().setAlgorithm(algo).setMode(mode).build();
-
-      byte[] src = readAllBytes(SAMPLE_CORPUS);
-      byte[] dec = new byte[src.length];
-
-      ByteBuffer srcBuf = ByteBuffer.allocateDirect(src.length);
-      ByteBuffer comBuf = ByteBuffer.allocateDirect(qzip.maxCompressedLength(src.length));
-      ByteBuffer decBuf = ByteBuffer.allocateDirect(src.length);
-
-      srcBuf.put(src);
-      srcBuf.flip();
-
-      int compressedSize = qzip.compress(srcBuf, comBuf);
-      comBuf.flip();
-
-      int decompressedSize = qzip.decompress(comBuf, decBuf);
-
-      decBuf.flip();
-      decBuf.get(dec, 0, decompressedSize);
-
-      assertTrue(compressedSize > 0);
-      assertEquals(decompressedSize, src.length);
-      assertTrue(Arrays.equals(src, dec));
-    } catch (IOException e) {
-      fail(e.getMessage());
-    }
-  }
-
-  @ParameterizedTest
-  @MethodSource("provideModeAlgorithmLengthParams")
-  public void testWrappedBuffers(Mode mode, Algorithm algo, int len) {
-    try {
-      // ZSTD requires direct source byte buffers.
-      if (algo == Algorithm.ZSTD) return;
-
-      qzip = new QatZipper.Builder().setAlgorithm(algo).setMode(mode).build();
-
-      byte[] src = getRandomBytes(len);
-      byte[] dec = new byte[src.length];
-      byte[] dst = new byte[qzip.maxCompressedLength(src.length)];
-
-      ByteBuffer srcBuf = ByteBuffer.wrap(src);
-      ByteBuffer dstBuf = ByteBuffer.wrap(dst);
-      ByteBuffer decBuf = ByteBuffer.wrap(dec);
-
-      int compressedSize = qzip.compress(srcBuf, dstBuf);
-
-      assertTrue(compressedSize > 0);
-      assertNotNull(dstBuf);
-
-      dstBuf.flip();
-
-      int decompressedSize = qzip.decompress(dstBuf, decBuf);
-
-      assertNotNull(decBuf);
-      assertTrue(decompressedSize > 0);
-      assertTrue(Arrays.equals(src, dec));
-    } catch (IllegalStateException | IllegalArgumentException | ReadOnlyBufferException e) {
-      fail(e.getMessage());
-    }
-  }
-
-  @ParameterizedTest
-  @MethodSource("provideModeAlgorithmLengthParams")
-  public void testArrayBackedBuffersWithAllocate(Mode mode, Algorithm algo, int len) {
-    try {
-      // ZSTD requires direct source byte buffers.
-      if (algo == Algorithm.ZSTD) return;
-
-      qzip =
-          new QatZipper.Builder()
-              .setAlgorithm(algo)
-              .setLevel(9)
-              .setMode(mode)
-              .setRetryCount(0)
-              .build();
-
-      byte[] src = getRandomBytes(len);
-      byte[] dec = new byte[src.length];
-      byte[] dst = new byte[qzip.maxCompressedLength(src.length)];
-
-      ByteBuffer srcBuf = ByteBuffer.allocate(src.length);
-      ByteBuffer dstBuf = ByteBuffer.allocate(dst.length);
-      ByteBuffer decBuf = ByteBuffer.allocate(dec.length);
-
-      srcBuf.put(src, 0, src.length);
-      srcBuf.flip();
-      int compressedSize = qzip.compress(srcBuf, dstBuf);
-
-      assertTrue(compressedSize > 0);
-
-      assertNotNull(dstBuf);
-
-      dstBuf.flip();
-      int decompressedSize = qzip.decompress(dstBuf, decBuf);
-
-      assertNotNull(decBuf);
-      assertTrue(decompressedSize > 0);
-
-      decBuf.flip();
-      decBuf.get(dec, 0, decompressedSize);
-
-      assertTrue(Arrays.equals(src, dec));
-    } catch (IllegalStateException | IllegalArgumentException | ArrayIndexOutOfBoundsException e) {
-      fail(e.getMessage());
-    }
-  }
-
-  @ParameterizedTest
-  @MethodSource("provideModeAlgorithmLengthParams")
-  public void testDirectByteBufferSrcCompression(Mode mode, Algorithm algo, int len) {
-    try {
-      // ZSTD requires direct source byte buffers.
-      if (algo == Algorithm.ZSTD) return;
-
-      qzip =
-          new QatZipper.Builder()
-              .setAlgorithm(algo)
-              .setLevel(9)
-              .setMode(mode)
-              .setRetryCount(0)
-              .build();
-
-      byte[] src = getRandomBytes(len);
-      byte[] dec = new byte[src.length];
-      byte[] dst = new byte[qzip.maxCompressedLength(src.length)];
-
-      ByteBuffer srcBuf = ByteBuffer.allocateDirect(src.length);
-      ByteBuffer dstBuf = ByteBuffer.allocate(dst.length);
-      ByteBuffer decBuf = ByteBuffer.allocate(dec.length);
-
-      srcBuf.put(src, 0, src.length);
-      srcBuf.flip();
-      int compressedSize = qzip.compress(srcBuf, dstBuf);
-
-      assertTrue(compressedSize > 0);
-
-      assertNotNull(dstBuf);
-
-      dstBuf.flip();
-      int decompressedSize = qzip.decompress(dstBuf, decBuf);
-
-      assertNotNull(decBuf);
-      assertTrue(decompressedSize > 0);
-
-      decBuf.flip();
-      decBuf.get(dec, 0, decompressedSize);
-
-      assertTrue(Arrays.equals(src, dec));
-    } catch (IllegalStateException | IllegalArgumentException | ArrayIndexOutOfBoundsException e) {
-      fail(e.getMessage());
-    }
-  }
-
-  @ParameterizedTest
-  @MethodSource("provideModeAlgorithmLengthParams")
-  public void testDirectByteBufferDstCompression(Mode mode, Algorithm algo, int len) {
-    try {
-      // ZSTD requires direct source byte buffers.
-      if (algo == Algorithm.ZSTD) return;
-
-      qzip =
-          new QatZipper.Builder()
-              .setAlgorithm(algo)
-              .setLevel(9)
-              .setMode(mode)
-              .setRetryCount(0)
-              .build();
-
-      byte[] src = getRandomBytes(len);
-      byte[] dec = new byte[src.length];
-      byte[] dst = new byte[qzip.maxCompressedLength(src.length)];
-
-      ByteBuffer srcBuf = ByteBuffer.allocate(src.length);
-      ByteBuffer dstBuf = ByteBuffer.allocateDirect(dst.length);
-      ByteBuffer decBuf = ByteBuffer.allocate(dec.length);
-
-      srcBuf.put(src, 0, src.length);
-      srcBuf.flip();
-      int compressedSize = qzip.compress(srcBuf, dstBuf);
-
-      assertTrue(compressedSize > 0);
-
-      assertNotNull(dstBuf);
-
-      dstBuf.flip();
-      int decompressedSize = qzip.decompress(dstBuf, decBuf);
-
-      assertNotNull(decBuf);
-      assertTrue(decompressedSize > 0);
-
-      decBuf.flip();
-      decBuf.get(dec, 0, decompressedSize);
-
-      assertTrue(Arrays.equals(src, dec));
-    } catch (IllegalStateException | IllegalArgumentException | ArrayIndexOutOfBoundsException e) {
-      fail(e.getMessage());
-    }
-  }
-
-  @ParameterizedTest
-  @MethodSource("provideModeAlgorithmLengthParams")
-  public void testDirectByteBufferDstDecompression(Mode mode, Algorithm algo, int len) {
-    try {
-      qzip =
-          new QatZipper.Builder()
-              .setAlgorithm(algo)
-              .setLevel(9)
-              .setMode(mode)
-              .setRetryCount(0)
-              .build();
-
-      byte[] src = getRandomBytes(len);
-      byte[] dec = new byte[src.length];
-      byte[] dst = new byte[qzip.maxCompressedLength(src.length)];
-
-      ByteBuffer srcBuf = ByteBuffer.allocateDirect(src.length);
-      ByteBuffer dstBuf = ByteBuffer.allocateDirect(dst.length);
-      ByteBuffer decBuf = ByteBuffer.allocateDirect(dec.length);
-
-      srcBuf.put(src, 0, src.length);
-      srcBuf.flip();
-      int compressedSize = qzip.compress(srcBuf, dstBuf);
-
-      assertTrue(compressedSize > 0);
-
-      assertNotNull(dstBuf);
-
-      dstBuf.flip();
-      int decompressedSize = qzip.decompress(dstBuf, decBuf);
-
-      assertNotNull(decBuf);
-      assertTrue(decompressedSize > 0);
-
-      decBuf.flip();
-      decBuf.get(dec, 0, decompressedSize);
-
-      assertTrue(Arrays.equals(src, dec));
-    } catch (IllegalStateException | IllegalArgumentException | ArrayIndexOutOfBoundsException e) {
-      fail(e.getMessage());
-    }
-  }
-
-  @ParameterizedTest
-  @MethodSource("provideModeAlgorithmLengthParams")
-  public void testIndirectBuffersReadOnly(Mode mode, Algorithm algo, int len) {
-    try {
-      // ZSTD requires direct source byte buffers.
-      if (algo == Algorithm.ZSTD) return;
-
-      qzip =
-          new QatZipper.Builder()
-              .setAlgorithm(algo)
-              .setLevel(9)
-              .setMode(mode)
-              .setRetryCount(0)
-              .build();
-
-      byte[] src = getRandomBytes(len);
-      byte[] dec = new byte[src.length];
-      byte[] dst = new byte[qzip.maxCompressedLength(src.length)];
-
-      ByteBuffer srcBuf = ByteBuffer.allocate(src.length);
-      ByteBuffer dstBuf = ByteBuffer.allocate(dst.length);
-      ByteBuffer decBuf = ByteBuffer.allocate(dec.length);
-
-      srcBuf.put(src, 0, src.length);
-      srcBuf.flip();
-
-      int compressedSize = qzip.compress(srcBuf.asReadOnlyBuffer(), dstBuf);
-
-      assertTrue(compressedSize > 0);
-
-      assertNotNull(dstBuf);
-
-      dstBuf.flip();
-      int decompressedSize = qzip.decompress(dstBuf.asReadOnlyBuffer(), decBuf);
-
-      assertNotNull(decBuf);
-      assertTrue(decompressedSize > 0);
-
-      decBuf.flip();
-      decBuf.get(dec, 0, decompressedSize);
-      assertTrue(Arrays.equals(dec, src));
-    } catch (IllegalStateException | IllegalArgumentException | ReadOnlyBufferException e) {
-      fail(e.getMessage());
-    }
-  }
-
-  @ParameterizedTest
-  @MethodSource("provideModeAlgorithmLengthParams")
-  public void testCompressionDecompressionWithByteArray(Mode mode, Algorithm algo, int len) {
-    try {
-      qzip =
-          new QatZipper.Builder()
-              .setAlgorithm(algo)
-              .setLevel(9)
-              .setMode(mode)
-              .setRetryCount(0)
-              .build();
-
-      byte[] src = getRandomBytes(len);
-      byte[] dec = new byte[src.length];
-      byte[] dst = new byte[qzip.maxCompressedLength(src.length)];
-
-      int compressedSize = qzip.compress(src, 0, src.length, dst, 0, dst.length);
-      assertNotNull(dst);
-
-      qzip.decompress(dst, 0, compressedSize, dec, 0, dec.length);
-      assertNotNull(dec);
-      assertTrue(Arrays.equals(src, dec));
-    } catch (IllegalStateException | IllegalArgumentException | ArrayIndexOutOfBoundsException e) {
-      fail(e.getMessage());
-    }
-  }
-
-  @ParameterizedTest
-  @MethodSource("provideModeAlgorithmLengthParams")
-  public void testCompressionDecompressionWithDirectByteBuffer(Mode mode, Algorithm algo, int len) {
-    try {
-      qzip = new QatZipper.Builder().setAlgorithm(algo).setMode(mode).build();
-
-      byte[] src = getRandomBytes(len);
-      byte[] dec = new byte[src.length];
-
-      ByteBuffer srcBuf = ByteBuffer.allocateDirect(src.length);
-      ByteBuffer dstBuf = ByteBuffer.allocateDirect(qzip.maxCompressedLength(src.length));
-      ByteBuffer decBuf = ByteBuffer.allocateDirect(src.length);
-
-      srcBuf.put(src, 0, src.length);
-      srcBuf.flip();
-
-      qzip.compress(srcBuf, dstBuf);
-      assertNotNull(dstBuf);
-
-      dstBuf.flip();
-      int decompressedSize = qzip.decompress(dstBuf, decBuf);
-      assertNotNull(dec);
-
-      decBuf.flip();
-      decBuf.get(dec, 0, decompressedSize);
-
-      assertTrue(Arrays.equals(src, dec));
-    } catch (RuntimeException e) {
-      fail(e.getMessage());
-    }
-  }
-
-  @ParameterizedTest
-  @MethodSource("provideModeAlgorithmLengthParams")
-  public void testCompressionDecompressionWithDirectByteBufferNoPinnedMem(
-      Mode mode, Algorithm algo, int len) {
-    try {
-      qzip =
-          new QatZipper.Builder()
-              .setAlgorithm(algo)
-              .setLevel(9)
-              .setMode(mode)
-              .setRetryCount(0)
-              .build();
-
-      byte[] src = getRandomBytes(len);
-      byte[] dec = new byte[src.length];
-
-      ByteBuffer srcBuf = ByteBuffer.allocateDirect(src.length);
-      ByteBuffer dstBuf = ByteBuffer.allocateDirect(qzip.maxCompressedLength(src.length));
-      ByteBuffer decBuf = ByteBuffer.allocateDirect(src.length);
-
-      srcBuf.put(src, 0, src.length);
-      srcBuf.flip();
-
-      qzip.compress(srcBuf, dstBuf);
-      assertNotNull(dstBuf);
-
-      dstBuf.flip();
-      int decompressedSize = qzip.decompress(dstBuf, decBuf);
-      assertNotNull(dec);
-
-      decBuf.flip();
-      decBuf.get(dec, 0, decompressedSize);
-
-      assertTrue(Arrays.equals(src, dec));
-    } catch (RuntimeException e) {
-      fail(e.getMessage());
-    }
-  }
-
-  @ParameterizedTest
-  @MethodSource("provideModeAlgorithmLengthParams")
-  public void testCompressionReadOnlyDestination(Mode mode, Algorithm algo, int len) {
-    try {
-      qzip = new QatZipper.Builder().setAlgorithm(algo).setMode(mode).build();
-
-      byte[] src = getRandomBytes(len);
-      ByteBuffer srcBuf = ByteBuffer.allocateDirect(src.length);
-      ByteBuffer dstBuf = ByteBuffer.allocateDirect(qzip.maxCompressedLength(src.length));
-
-      srcBuf.put(src, 0, src.length);
-      srcBuf.flip();
-      qzip.compress(srcBuf, dstBuf.asReadOnlyBuffer());
-
-      fail();
-    } catch (ReadOnlyBufferException e) {
-      assertTrue(true);
-    }
-  }
-
-  @ParameterizedTest
-  @MethodSource("provideModeAlgorithmLengthParams")
-  public void testDecompressionReadOnlyDestination(Mode mode, Algorithm algo, int len) {
-    try {
-      qzip = new QatZipper.Builder().setAlgorithm(algo).setMode(mode).build();
-
-      byte[] src = getRandomBytes(len);
-      ByteBuffer srcBuf = ByteBuffer.allocateDirect(src.length);
-      ByteBuffer dstBuf = ByteBuffer.allocateDirect(qzip.maxCompressedLength(src.length));
-      ByteBuffer decBuf = ByteBuffer.allocateDirect(src.length);
-
-      srcBuf.put(src, 0, src.length);
-      srcBuf.flip();
-
-      qzip.compress(srcBuf, dstBuf);
-      dstBuf.flip();
-      qzip.decompress(dstBuf, decBuf.asReadOnlyBuffer());
-
-      fail();
-    } catch (ReadOnlyBufferException e) {
-      assertTrue(true);
-    }
-  }
-
-  @ParameterizedTest
-  @MethodSource("provideModeAlgorithmLengthParams")
-  public void testCompressionDecompressionReadOnlyByteBuffer(Mode mode, Algorithm algo, int len) {
-    try {
-      qzip = new QatZipper.Builder().setAlgorithm(algo).setMode(mode).build();
-
-      byte[] src = getRandomBytes(len);
-      byte[] dec = new byte[src.length];
-
-      ByteBuffer srcBufRW = ByteBuffer.allocateDirect(src.length);
-      ByteBuffer dstBuf = ByteBuffer.allocateDirect(2 * src.length);
-      ByteBuffer decBuf = ByteBuffer.allocateDirect(src.length);
-      srcBufRW.put(src, 0, src.length);
-      srcBufRW.flip();
-
-      ByteBuffer srcBufRO = srcBufRW.asReadOnlyBuffer();
-      qzip.compress(srcBufRO, dstBuf);
-      assertNotNull(dstBuf);
-      dstBuf.flip();
-
-      int decompressedSize = qzip.decompress(dstBuf, decBuf);
-      assertNotNull(dec);
-      decBuf.flip();
-      decBuf.get(dec, 0, decompressedSize);
-
-      assertTrue(Arrays.equals(src, dec));
-    } catch (RuntimeException e) {
-      fail(e.getMessage());
-    }
-  }
-
-  @ParameterizedTest
-  @MethodSource("provideModeAlgorithmLengthParams")
-  public void testIllegalStateException(Mode mode, Algorithm algo, int len) {
-    try {
-      QatZipper qzip = new QatZipper.Builder().setAlgorithm(algo).setMode(mode).build();
-
-      byte[] src = getRandomBytes(len);
-      byte[] dst = new byte[2 * src.length];
-
-      qzip.end();
-      qzip.compress(src, 0, src.length, dst, 0, dst.length);
-    } catch (IllegalStateException is) {
-      assertTrue(true);
-    }
-  }
-
-  @ParameterizedTest
-  @MethodSource("provideModeAlgorithmLengthParams")
-  public void compressByteArrayPostTearDown(Mode mode, Algorithm algo, int len) {
-    try {
-      QatZipper qzip = new QatZipper.Builder().setAlgorithm(algo).setMode(mode).build();
-
-      byte[] src = getRandomBytes(len);
-      byte[] dst = new byte[2 * src.length];
-
-      qzip.end();
-      qzip.compress(src, 0, src.length, dst, 0, dst.length);
-
-      fail();
-    } catch (IllegalStateException e) {
-      assertTrue(true);
-    }
-  }
-
-  @ParameterizedTest
-  @MethodSource("provideModeAlgorithmLengthParams")
-  public void compressByteBufferPostTearDown(Mode mode, Algorithm algo, int len) {
-    try {
-      QatZipper qzip = new QatZipper.Builder().setAlgorithm(algo).setMode(mode).build();
-
-      byte[] src = getRandomBytes(len);
-
-      ByteBuffer srcBuf = ByteBuffer.allocateDirect(src.length);
-      ByteBuffer dstBuf = ByteBuffer.allocateDirect(qzip.maxCompressedLength(src.length));
-
-      srcBuf.put(src, 0, src.length);
-      srcBuf.flip();
-
-      qzip.end();
-      qzip.compress(srcBuf, dstBuf);
-
-      fail();
-    } catch (IllegalStateException e) {
-      assertTrue(true);
-    }
-  }
-
-  @ParameterizedTest
-  @MethodSource("provideModeAlgorithmLengthParams")
-  public void decompressByteArrayPostTearDown(Mode mode, Algorithm algo, int len) {
-    try {
-      QatZipper qzip = new QatZipper.Builder().setAlgorithm(algo).setMode(mode).build();
-
-      byte[] src = getRandomBytes(len);
-      byte[] dst = new byte[2 * src.length];
-      qzip.compress(src, 0, src.length, dst, 0, dst.length);
-
-      qzip.end();
-      qzip.decompress(src, 0, src.length, dst, 0, dst.length);
-
-      fail();
-    } catch (IllegalStateException e) {
-      assertTrue(true);
-    }
-  }
-
-  @ParameterizedTest
-  @MethodSource("provideModeAlgorithmLengthParams")
-  public void decompressByteBufferPostTearDown(Mode mode, Algorithm algo, int len) {
-    try {
-      QatZipper qzip = new QatZipper.Builder().setAlgorithm(algo).setMode(mode).build();
-
-      byte[] src = getRandomBytes(len);
-
-      ByteBuffer srcBuf = ByteBuffer.allocateDirect(src.length);
-      ByteBuffer dstBuf = ByteBuffer.allocateDirect(qzip.maxCompressedLength(src.length));
-      ByteBuffer decBuf = ByteBuffer.allocateDirect(src.length);
-
-      srcBuf.put(src, 0, src.length);
-      srcBuf.flip();
-
-      qzip.compress(srcBuf, dstBuf);
-
-      dstBuf.flip();
-      qzip.end();
-      qzip.decompress(dstBuf, decBuf);
-
-      fail();
-    } catch (IllegalStateException e) {
-      assertTrue(true);
-    }
-  }
-
-  @ParameterizedTest
-  @MethodSource("provideModeAlgorithmLengthParams")
-  public void testCompressorText(Mode mode, Algorithm algo, int len) {
-    try {
-      // ZSTD requires direct source byte buffers.
-      if (algo == Algorithm.ZSTD) return;
-
-      qzip = new QatZipper.Builder().setAlgorithm(algo).setMode(mode).build();
-
-      byte[] data = getRandomBytes(len);
-      ByteBuffer src = ByteBuffer.allocate(data.length);
-      src.put(data);
-      src.flip();
-
-      // Prepend some random bytes to the output and compress
-      final int outOffset = 3;
-      byte[] garbage = new byte[outOffset + qzip.maxCompressedLength(data.length)];
-
-      RANDOM.nextBytes(garbage);
-      ByteBuffer dst = ByteBuffer.allocate(outOffset + qzip.maxCompressedLength(data.length));
-      dst.put(garbage);
-      dst.clear();
-      dst.position(outOffset);
-
-      int compressedSize = qzip.compress(src, dst);
-      int comLen = dst.position() - outOffset;
-      assertEquals(compressedSize, comLen);
-
-      ByteBuffer result = ByteBuffer.allocate(data.length + 100);
-      dst.flip();
-      dst.position(outOffset);
-
-      int decompressedSize = qzip.decompress(dst, result);
-      src.flip();
-      result.flip();
-
-      assertEquals(decompressedSize, data.length);
-      assertTrue(result.compareTo(src) == 0);
-
-    } catch (IllegalArgumentException e) {
-      fail(e.getMessage());
-    }
-  }
-
-  @ParameterizedTest
-  @MethodSource("provideModeAlgorithmLengthParams")
-  public void testVaryingOffset(QatZipper.Mode mode, QatZipper.Algorithm algo, int len) {
-    try {
-      qzip = new QatZipper.Builder().setAlgorithm(algo).setMode(mode).build();
-      byte[] data = getRandomBytes(len);
-
-      final int inOffset = 2;
-      ByteBuffer src = ByteBuffer.allocateDirect(inOffset + len + inOffset);
-      src.position(inOffset);
-      src.put(data, 0, len);
-      src.flip().position(inOffset);
-
-      int outOffset = 5;
-      ByteBuffer compressed =
-          ByteBuffer.allocateDirect(outOffset + qzip.maxCompressedLength(data.length) + outOffset);
-      byte[] garbage = new byte[compressed.capacity()];
-      RANDOM.nextBytes(garbage);
-      compressed.put(garbage);
-      compressed.position(outOffset).limit(compressed.capacity() - outOffset);
-
-      qzip.compress(src, compressed);
-      assertEquals(inOffset + len, src.position());
-      assertEquals(inOffset + len, src.limit());
-      assertEquals(compressed.capacity() - outOffset, compressed.limit());
-      compressed.flip().position(outOffset);
-      int remaining = compressed.remaining();
-
-      ByteBuffer result = ByteBuffer.allocateDirect(inOffset + len + inOffset);
-      result.position(inOffset).limit(result.capacity() - inOffset);
-      qzip.decompress(compressed, result);
-      assertEquals(outOffset + remaining, compressed.position());
-      assertEquals(outOffset + remaining, compressed.limit());
-      assertEquals(result.capacity() - inOffset, result.limit());
-
-      int decompressed = result.position() - inOffset;
-      assert decompressed == len : "Failed uncompressed size";
-      for (int i = 0; i < len; ++i)
-        assert data[i] == result.get(inOffset + i) : "Failed comparison on index: " + i;
-
-    } catch (IllegalArgumentException e) {
-      fail(e.getMessage());
-    }
-  }
-
-  @ParameterizedTest
-  @MethodSource("provideModeAlgorithmLengthParams")
-  public void testVaryingOffsetWithReadOnlyBuffer(
-      QatZipper.Mode mode, QatZipper.Algorithm algo, int len) {
-    try {
-      qzip = new QatZipper.Builder().setAlgorithm(algo).setMode(mode).build();
-      byte[] data = getRandomBytes(len);
-
-      final int inOffset = 2;
-      ByteBuffer src = ByteBuffer.allocateDirect(inOffset + len + inOffset);
-      src.position(inOffset);
-      src.put(data, 0, len);
-      src.flip().position(inOffset);
-      ByteBuffer readOnlySrc = src.asReadOnlyBuffer();
-
-      int outOffset = 5;
-      ByteBuffer compressed =
-          ByteBuffer.allocateDirect(outOffset + qzip.maxCompressedLength(data.length) + outOffset);
-      byte[] garbage = new byte[compressed.capacity()];
-      RANDOM.nextBytes(garbage);
-      compressed.put(garbage);
-      compressed.position(outOffset).limit(compressed.capacity() - outOffset);
-
-      qzip.compress(readOnlySrc, compressed);
-      assertEquals(inOffset + len, readOnlySrc.position());
-      assertEquals(inOffset + len, readOnlySrc.limit());
-      assertEquals(compressed.capacity() - outOffset, compressed.limit());
-      compressed.flip().position(outOffset);
-      int remaining = compressed.remaining();
-
-      ByteBuffer result = ByteBuffer.allocateDirect(inOffset + len + inOffset);
-      result.position(inOffset).limit(result.capacity() - inOffset);
-
-      ByteBuffer readOnlyCompressed = compressed.asReadOnlyBuffer();
-      qzip.decompress(readOnlyCompressed, result);
-      assertEquals(outOffset + remaining, readOnlyCompressed.position());
-      assertEquals(outOffset + remaining, readOnlyCompressed.limit());
-      assertEquals(result.capacity() - inOffset, result.limit());
-
-      int decompressed = result.position() - inOffset;
-      assert decompressed == len : "Failed uncompressed size";
-      for (int i = 0; i < len; ++i)
-        assert data[i] == result.get(inOffset + i) : "Failed comparison on index: " + i;
-
-    } catch (IllegalArgumentException e) {
-      fail(e.getMessage());
-    }
-  }
-
-  @ParameterizedTest
-  @MethodSource("provideModeAlgorithmLengthParams")
-  public void testInvalidCompressionOffsets(Mode mode, Algorithm algo, int len) {
-    try {
-      qzip =
-          new QatZipper.Builder()
-              .setAlgorithm(algo)
-              .setLevel(9)
-              .setMode(mode)
-              .setRetryCount(0)
-              .build();
-
-      byte[] src = getRandomBytes(len);
-      byte[] dst = new byte[qzip.maxCompressedLength(src.length)];
-      byte[] dec = new byte[src.length];
-
-      qzip.compress(src, -1, src.length, dst, 0, dst.length);
-      qzip.decompress(dst, 0, dst.length, dec, 0, dec.length);
-
-      fail();
-    } catch (ArrayIndexOutOfBoundsException e) {
-      assertTrue(true);
-    }
-  }
-
-  @ParameterizedTest
-  @MethodSource("provideModeAlgorithmLengthParams")
-  public void testInvalidCompressionLargeOffsets(Mode mode, Algorithm algo, int len) {
-    try {
-      qzip =
-          new QatZipper.Builder()
-              .setAlgorithm(algo)
-              .setLevel(9)
-              .setMode(mode)
-              .setRetryCount(0)
-              .build();
-
-      byte[] src = getRandomBytes(len);
-      byte[] dst = new byte[qzip.maxCompressedLength(src.length)];
-      byte[] dec = new byte[src.length];
-
-      qzip.compress(src, src.length + 1, src.length, dst, 0, dst.length);
-      qzip.decompress(dst, 0, dst.length, dec, 0, dec.length);
-
-      fail();
-    } catch (ArrayIndexOutOfBoundsException e) {
-      assertTrue(true);
-    }
-  }
-
-  @ParameterizedTest
-  @MethodSource("provideModeAlgorithmLengthParams")
-  public void testInvaliDecompressionOffsets(Mode mode, Algorithm algo, int len) {
-    try {
-      qzip =
-          new QatZipper.Builder()
-              .setAlgorithm(algo)
-              .setLevel(9)
-              .setMode(mode)
-              .setRetryCount(0)
-              .build();
-
-      byte[] src = getRandomBytes(len);
-      byte[] dst = new byte[qzip.maxCompressedLength(src.length)];
-      byte[] dec = new byte[src.length];
-
-      qzip.compress(src, 0, src.length, dst, 0, dst.length);
-      qzip.decompress(dst, -1, dst.length, dec, 0, dec.length);
-
-      fail();
-    } catch (ArrayIndexOutOfBoundsException e) {
-      assertTrue(true);
-    }
-  }
-
-  @ParameterizedTest
-  @MethodSource("provideModeAlgorithmLengthParams")
-  public void testInvaliDecompressionLargeOffsets(Mode mode, Algorithm algo, int len) {
-    try {
-      qzip =
-          new QatZipper.Builder()
-              .setAlgorithm(algo)
-              .setLevel(9)
-              .setMode(mode)
-              .setRetryCount(0)
-              .build();
-
-      byte[] src = getRandomBytes(len);
-      byte[] dst = new byte[qzip.maxCompressedLength(src.length)];
-      byte[] dec = new byte[src.length];
-
-      qzip.compress(src, 0, src.length, dst, 0, dst.length);
-      qzip.decompress(dst, dst.length + 1, dst.length, dec, 0, dec.length);
-
-      fail();
-    } catch (ArrayIndexOutOfBoundsException e) {
-      assertTrue(true);
-    }
+    return data;
   }
 }

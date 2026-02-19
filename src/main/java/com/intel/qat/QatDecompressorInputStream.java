@@ -44,7 +44,7 @@ public class QatDecompressorInputStream extends FilterInputStream {
    * @param algorithm the compression algorithm.
    */
   public QatDecompressorInputStream(InputStream in, int bufferSize, Algorithm algorithm) {
-    this(in, bufferSize, new QatZipper.Builder().setAlgorithm(algorithm));
+    this(in, bufferSize, new QatZipper.Builder().algorithm(algorithm));
   }
 
   /**
@@ -214,7 +214,23 @@ public class QatDecompressorInputStream extends FilterInputStream {
   @Override
   public long skip(long n) throws IOException {
     if (n < 0) return 0;
-    return read(new byte[(int) n]);
+    if (closed) throw new IOException("Stream is closed");
+    if (eof && outputPosition == outputBufferLimit) return -1;
+    int skipped = 0;
+    int bytesRemaining;
+    int bytesLeftToSkip = (int) n;
+    while (bytesLeftToSkip > (bytesRemaining = outputBufferLimit - outputPosition)) {
+      outputPosition += bytesRemaining;
+      bytesLeftToSkip -= bytesRemaining;
+      skipped += bytesRemaining;
+      if (eof) {
+        return skipped;
+      }
+      fill();
+    }
+    outputPosition += bytesLeftToSkip;
+    skipped += bytesLeftToSkip;
+    return skipped;
   }
 
   private void growOutputBuffer() {

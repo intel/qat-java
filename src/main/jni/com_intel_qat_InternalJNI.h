@@ -17,120 +17,212 @@ JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_initFieldIDs(JNIEnv *,
 
 /*
  * Class:     com_intel_qat_InternalJNI
- * Method:    setup
- * Signature: (Lcom/intel/qat/QatZipper;IIIIII)I
+ * Method:    setupSession
+ * Signature: (Lcom/intel/qat/QatZipper;IIIIIII)I
  */
-JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_setup(JNIEnv *, jclass,
-                                                            jobject, jint, jint,
-                                                            jint, jint, jint,
-                                                            jint);
+JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_setupSession(JNIEnv *,
+                                                                   jclass,
+                                                                   jobject,
+                                                                   jint,
+                                                                   jint,
+                                                                   jint,
+                                                                   jint,
+                                                                   jint,
+                                                                   jint,
+                                                                   jint);
 
 /*
  * Class:     com_intel_qat_InternalJNI
- * Method:    maxCompressedSize
+ * Method:    maxCompressedLength
  * Signature: (IJ)I
  */
-JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_maxCompressedSize(
-    JNIEnv *, jclass, jint, jlong);
+JNIEXPORT jint JNICALL
+Java_com_intel_qat_InternalJNI_maxCompressedLength(JNIEnv *,
+                                                   jclass,
+                                                   jint,
+                                                   jlong);
 
 /*
  * Class:     com_intel_qat_InternalJNI
  * Method:    compressByteArray
  * Signature: (Lcom/intel/qat/QatZipper;I[BII[BIII)I
  */
-JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_compressByteArray(
-    JNIEnv *, jclass, jobject, jint, jbyteArray, jint, jint, jbyteArray, jint,
-    jint, jint);
+JNIEXPORT jint JNICALL
+Java_com_intel_qat_InternalJNI_compressByteArray(JNIEnv *,
+                                                 jclass,
+                                                 jobject,
+                                                 jint,
+                                                 jbyteArray,
+                                                 jint,
+                                                 jint,
+                                                 jbyteArray,
+                                                 jint,
+                                                 jint,
+                                                 jint);
 
 /*
  * Class:     com_intel_qat_InternalJNI
  * Method:    decompressByteArray
  * Signature: (Lcom/intel/qat/QatZipper;I[BII[BIII)I
  */
-JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_decompressByteArray(
-    JNIEnv *, jclass, jobject, jint, jbyteArray, jint, jint, jbyteArray, jint,
-    jint, jint);
+JNIEXPORT jint JNICALL
+Java_com_intel_qat_InternalJNI_decompressByteArray(JNIEnv *,
+                                                   jclass,
+                                                   jobject,
+                                                   jint,
+                                                   jbyteArray,
+                                                   jint,
+                                                   jint,
+                                                   jbyteArray,
+                                                   jint,
+                                                   jint,
+                                                   jint);
 
 /*
  * Class:     com_intel_qat_InternalJNI
  * Method:    compressByteBuffer
- * Signature: (ILjava/nio/ByteBuffer;[BII[BIII)I
+ * Signature: (Lcom/intel/qat/QatZipper;I[BII[BIII)I
  */
-JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_compressByteBuffer(
-    JNIEnv *, jclass, jint, jobject, jbyteArray, jint, jint, jbyteArray, jint,
-    jint, jint);
+JNIEXPORT jint JNICALL
+Java_com_intel_qat_InternalJNI_compressByteBuffer(JNIEnv *,
+                                                  jclass,
+                                                  jobject,
+                                                  jint,
+                                                  jbyteArray,
+                                                  jint,
+                                                  jint,
+                                                  jbyteArray,
+                                                  jint,
+                                                  jint,
+                                                  jint);
 
 /*
  * Class:     com_intel_qat_InternalJNI
  * Method:    decompressByteBuffer
- * Signature: (ILjava/nio/ByteBuffer;[BII[BIII)I
+ * Signature: (Lcom/intel/qat/QatZipper;I[BII[BIII)I
  */
-JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_decompressByteBuffer(
-    JNIEnv *, jclass, jint, jobject, jbyteArray, jint, jint, jbyteArray, jint,
-    jint, jint);
+JNIEXPORT jint JNICALL
+Java_com_intel_qat_InternalJNI_decompressByteBuffer(JNIEnv *,
+                                                    jclass,
+                                                    jobject,
+                                                    jint,
+                                                    jbyteArray,
+                                                    jint,
+                                                    jint,
+                                                    jbyteArray,
+                                                    jint,
+                                                    jint,
+                                                    jint);
 
 /*
  * Class:     com_intel_qat_InternalJNI
  * Method:    compressDirectByteBuffer
- * Signature: (ILjava/nio/ByteBuffer;IILjava/nio/ByteBuffer;III)I
+ * Signature:
+ * (Lcom/intel/qat/QatZipper;ILjava/nio/ByteBuffer;IILjava/nio/ByteBuffer;III)I
  */
-JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_compressDirectByteBuffer(
-    JNIEnv *, jclass, jint, jobject, jint, jint, jobject, jint, jint, jint);
+JNIEXPORT jint JNICALL
+Java_com_intel_qat_InternalJNI_compressDirectByteBuffer(JNIEnv *,
+                                                        jclass,
+                                                        jobject,
+                                                        jint,
+                                                        jobject,
+                                                        jint,
+                                                        jint,
+                                                        jobject,
+                                                        jint,
+                                                        jint,
+                                                        jint);
 
 /*
  * Class:     com_intel_qat_InternalJNI
  * Method:    decompressDirectByteBuffer
- * Signature: (ILjava/nio/ByteBuffer;IILjava/nio/ByteBuffer;III)I
+ * Signature:
+ * (Lcom/intel/qat/QatZipper;ILjava/nio/ByteBuffer;IILjava/nio/ByteBuffer;III)I
  */
 JNIEXPORT jint JNICALL
-Java_com_intel_qat_InternalJNI_decompressDirectByteBuffer(JNIEnv *, jclass,
-                                                          jint, jobject, jint,
-                                                          jint, jobject, jint,
-                                                          jint, jint);
+Java_com_intel_qat_InternalJNI_decompressDirectByteBuffer(JNIEnv *,
+                                                          jclass,
+                                                          jobject,
+                                                          jint,
+                                                          jobject,
+                                                          jint,
+                                                          jint,
+                                                          jobject,
+                                                          jint,
+                                                          jint,
+                                                          jint);
 
 /*
  * Class:     com_intel_qat_InternalJNI
  * Method:    compressDirectByteBufferSrc
- * Signature: (ILjava/nio/ByteBuffer;II[BIII)I
+ * Signature: (Lcom/intel/qat/QatZipper;ILjava/nio/ByteBuffer;II[BIII)I
  */
 JNIEXPORT jint JNICALL
-Java_com_intel_qat_InternalJNI_compressDirectByteBufferSrc(JNIEnv *, jclass,
-                                                           jint, jobject, jint,
-                                                           jint, jbyteArray,
-                                                           jint, jint, jint);
+Java_com_intel_qat_InternalJNI_compressDirectByteBufferSrc(JNIEnv *,
+                                                           jclass,
+                                                           jobject,
+                                                           jint,
+                                                           jobject,
+                                                           jint,
+                                                           jint,
+                                                           jbyteArray,
+                                                           jint,
+                                                           jint,
+                                                           jint);
 
 /*
  * Class:     com_intel_qat_InternalJNI
  * Method:    decompressDirectByteBufferSrc
- * Signature: (ILjava/nio/ByteBuffer;II[BIII)I
+ * Signature: (Lcom/intel/qat/QatZipper;ILjava/nio/ByteBuffer;II[BIII)I
  */
 JNIEXPORT jint JNICALL
-Java_com_intel_qat_InternalJNI_decompressDirectByteBufferSrc(
-    JNIEnv *, jclass, jint, jobject, jint, jint, jbyteArray, jint, jint, jint);
+Java_com_intel_qat_InternalJNI_decompressDirectByteBufferSrc(JNIEnv *,
+                                                             jclass,
+                                                             jobject,
+                                                             jint,
+                                                             jobject,
+                                                             jint,
+                                                             jint,
+                                                             jbyteArray,
+                                                             jint,
+                                                             jint,
+                                                             jint);
 
 /*
  * Class:     com_intel_qat_InternalJNI
  * Method:    compressDirectByteBufferDst
- * Signature: (ILjava/nio/ByteBuffer;[BIILjava/nio/ByteBuffer;III)I
+ * Signature: (Lcom/intel/qat/QatZipper;I[BIILjava/nio/ByteBuffer;III)I
  */
 JNIEXPORT jint JNICALL
-Java_com_intel_qat_InternalJNI_compressDirectByteBufferDst(JNIEnv *, jclass,
-                                                           jint, jobject,
-                                                           jbyteArray, jint,
-                                                           jint, jobject, jint,
-                                                           jint, jint);
+Java_com_intel_qat_InternalJNI_compressDirectByteBufferDst(JNIEnv *,
+                                                           jclass,
+                                                           jobject,
+                                                           jint,
+                                                           jbyteArray,
+                                                           jint,
+                                                           jint,
+                                                           jobject,
+                                                           jint,
+                                                           jint,
+                                                           jint);
 
 /*
  * Class:     com_intel_qat_InternalJNI
  * Method:    decompressDirectByteBufferDst
- * Signature: (ILjava/nio/ByteBuffer;[BIILjava/nio/ByteBuffer;III)I
+ * Signature: (Lcom/intel/qat/QatZipper;I[BIILjava/nio/ByteBuffer;III)I
  */
 JNIEXPORT jint JNICALL
-Java_com_intel_qat_InternalJNI_decompressDirectByteBufferDst(JNIEnv *, jclass,
-                                                             jint, jobject,
-                                                             jbyteArray, jint,
-                                                             jint, jobject,
-                                                             jint, jint, jint);
+Java_com_intel_qat_InternalJNI_decompressDirectByteBufferDst(JNIEnv *,
+                                                             jclass,
+                                                             jobject,
+                                                             jint,
+                                                             jbyteArray,
+                                                             jint,
+                                                             jint,
+                                                             jobject,
+                                                             jint,
+                                                             jint,
+                                                             jint);
 
 /*
  * Class:     com_intel_qat_InternalJNI
@@ -161,7 +253,18 @@ Java_com_intel_qat_InternalJNI_zstdFreeSeqProdState(JNIEnv *, jclass, jlong);
  * Method:    teardown
  * Signature: (I)I
  */
-JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_teardown(JNIEnv *, jclass, jint);
+JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_teardown(JNIEnv *,
+                                                               jclass,
+                                                               jint);
+
+/*
+ * Class:     com_intel_qat_InternalJNI
+ * Method:    setLogLevel
+ * Signature: (I)V
+ */
+JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_setLogLevel(JNIEnv *,
+                                                                  jclass,
+                                                                  jint);
 
 #ifdef __cplusplus
 }

@@ -42,7 +42,7 @@ list(APPEND COMMON_FLAGS
 option(SANITIZE_MEMORY "Enable memory sanitizing" OFF)
 if(SANITIZE_MEMORY)
     if(CMAKE_C_COMPILER_ID MATCHES "Clang")
-        list(APPEND COMMON_FLAGS -fsanitize=fuzzer-no-link,address)
+        list(APPEND COMMON_FLAGS -fsanitize=fuzzer-no-link,address -fno-omit-frame-pointer)
     else()
         message(WARNING "Memory sanitizing requires Clang compiler")
     endif()

@@ -64,7 +64,7 @@ public class QatCompressorOutputStream extends FilterOutputStream {
    * @param algorithm the compression algorithm .
    */
   public QatCompressorOutputStream(OutputStream out, int bufferSize, Algorithm algorithm) {
-    this(out, bufferSize, new Builder().setAlgorithm(algorithm));
+    this(out, bufferSize, new Builder().algorithm(algorithm));
   }
 
   /**

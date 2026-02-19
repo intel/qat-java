@@ -6,11 +6,10 @@
 
 package com.intel.qat.jmh;
 
-import com.intel.qat.QatZipper;
-import com.intel.qat.QatZipper.Algorithm;
-import java.io.ByteArrayOutputStream;
+import com.github.luben.zstd.Zstd;
+import com.github.luben.zstd.ZstdCompressCtx;
+import com.github.luben.zstd.ZstdDecompressCtx;
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.concurrent.TimeUnit;
@@ -29,24 +28,24 @@ import org.openjdk.jmh.annotations.TearDown;
 import org.openjdk.jmh.annotations.Warmup;
 
 /**
- * JMH benchmark for Intel QAT compression acceleration. Measures compression and decompression
- * performance across DEFLATE, LZ4, and ZSTD algorithms.
+ * JMH benchmark for ZSTD compression via zstd-jni. Measures compression and decompression
+ * performance using Zstd.compressByteArray and Zstd.decompressByteArray methods with block-by-block
+ * processing.
  *
  * <p>Parameters: - inputFilePath: Path to the file to compress - compressionLevel: Compression
- * level (0-9 depending on algorithm) - blockSizeBytes: Size of each compression block (default:
- * 65536) - algorithmName: Compression algorithm (DEFLATE, LZ4, ZSTD)
+ * level (1-22, default: 3) - blockSizeBytes: Size of each compression block (default: 65536)
  */
 @BenchmarkMode(Mode.Throughput)
 @OutputTimeUnit(TimeUnit.SECONDS)
 @Warmup(iterations = 3, time = 10, timeUnit = TimeUnit.SECONDS)
 @Measurement(iterations = 5, time = 10, timeUnit = TimeUnit.SECONDS)
 @Fork(value = 1)
-public class QatJavaBench {
+public class ZstdBench {
   private static final AtomicBoolean resultsLogged = new AtomicBoolean(false);
 
   /**
-   * Thread-local state for each benchmark thread. Maintains input data, compressed/decompressed
-   * buffers, and compression metadata.
+   * Thread-local state for each benchmark thread. Maintains input data and
+   * compression/decompression buffers.
    */
   @State(Scope.Thread)
   public static class ThreadState {
@@ -59,9 +58,6 @@ public class QatJavaBench {
     @Param({"65536"})
     public int blockSizeBytes;
 
-    @Param({"DEFLATE", "LZ4", "ZSTD"})
-    public String algorithmName;
-
     private byte[] inputData;
     private byte[] compressedData;
     private byte[] decompressedData;
@@ -69,14 +65,13 @@ public class QatJavaBench {
     private int[] compressedBlockOffsets;
     private int totalCompressedSize;
     private int numberOfBlocks;
-    private Algorithm compressionAlgorithm;
-    private QatZipper qzip;
+    private ZstdCompressCtx compressCtx;
+    private ZstdDecompressCtx decompressCtx;
 
     @Setup
     public void setup() throws IOException {
       validateInputFile();
-      compressionAlgorithm = parseAlgorithm(algorithmName);
-      qzip = createQatZipper(compressionAlgorithm, compressionLevel);
+      initializeContexts();
       loadAndCompressOnce();
       buildOffsetTable();
       verifyCompressionResults();
@@ -85,9 +80,19 @@ public class QatJavaBench {
 
     @TearDown
     public void tearDown() {
-      if (qzip != null) {
-        qzip.end();
+      // Clean up to allow garbage collection
+      if (compressCtx != null) {
+        compressCtx.close();
       }
+      if (decompressCtx != null) {
+        decompressCtx.close();
+      }
+
+      inputData = null;
+      compressedData = null;
+      decompressedData = null;
+      compressedBlockSizes = null;
+      compressedBlockOffsets = null;
     }
 
     private void validateInputFile() throws IOException {
@@ -99,22 +104,10 @@ public class QatJavaBench {
       }
     }
 
-    private Algorithm parseAlgorithm(String algorithmName) {
-      switch (algorithmName.toUpperCase()) {
-        case "DEFLATE":
-          return Algorithm.DEFLATE;
-        case "LZ4":
-          return Algorithm.LZ4;
-        case "ZSTD":
-          return Algorithm.ZSTD;
-        default:
-          throw new IllegalArgumentException(
-              "Invalid algorithm: " + algorithmName + ". Supported: DEFLATE, LZ4, ZSTD");
-      }
-    }
-
-    private QatZipper createQatZipper(Algorithm algorithm, int level) {
-      return new QatZipper.Builder().algorithm(algorithm).level(level).build();
+    private void initializeContexts() {
+      compressCtx = new ZstdCompressCtx();
+      compressCtx.setLevel(compressionLevel);
+      decompressCtx = new ZstdDecompressCtx();
     }
 
     private void loadAndCompressOnce() throws IOException {
@@ -129,29 +122,32 @@ public class QatJavaBench {
       long maxCompressedSize = 0;
       for (int i = 0; i < numberOfBlocks; i++) {
         int blockLength = Math.min(blockSizeBytes, inputLength - i * blockSizeBytes);
-        maxCompressedSize += qzip.maxCompressedLength(blockLength);
+        maxCompressedSize += Zstd.compressBound(blockLength);
       }
 
       compressedData = new byte[(int) maxCompressedSize];
       decompressedData = new byte[inputLength];
 
       int currentCompressedOffset = 0;
+      int maxCompressedBlockSize = (int) Zstd.compressBound(blockSizeBytes);
 
       for (int blockIndex = 0; blockIndex < numberOfBlocks; blockIndex++) {
         int inputOffset = blockIndex * blockSizeBytes;
         int blockLength = Math.min(blockSizeBytes, inputData.length - inputOffset);
 
-        int blockCompressedSize =
-            qzip.compress(
-                inputData,
-                inputOffset,
-                blockLength,
-                compressedData,
-                currentCompressedOffset,
-                compressedData.length - currentCompressedOffset);
+        // Compress the block using compressByteArray
+        int compressedBlockSize =
+            (int)
+                compressCtx.compressByteArray(
+                    compressedData,
+                    currentCompressedOffset,
+                    compressedData.length - currentCompressedOffset,
+                    inputData,
+                    inputOffset,
+                    blockLength);
 
-        compressedBlockSizes[blockIndex] = blockCompressedSize;
-        currentCompressedOffset += blockCompressedSize;
+        compressedBlockSizes[blockIndex] = compressedBlockSize;
+        currentCompressedOffset += compressedBlockSize;
       }
 
       totalCompressedSize = currentCompressedOffset;
@@ -171,21 +167,35 @@ public class QatJavaBench {
 
     private void verifyCompressionResults() {
       int currentDecompressedOffset = 0;
+      int inputLength = inputData.length;
 
       for (int blockIndex = 0; blockIndex < numberOfBlocks; blockIndex++) {
         int compressedOffset = compressedBlockOffsets[blockIndex];
         int compressedBlockSize = compressedBlockSizes[blockIndex];
-        int blockLength = Math.min(blockSizeBytes, inputData.length - blockIndex * blockSizeBytes);
+        int blockLength = Math.min(blockSizeBytes, inputLength - blockIndex * blockSizeBytes);
 
-        qzip.decompress(
-            compressedData,
-            compressedOffset,
-            compressedBlockSize,
-            decompressedData,
-            currentDecompressedOffset,
-            blockLength);
+        // Decompress the block using decompressByteArray
+        int decompressedSize =
+            (int)
+                decompressCtx.decompressByteArray(
+                    decompressedData,
+                    currentDecompressedOffset,
+                    blockLength,
+                    compressedData,
+                    compressedOffset,
+                    compressedBlockSize);
 
-        currentDecompressedOffset += blockLength;
+        if (decompressedSize != blockLength) {
+          throw new IllegalStateException(
+              "Decompression size mismatch for block "
+                  + blockIndex
+                  + ": expected "
+                  + blockLength
+                  + ", got "
+                  + decompressedSize);
+        }
+
+        currentDecompressedOffset += decompressedSize;
       }
     }
 
@@ -195,14 +205,13 @@ public class QatJavaBench {
         double compressionPercentage = 100.0 * (1.0 - 1.0 / compressionRatio);
 
         System.out.println("\n" + "=".repeat(60));
-        System.out.println("COMPRESSION STATISTICS");
+        System.out.println("ZSTD COMPRESSION STATISTICS");
         System.out.println("=".repeat(60));
-        System.out.printf("Algorithm:       %s%n", algorithmName);
         System.out.printf("Compression Level: %d%n", compressionLevel);
-        System.out.printf("Block Size:      %,d bytes%n", blockSizeBytes);
-        System.out.printf("Original Size:   %,d bytes%n", inputData.length);
-        System.out.printf("Compressed Size: %,d bytes%n", totalCompressedSize);
-        System.out.printf("Number of Blocks: %d%n", numberOfBlocks);
+        System.out.printf("Block Size:        %,d bytes%n", blockSizeBytes);
+        System.out.printf("Original Size:     %,d bytes%n", inputData.length);
+        System.out.printf("Compressed Size:   %,d bytes%n", totalCompressedSize);
+        System.out.printf("Number of Blocks:  %d%n", numberOfBlocks);
         System.out.printf(
             "Compression Ratio: %.2f (%.1f%% reduction)%n",
             compressionRatio, compressionPercentage);
@@ -212,60 +221,66 @@ public class QatJavaBench {
   }
 
   /**
-   * Benchmarks block-by-block compression throughput.
+   * Benchmarks ZSTD compression throughput with block-by-block processing. Measures the performance
+   * of compressing data in fixed-size blocks using compressByteArray.
    *
    * @param state Thread-local state containing input data and buffers
-   * @return Compressed data (prevents JIT optimization)
+   * @return Total compressed size (prevents JIT optimization)
    */
   @Benchmark
   public int compress(ThreadState state) {
     int currentCompressedOffset = 0;
+    int inputLength = state.inputData.length;
 
     for (int blockIndex = 0; blockIndex < state.numberOfBlocks; blockIndex++) {
       int inputOffset = blockIndex * state.blockSizeBytes;
-      int blockLength = Math.min(state.blockSizeBytes, state.inputData.length - inputOffset);
+      int blockLength = Math.min(state.blockSizeBytes, inputLength - inputOffset);
 
-      int blockCompressedSize =
-          state.qzip.compress(
-              state.inputData,
-              inputOffset,
-              blockLength,
-              state.compressedData,
-              currentCompressedOffset,
-              state.compressedData.length - currentCompressedOffset);
+      int compressedBlockSize =
+          (int)
+              state.compressCtx.compressByteArray(
+                  state.compressedData,
+                  currentCompressedOffset,
+                  state.compressedData.length - currentCompressedOffset,
+                  state.inputData,
+                  inputOffset,
+                  blockLength);
 
-      currentCompressedOffset += blockCompressedSize;
+      currentCompressedOffset += compressedBlockSize;
     }
 
     return currentCompressedOffset;
   }
 
   /**
-   * Benchmarks block-by-block decompression throughput.
+   * Benchmarks ZSTD decompression throughput with block-by-block processing. Measures the
+   * performance of decompressing data in fixed-size blocks using decompressByteArray.
    *
    * @param state Thread-local state containing compressed data and buffers
-   * @return Decompressed data (prevents JIT optimization)
+   * @return Total decompressed size (prevents JIT optimization)
    */
   @Benchmark
   public int decompress(ThreadState state) {
     int currentDecompressedOffset = 0;
+    int inputLength = state.inputData.length;
 
     for (int blockIndex = 0; blockIndex < state.numberOfBlocks; blockIndex++) {
       int compressedOffset = state.compressedBlockOffsets[blockIndex];
       int compressedBlockSize = state.compressedBlockSizes[blockIndex];
       int blockLength =
-          Math.min(
-              state.blockSizeBytes, state.inputData.length - blockIndex * state.blockSizeBytes);
+          Math.min(state.blockSizeBytes, inputLength - blockIndex * state.blockSizeBytes);
 
-      state.qzip.decompress(
-          state.compressedData,
-          compressedOffset,
-          compressedBlockSize,
-          state.decompressedData,
-          currentDecompressedOffset,
-          blockLength);
+      int decompressedSize =
+          (int)
+              state.decompressCtx.decompressByteArray(
+                  state.decompressedData,
+                  currentDecompressedOffset,
+                  blockLength,
+                  state.compressedData,
+                  compressedOffset,
+                  compressedBlockSize);
 
-      currentDecompressedOffset += blockLength;
+      currentDecompressedOffset += decompressedSize;
     }
 
     return currentDecompressedOffset;

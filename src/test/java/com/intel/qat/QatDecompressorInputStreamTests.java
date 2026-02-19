@@ -8,10 +8,7 @@ package com.intel.qat;
 
 import static com.intel.qat.QatZipper.Algorithm;
 import static com.intel.qat.QatZipper.Mode;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -19,6 +16,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Arrays;
+import java.util.EnumMap;
+import java.util.Map;
 import java.util.Random;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeAll;
@@ -30,570 +29,538 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 public class QatDecompressorInputStreamTests {
   private static final String SAMPLE_CORPUS = "src/test/resources/sample.txt";
-  private static byte[] src;
-  private static byte[] deflateBytes;
-  private static byte[] lz4Bytes;
-  private static byte[] zstdBytes;
-  private Random RANDOM = new Random();
+  private static final int DEFAULT_BUFFER_SIZE = 16 * 1024;
+  private static final int MAX_CHUNK_SIZE = 20 * 1024;
+
+  private static byte[] sourceData;
+  private static Map<Algorithm, byte[]> compressedDataByAlgorithm;
+  private final Random random = new Random();
 
   @BeforeAll
-  public static void setup() throws IOException {
-    src = Files.readAllBytes(Paths.get(SAMPLE_CORPUS));
-    ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-    try (QatCompressorOutputStream compressedStream =
-        new QatCompressorOutputStream(outputStream, 16 * 1024, Algorithm.LZ4)) {
-      compressedStream.write(src);
-    }
-    lz4Bytes = outputStream.toByteArray();
-    ByteArrayOutputStream outputStream2 = new ByteArrayOutputStream();
-    try (QatCompressorOutputStream compressedStream =
-        new QatCompressorOutputStream(outputStream2, 16 * 1024, Algorithm.DEFLATE)) {
-      compressedStream.write(src);
-    }
-    deflateBytes = outputStream2.toByteArray();
-    ByteArrayOutputStream outputStream3 = new ByteArrayOutputStream();
-    try (QatCompressorOutputStream compressedStream =
-        new QatCompressorOutputStream(outputStream3, 16 * 1024, Algorithm.ZSTD)) {
-      compressedStream.write(src);
-    }
-    zstdBytes = outputStream3.toByteArray();
-  }
+  static void setup() throws IOException {
+    sourceData = Files.readAllBytes(Paths.get(SAMPLE_CORPUS));
+    compressedDataByAlgorithm = new EnumMap<>(Algorithm.class);
 
-  public static byte[] selectInputBytes(Algorithm algo) {
-    switch (algo) {
-      case DEFLATE:
-        return deflateBytes;
-      case LZ4:
-        return lz4Bytes;
-      case ZSTD:
-        return zstdBytes;
-      default:
-        throw new RuntimeException();
+    // Pre-compress data for each algorithm
+    for (Algorithm algorithm : Algorithm.values()) {
+      ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+      try (QatCompressorOutputStream compressedStream =
+          new QatCompressorOutputStream(outputStream, DEFAULT_BUFFER_SIZE, algorithm)) {
+        compressedStream.write(sourceData);
+      }
+      compressedDataByAlgorithm.put(algorithm, outputStream.toByteArray());
     }
   }
 
-  public static Stream<Arguments> provideModeAlgorithmParams() {
+  // Test data providers
+  static Stream<Arguments> provideModeAlgorithmParams() {
+    Stream<Arguments> baseParams =
+        Stream.of(
+            Arguments.of(Mode.AUTO, Algorithm.DEFLATE),
+            Arguments.of(Mode.AUTO, Algorithm.LZ4),
+            Arguments.of(Mode.AUTO, Algorithm.ZSTD));
+
     if (QatZipper.isQatAvailable()) {
-      return Stream.of(
-          Arguments.of(Mode.AUTO, Algorithm.DEFLATE),
-          Arguments.of(Mode.AUTO, Algorithm.LZ4),
-          Arguments.of(Mode.AUTO, Algorithm.ZSTD),
-          Arguments.of(Mode.HARDWARE, Algorithm.DEFLATE),
-          Arguments.of(Mode.HARDWARE, Algorithm.LZ4),
-          Arguments.of(Mode.HARDWARE, Algorithm.ZSTD));
-    } else {
-      return Stream.of(
-          Arguments.of(Mode.AUTO, Algorithm.DEFLATE),
-          Arguments.of(Mode.AUTO, Algorithm.LZ4),
-          Arguments.of(Mode.AUTO, Algorithm.ZSTD));
+      return Stream.concat(
+          baseParams,
+          Stream.of(
+              Arguments.of(Mode.HARDWARE, Algorithm.DEFLATE),
+              Arguments.of(Mode.HARDWARE, Algorithm.LZ4),
+              Arguments.of(Mode.HARDWARE, Algorithm.ZSTD)));
     }
+    return baseParams;
   }
 
-  public static Stream<Arguments> provideModeAlgorithmLengthParams() {
-    if (QatZipper.isQatAvailable()) {
-      return Stream.of(
-          Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 16384),
-          Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 65536),
-          Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 524288),
-          Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 1048576),
-          Arguments.of(Mode.AUTO, Algorithm.LZ4, 16384),
-          Arguments.of(Mode.AUTO, Algorithm.LZ4, 65536),
-          Arguments.of(Mode.AUTO, Algorithm.LZ4, 524288),
-          Arguments.of(Mode.AUTO, Algorithm.LZ4, 1048576),
-          Arguments.of(Mode.HARDWARE, Algorithm.DEFLATE, 16384),
-          Arguments.of(Mode.HARDWARE, Algorithm.DEFLATE, 65536),
-          Arguments.of(Mode.HARDWARE, Algorithm.DEFLATE, 524288),
-          Arguments.of(Mode.HARDWARE, Algorithm.DEFLATE, 1048576),
-          Arguments.of(Mode.HARDWARE, Algorithm.LZ4, 16384),
-          Arguments.of(Mode.HARDWARE, Algorithm.LZ4, 65536),
-          Arguments.of(Mode.HARDWARE, Algorithm.LZ4, 524288),
-          Arguments.of(Mode.HARDWARE, Algorithm.LZ4, 1048576));
-    } else {
-      return Stream.of(
-          Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 16384),
-          Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 65536),
-          Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 524288),
-          Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 1048576),
-          Arguments.of(Mode.AUTO, Algorithm.LZ4, 16384),
-          Arguments.of(Mode.AUTO, Algorithm.LZ4, 65536),
-          Arguments.of(Mode.AUTO, Algorithm.LZ4, 524288),
-          Arguments.of(Mode.AUTO, Algorithm.LZ4, 1048576));
-    }
+  static Stream<Arguments> provideModeAlgorithmLengthParams() {
+    return provideModeAlgorithmParams()
+        .filter(args -> !args.get()[1].equals(Algorithm.ZSTD)) // Exclude ZSTD for length tests
+        .flatMap(
+            args ->
+                Stream.of(16384, 65536, 524288, 1048576)
+                    .map(length -> Arguments.of(args.get()[0], args.get()[1], length)));
   }
 
-  public static Stream<Arguments> provideModeAlgorithmSkipLengthParams() {
-    if (QatZipper.isQatAvailable()) {
-      return Stream.of(
-          Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 0),
-          Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 1024),
-          Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 16384),
-          Arguments.of(Mode.AUTO, Algorithm.LZ4, 0),
-          Arguments.of(Mode.AUTO, Algorithm.LZ4, 1024),
-          Arguments.of(Mode.AUTO, Algorithm.LZ4, 16384),
-          Arguments.of(Mode.HARDWARE, Algorithm.DEFLATE, 0),
-          Arguments.of(Mode.HARDWARE, Algorithm.DEFLATE, 1024),
-          Arguments.of(Mode.HARDWARE, Algorithm.DEFLATE, 16384),
-          Arguments.of(Mode.HARDWARE, Algorithm.LZ4, 0),
-          Arguments.of(Mode.HARDWARE, Algorithm.LZ4, 1024),
-          Arguments.of(Mode.HARDWARE, Algorithm.LZ4, 16384));
-    } else {
-      return Stream.of(
-          Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 0),
-          Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 1024),
-          Arguments.of(Mode.AUTO, Algorithm.DEFLATE, 16384),
-          Arguments.of(Mode.AUTO, Algorithm.LZ4, 0),
-          Arguments.of(Mode.AUTO, Algorithm.LZ4, 1024),
-          Arguments.of(Mode.AUTO, Algorithm.LZ4, 16384));
+  static Stream<Arguments> provideModeAlgorithmSkipLengthParams() {
+    return provideModeAlgorithmParams()
+        .filter(args -> !args.get()[1].equals(Algorithm.ZSTD)) // Exclude ZSTD for skip tests
+        .flatMap(
+            args ->
+                Stream.of(0, 1024, 16384)
+                    .map(skipLength -> Arguments.of(args.get()[0], args.get()[1], skipLength)));
+  }
+
+  // Utility methods
+  private byte[] getCompressedData(Algorithm algorithm) {
+    return compressedDataByAlgorithm.get(algorithm);
+  }
+
+  private QatZipper.Builder createQatBuilder(Algorithm algorithm) {
+    return new QatZipper.Builder().algorithm(algorithm);
+  }
+
+  private QatZipper.Builder createQatBuilder(Algorithm algorithm, Mode mode) {
+    return new QatZipper.Builder().algorithm(algorithm).mode(mode);
+  }
+
+  private void performDecompressionTest(
+      Mode mode, Algorithm algorithm, int bufferSize, ReadStrategy strategy) throws IOException {
+    ByteArrayInputStream inputStream = new ByteArrayInputStream(getCompressedData(algorithm));
+    byte[] result = new byte[sourceData.length];
+
+    try (QatDecompressorInputStream decompressedStream =
+        new QatDecompressorInputStream(
+            inputStream, bufferSize, createQatBuilder(algorithm, mode))) {
+      strategy.read(decompressedStream, result);
     }
+
+    assertArrayEquals(sourceData, result);
+  }
+
+  @FunctionalInterface
+  private interface ReadStrategy {
+    void read(QatDecompressorInputStream stream, byte[] buffer) throws IOException;
+  }
+
+  // Constructor tests
+  @Test
+  void testNullInputStream() {
+    assertThrows(
+        NullPointerException.class,
+        () -> {
+          try (QatDecompressorInputStream stream =
+              new QatDecompressorInputStream(null, Algorithm.ZSTD)) {
+            // Should throw before reaching this point
+          }
+        });
   }
 
   @Test
-  public void testNullStream() {
-    ByteArrayInputStream inputStream = null;
-    try {
-      try (QatDecompressorInputStream decompressedStream =
-          new QatDecompressorInputStream(inputStream, Algorithm.ZSTD)) {}
-      fail("Failed to catch NullPointerException");
-    } catch (NullPointerException | IOException e) {
-      assertTrue(true);
-    }
-  }
+  void testBasicConstructors() {
+    if (!QatZipper.isQatAvailable()) return;
 
-  @Test
-  public void testConstructor() {
-    if (!QatZipper.isQatAvailable()) {
-      return;
-    }
-    ByteArrayInputStream inputStream = new ByteArrayInputStream(deflateBytes);
-    try {
-      try (QatDecompressorInputStream decompressedStream =
-          new QatDecompressorInputStream(inputStream, 16 * 1024, Algorithm.LZ4)) {}
-    } catch (IOException | IllegalArgumentException e) {
-      fail(e.getMessage());
-    }
-  }
+    byte[] deflateData = getCompressedData(Algorithm.DEFLATE);
 
-  @Test
-  public void testTwoArgConstructor() {
-    if (!QatZipper.isQatAvailable()) {
-      return;
-    }
-    ByteArrayInputStream inputStream = new ByteArrayInputStream(deflateBytes);
-    try {
-      try (QatDecompressorInputStream decompressedStream =
-          new QatDecompressorInputStream(inputStream, Algorithm.DEFLATE)) {}
-    } catch (IOException | IllegalArgumentException e) {
-      fail(e.getMessage());
-    }
+    assertAll(
+        () ->
+            assertDoesNotThrow(
+                () -> {
+                  try (ByteArrayInputStream inputStream = new ByteArrayInputStream(deflateData);
+                      QatDecompressorInputStream stream =
+                          new QatDecompressorInputStream(inputStream, Algorithm.DEFLATE)) {
+                    // Constructor should work
+                  }
+                }),
+        () ->
+            assertDoesNotThrow(
+                () -> {
+                  try (ByteArrayInputStream inputStream = new ByteArrayInputStream(deflateData);
+                      QatDecompressorInputStream stream =
+                          new QatDecompressorInputStream(
+                              inputStream, DEFAULT_BUFFER_SIZE, Algorithm.LZ4)) {
+                    // Constructor should work
+                  }
+                }));
   }
 
   @ParameterizedTest
   @EnumSource(Algorithm.class)
-  public void testConstructor1(Algorithm algo) {
-    if (!QatZipper.isQatAvailable()) {
-      return;
-    }
-    ByteArrayInputStream inputStream = new ByteArrayInputStream(selectInputBytes(algo));
-    try {
-      try (QatDecompressorInputStream decompressedStream =
-          new QatDecompressorInputStream(inputStream, 16 * 1024, algo)) {}
-    } catch (IOException | IllegalArgumentException e) {
-      fail(e.getMessage());
-    }
+  void testConstructorWithAlgorithm(Algorithm algorithm) {
+    if (!QatZipper.isQatAvailable()) return;
+
+    byte[] compressedData = getCompressedData(algorithm);
+    assertDoesNotThrow(
+        () -> {
+          try (ByteArrayInputStream inputStream = new ByteArrayInputStream(compressedData);
+              QatDecompressorInputStream stream =
+                  new QatDecompressorInputStream(inputStream, DEFAULT_BUFFER_SIZE, algorithm)) {
+            // Constructor should work
+          }
+        });
   }
 
   @ParameterizedTest
   @MethodSource("provideModeAlgorithmParams")
-  public void testConstructor2(Mode mode, Algorithm algo) {
-    ByteArrayInputStream inputStream = new ByteArrayInputStream(selectInputBytes(algo));
-    try {
-      try (QatDecompressorInputStream decompressedStream =
-          new QatDecompressorInputStream(
-              inputStream, 16 * 1024, new QatZipper.Builder().setAlgorithm(algo).setMode(mode))) {}
-    } catch (IOException | IllegalArgumentException e) {
-      fail(e.getMessage());
-    }
+  void testConstructorWithBuilder(Mode mode, Algorithm algorithm) {
+    byte[] compressedData = getCompressedData(algorithm);
+    assertDoesNotThrow(
+        () -> {
+          try (ByteArrayInputStream inputStream = new ByteArrayInputStream(compressedData);
+              QatDecompressorInputStream stream =
+                  new QatDecompressorInputStream(
+                      inputStream, DEFAULT_BUFFER_SIZE, createQatBuilder(algorithm, mode))) {
+            // Constructor should work
+          }
+        });
   }
 
+  // Stream behavior tests
   @ParameterizedTest
   @EnumSource(Algorithm.class)
-  public void testReset(Algorithm algo) throws IOException {
-    ByteArrayInputStream inputStream = new ByteArrayInputStream(selectInputBytes(algo));
-    try (QatDecompressorInputStream decompressedStream =
-        new QatDecompressorInputStream(
-            inputStream,
-            16 * 1024,
-            new QatZipper.Builder().setAlgorithm(algo).setMode(Mode.AUTO))) {
-      try {
-        decompressedStream.reset();
-        fail("Failed to catch IOException!");
-      } catch (IOException ioe) {
-        assertTrue(true);
-      }
+  void testStreamCapabilities(Algorithm algorithm) throws IOException {
+    byte[] compressedData = getCompressedData(algorithm);
+
+    try (ByteArrayInputStream inputStream = new ByteArrayInputStream(compressedData);
+        QatDecompressorInputStream stream =
+            new QatDecompressorInputStream(
+                inputStream, DEFAULT_BUFFER_SIZE, createQatBuilder(algorithm, Mode.AUTO))) {
+
+      assertAll(
+          () -> assertFalse(stream.markSupported(), "Mark should not be supported"),
+          () -> assertThrows(IOException.class, stream::reset, "Reset should throw IOException"));
     }
   }
 
+  // Read operation tests
   @ParameterizedTest
-  @EnumSource(Algorithm.class)
-  public void testMarkSupported(Algorithm algo) throws IOException {
-    ByteArrayInputStream inputStream = new ByteArrayInputStream(selectInputBytes(algo));
-    try (QatDecompressorInputStream decompressedStream =
-        new QatDecompressorInputStream(
-            inputStream,
-            16 * 1024,
-            new QatZipper.Builder().setAlgorithm(algo).setMode(Mode.AUTO))) {
-      assertFalse(decompressedStream.markSupported());
-    }
+  @MethodSource("provideModeAlgorithmLengthParams")
+  void testReadAllAtOnce(Mode mode, Algorithm algorithm, int bufferSize) throws IOException {
+    performDecompressionTest(
+        mode,
+        algorithm,
+        bufferSize,
+        (stream, buffer) -> {
+          int bytesRead = stream.read(buffer);
+          assertEquals(buffer.length, bytesRead);
+        });
   }
 
   @ParameterizedTest
   @MethodSource("provideModeAlgorithmLengthParams")
-  public void testInputStreamReadAll1(Mode mode, Algorithm algo, int bufferSize)
-      throws IOException {
-    ByteArrayInputStream inputStream = new ByteArrayInputStream(selectInputBytes(algo));
-    byte[] result = new byte[src.length];
-    try (QatDecompressorInputStream decompressedStream =
-        new QatDecompressorInputStream(
-            inputStream, bufferSize, new QatZipper.Builder().setAlgorithm(algo).setMode(mode))) {
-      int read = decompressedStream.read(result);
-      assertEquals(result.length, read);
-    }
-    assertTrue(Arrays.equals(src, result));
+  void testReadInChunks(Mode mode, Algorithm algorithm, int bufferSize) throws IOException {
+    performDecompressionTest(
+        mode,
+        algorithm,
+        bufferSize,
+        (stream, buffer) -> {
+          int totalRead = 0;
+          while (totalRead < buffer.length) {
+            int chunkSize = Math.min(random.nextInt(MAX_CHUNK_SIZE), buffer.length - totalRead);
+            int bytesRead = stream.read(buffer, totalRead, chunkSize);
+            assertEquals(chunkSize, bytesRead);
+            totalRead += bytesRead;
+          }
+          assertEquals(buffer.length, totalRead);
+        });
   }
 
   @ParameterizedTest
   @MethodSource("provideModeAlgorithmLengthParams")
-  public void testInputStreamReadAll3(Mode mode, Algorithm algo, int bufferSize)
+  void testReadMixedByteAndChunks(Mode mode, Algorithm algorithm, int bufferSize)
       throws IOException {
-    ByteArrayInputStream inputStream = new ByteArrayInputStream(selectInputBytes(algo));
-    byte[] result = new byte[src.length];
-    try (QatDecompressorInputStream decompressedStream =
-        new QatDecompressorInputStream(
-            inputStream, bufferSize, new QatZipper.Builder().setAlgorithm(algo).setMode(mode))) {
-      int i;
-      int len = 0;
-      for (i = 0; i < result.length; i += len) {
-        len = Math.min(RANDOM.nextInt(20 * 1024), result.length - i);
-        int read = decompressedStream.read(result, i, len);
-        assertEquals(len, read);
-      }
-      assertEquals(result.length, i);
-    }
-    assertTrue(Arrays.equals(src, result));
+    performDecompressionTest(
+        mode,
+        algorithm,
+        bufferSize,
+        (stream, buffer) -> {
+          int totalRead = 0;
+          while (totalRead < buffer.length) {
+            if (totalRead % 10 == 0) {
+              // Read single byte
+              buffer[totalRead] = (byte) stream.read();
+              totalRead += 1;
+            } else {
+              // Read chunk
+              int chunkSize = Math.min(random.nextInt(MAX_CHUNK_SIZE), buffer.length - totalRead);
+              int bytesRead = stream.read(buffer, totalRead, chunkSize);
+              assertEquals(chunkSize, bytesRead);
+              totalRead += bytesRead;
+            }
+          }
+          assertEquals(buffer.length, totalRead);
+
+          // Verify end of stream
+          assertEquals(-1, stream.read());
+          assertEquals(0, stream.available());
+        });
   }
 
   @ParameterizedTest
   @MethodSource("provideModeAlgorithmLengthParams")
-  public void testInputStreamReadShort(Mode mode, Algorithm algo, int bufferSize)
-      throws IOException {
-    byte[] newSrc = Arrays.copyOf(src, bufferSize / 2);
-    ByteArrayOutputStream outStream = new ByteArrayOutputStream();
-    try (QatCompressorOutputStream outputStream =
+  void testReadWithAvailable(Mode mode, Algorithm algorithm, int bufferSize) throws IOException {
+    performDecompressionTest(
+        mode,
+        algorithm,
+        bufferSize,
+        (stream, buffer) -> {
+          int totalRead = 0;
+          while (totalRead < buffer.length) {
+            int available = stream.available();
+            assertTrue(available > 0, "Available should be positive");
+            int bytesRead = stream.read(buffer, totalRead, available);
+            assertEquals(available, bytesRead);
+            totalRead += bytesRead;
+          }
+          assertEquals(buffer.length, totalRead);
+        });
+  }
+
+  // Short data tests
+  @ParameterizedTest
+  @MethodSource("provideModeAlgorithmLengthParams")
+  void testReadShortData(Mode mode, Algorithm algorithm, int bufferSize) throws IOException {
+    byte[] shortData = Arrays.copyOf(sourceData, bufferSize / 2);
+
+    // Compress the short data
+    ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+    try (QatCompressorOutputStream compressor =
         new QatCompressorOutputStream(
-            outStream, bufferSize, new QatZipper.Builder().setAlgorithm(algo).setMode(mode))) {
-      outputStream.write(newSrc);
+            outputStream, bufferSize, createQatBuilder(algorithm, mode))) {
+      compressor.write(shortData);
     }
-    byte[] compressedBytes = outStream.toByteArray();
-    ByteArrayInputStream inputStream = new ByteArrayInputStream(compressedBytes);
+
+    // Decompress and verify
+    byte[] compressedData = outputStream.toByteArray();
+    ByteArrayInputStream inputStream = new ByteArrayInputStream(compressedData);
     byte[] result = new byte[bufferSize];
-    int read = 0;
-    try (QatDecompressorInputStream decompressedStream =
+
+    int bytesRead;
+    try (QatDecompressorInputStream decompressor =
         new QatDecompressorInputStream(
-            inputStream, bufferSize, new QatZipper.Builder().setAlgorithm(algo).setMode(mode))) {
-      read = decompressedStream.read(result);
-      assertEquals(-1, decompressedStream.read());
-      assertEquals(0, decompressedStream.available());
+            inputStream, bufferSize, createQatBuilder(algorithm, mode))) {
+      bytesRead = decompressor.read(result);
+
+      assertEquals(-1, decompressor.read(), "Should reach end of stream");
+      assertEquals(0, decompressor.available(), "Available should be 0 at end");
     }
-    assertTrue(Arrays.equals(newSrc, Arrays.copyOf(result, read)));
+
+    assertArrayEquals(shortData, Arrays.copyOf(result, bytesRead));
   }
 
   @ParameterizedTest
   @MethodSource("provideModeAlgorithmLengthParams")
-  public void testInputStreamReadShort2(Mode mode, Algorithm algo, int bufferSize)
-      throws IOException {
-    byte[] newSrc = Arrays.copyOf(src, 1024);
-    ByteArrayOutputStream outStream = new ByteArrayOutputStream();
-    try (QatCompressorOutputStream outputStream =
+  void testReadVeryShortData(Mode mode, Algorithm algorithm, int bufferSize) throws IOException {
+    byte[] veryShortData = Arrays.copyOf(sourceData, 1024);
+
+    // Compress the very short data
+    ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+    try (QatCompressorOutputStream compressor =
         new QatCompressorOutputStream(
-            outStream, bufferSize, new QatZipper.Builder().setAlgorithm(algo).setMode(mode))) {
-      outputStream.write(newSrc);
+            outputStream, bufferSize, createQatBuilder(algorithm, mode))) {
+      compressor.write(veryShortData);
     }
-    byte[] compressedBytes = outStream.toByteArray();
-    ByteArrayInputStream inputStream = new ByteArrayInputStream(compressedBytes);
+
+    // Decompress with small buffer and verify
+    byte[] compressedData = outputStream.toByteArray();
+    ByteArrayInputStream inputStream = new ByteArrayInputStream(compressedData);
     byte[] result = new byte[bufferSize];
-    int read = 0;
-    try (QatDecompressorInputStream decompressedStream =
-        new QatDecompressorInputStream(
-            inputStream, 4, new QatZipper.Builder().setAlgorithm(algo).setMode(mode))) {
-      read = decompressedStream.read(result);
-      assertEquals(-1, decompressedStream.read());
-      assertEquals(0, decompressedStream.available());
+
+    int bytesRead;
+    try (QatDecompressorInputStream decompressor =
+        new QatDecompressorInputStream(inputStream, 4, createQatBuilder(algorithm, mode))) {
+      bytesRead = decompressor.read(result);
+
+      assertEquals(-1, decompressor.read(), "Should reach end of stream");
+      assertEquals(0, decompressor.available(), "Available should be 0 at end");
     }
-    assertTrue(Arrays.equals(newSrc, Arrays.copyOf(result, read)));
+
+    assertArrayEquals(veryShortData, Arrays.copyOf(result, bytesRead));
   }
 
-  @ParameterizedTest
-  @MethodSource("provideModeAlgorithmLengthParams")
-  public void testInputStreamReadByte(Mode mode, Algorithm algo, int bufferSize)
-      throws IOException {
-    ByteArrayInputStream inputStream = new ByteArrayInputStream(selectInputBytes(algo));
-    byte[] result = new byte[src.length];
-    try (QatDecompressorInputStream decompressedStream =
-        new QatDecompressorInputStream(
-            inputStream, bufferSize, new QatZipper.Builder().setAlgorithm(algo).setMode(mode))) {
-      int i;
-      int len = 0;
-      for (i = 0; i < result.length; i += len) {
-        if (i % 10 == 0) { // doReadByte
-          len = 1;
-          result[i] = (byte) decompressedStream.read();
-        } else {
-          len = Math.min(RANDOM.nextInt(20 * 1024), result.length - i);
-          int read = decompressedStream.read(result, i, len);
-          assertEquals(len, read);
-        }
-      }
-      assertEquals(result.length, i);
-      assertEquals(-1, decompressedStream.read());
-      assertEquals(0, decompressedStream.available());
-    }
-    assertTrue(Arrays.equals(src, result));
-  }
-
-  @ParameterizedTest
-  @MethodSource("provideModeAlgorithmLengthParams")
-  public void testInputStreamReadAvailable(Mode mode, Algorithm algo, int bufferSize)
-      throws IOException {
-    ByteArrayInputStream inputStream = new ByteArrayInputStream(selectInputBytes(algo));
-    byte[] result = new byte[src.length];
-    try (QatDecompressorInputStream decompressedStream =
-        new QatDecompressorInputStream(
-            inputStream, bufferSize, new QatZipper.Builder().setAlgorithm(algo).setMode(mode))) {
-      int i;
-      int len = 0;
-      for (i = 0; i < result.length; i += len) {
-        len = decompressedStream.available();
-        assertTrue(len > 0);
-        int read = decompressedStream.read(result, i, len);
-        assertEquals(len, read);
-      }
-      assertEquals(result.length, i);
-    }
-    assertTrue(Arrays.equals(src, result));
-  }
-
-  @ParameterizedTest
-  @MethodSource("provideModeAlgorithmLengthParams")
-  public void testInputStreamClose(Mode mode, Algorithm algo, int bufferSize) throws IOException {
-    ByteArrayInputStream inputStream = new ByteArrayInputStream(selectInputBytes(algo));
-    byte[] result = new byte[src.length];
-    QatDecompressorInputStream decompressedStream =
-        new QatDecompressorInputStream(
-            inputStream, bufferSize, new QatZipper.Builder().setAlgorithm(algo).setMode(mode));
-    decompressedStream.close();
-    try {
-      int r = decompressedStream.read(result);
-      fail("Failed to catch IOException. Return was " + r);
-    } catch (IOException ioe) {
-      assertTrue(true);
-    }
-  }
-
-  @ParameterizedTest
-  @MethodSource("provideModeAlgorithmLengthParams")
-  public void testInputStreamReadAfterClose(Mode mode, Algorithm algo, int bufferSize)
-      throws IOException {
-    ByteArrayInputStream inputStream = new ByteArrayInputStream(selectInputBytes(algo));
-    QatDecompressorInputStream decompressedStream =
-        new QatDecompressorInputStream(
-            inputStream, bufferSize, new QatZipper.Builder().setAlgorithm(algo).setMode(mode));
-    decompressedStream.close();
-    try {
-      int r = decompressedStream.read();
-      fail("Failed to catch IOException. Returned was " + r);
-    } catch (IOException ioe) {
-      assertTrue(true);
-    }
-  }
-
-  @ParameterizedTest
-  @MethodSource("provideModeAlgorithmLengthParams")
-  public void testInputStreamAvailableAfterClose(Mode mode, Algorithm algo, int bufferSize)
-      throws IOException {
-    ByteArrayInputStream inputStream = new ByteArrayInputStream(selectInputBytes(algo));
-    QatDecompressorInputStream decompressedStream =
-        new QatDecompressorInputStream(
-            inputStream, bufferSize, new QatZipper.Builder().setAlgorithm(algo).setMode(mode));
-    decompressedStream.close();
-    try {
-      decompressedStream.available();
-      fail("Failed to catch IOException!");
-    } catch (IOException ioe) {
-      assertTrue(true);
-    }
-  }
-
-  @ParameterizedTest
-  @MethodSource("provideModeAlgorithmLengthParams")
-  public void testInputStreamDoubleClose(Mode mode, Algorithm algo, int bufferSize)
-      throws IOException {
-    ByteArrayInputStream inputStream = new ByteArrayInputStream(selectInputBytes(algo));
-    QatDecompressorInputStream decompressedStream =
-        new QatDecompressorInputStream(
-            inputStream, bufferSize, new QatZipper.Builder().setAlgorithm(algo).setMode(mode));
-    decompressedStream.close();
-    decompressedStream.close();
-    assertTrue(true);
-  }
-
+  // Skip functionality tests
   @ParameterizedTest
   @MethodSource("provideModeAlgorithmSkipLengthParams")
-  public void testInputStreamSkip(Mode mode, Algorithm algo, int bytesToSkip) throws IOException {
-    ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-    try (QatCompressorOutputStream compressedStream =
+  void testSkipFunctionality(Mode mode, Algorithm algorithm, int bytesToSkip) throws IOException {
+    // Create test data: sourceData + padding + sourceData
+    ByteArrayOutputStream testDataStream = new ByteArrayOutputStream();
+    try (QatCompressorOutputStream compressor =
         new QatCompressorOutputStream(
-            outputStream, 16 * 1024, new QatZipper.Builder().setAlgorithm(algo).setMode(mode))) {
-      compressedStream.write(src);
-      compressedStream.write(new byte[bytesToSkip]);
-      compressedStream.write(src);
+            testDataStream, DEFAULT_BUFFER_SIZE, createQatBuilder(algorithm, mode))) {
+      compressor.write(sourceData);
+      compressor.write(new byte[bytesToSkip]); // Padding to skip
+      compressor.write(sourceData);
     }
-    byte[] srcBytes = outputStream.toByteArray();
 
-    ByteArrayInputStream inputStream = new ByteArrayInputStream(srcBytes);
-    byte[] result1 = new byte[src.length];
-    byte[] result2 = new byte[src.length];
-    try (QatDecompressorInputStream decompressedStream =
+    // Test skipping
+    byte[] compressedTestData = testDataStream.toByteArray();
+    ByteArrayInputStream inputStream = new ByteArrayInputStream(compressedTestData);
+    byte[] firstRead = new byte[sourceData.length];
+    byte[] secondRead = new byte[sourceData.length];
+
+    try (QatDecompressorInputStream decompressor =
         new QatDecompressorInputStream(
-            inputStream, 16 * 1024, new QatZipper.Builder().setAlgorithm(algo).setMode(mode))) {
-      int read = decompressedStream.read(result1);
-      assertTrue(result1.length == read);
-      long skipped = decompressedStream.skip(bytesToSkip);
-      assertTrue(skipped == bytesToSkip);
-      read = decompressedStream.read(result2);
-      assertTrue(result2.length == read);
+            inputStream, DEFAULT_BUFFER_SIZE, createQatBuilder(algorithm, mode))) {
+
+      // Read first part
+      int bytesRead1 = decompressor.read(firstRead);
+      assertEquals(sourceData.length, bytesRead1);
+
+      // Skip padding
+      long bytesSkipped = decompressor.skip(bytesToSkip);
+      assertEquals(bytesToSkip, bytesSkipped);
+
+      // Read second part
+      int bytesRead2 = decompressor.read(secondRead);
+      assertEquals(sourceData.length, bytesRead2);
     }
-    assertTrue(Arrays.equals(src, result1));
-    assertTrue(Arrays.equals(src, result2));
+
+    assertAll(
+        () -> assertArrayEquals(sourceData, firstRead),
+        () -> assertArrayEquals(sourceData, secondRead));
   }
 
   @ParameterizedTest
   @MethodSource("provideModeAlgorithmParams")
-  public void testInputStreamSkipNegative(Mode mode, Algorithm algo) throws IOException {
-    ByteArrayInputStream inputStream = new ByteArrayInputStream(selectInputBytes(algo));
-    byte[] result = new byte[src.length];
-    try (QatDecompressorInputStream decompressedStream =
+  void testSkipNegative(Mode mode, Algorithm algorithm) throws IOException {
+    ByteArrayInputStream inputStream = new ByteArrayInputStream(getCompressedData(algorithm));
+    byte[] result = new byte[sourceData.length];
+
+    try (QatDecompressorInputStream decompressor =
         new QatDecompressorInputStream(
-            inputStream, 16 * 1024, new QatZipper.Builder().setAlgorithm(algo).setMode(mode))) {
-      int skipped = (int) decompressedStream.skip(-5);
-      assertEquals(0, skipped);
-      int read = decompressedStream.read(result);
-      assertEquals(result.length, read);
-      assertEquals(-1, decompressedStream.read());
-      assertEquals(0, decompressedStream.available());
+            inputStream, DEFAULT_BUFFER_SIZE, createQatBuilder(algorithm, mode))) {
+
+      long skipped = decompressor.skip(-5);
+      assertEquals(0, skipped, "Negative skip should return 0");
+
+      int bytesRead = decompressor.read(result);
+      assertEquals(result.length, bytesRead);
+
+      assertEquals(-1, decompressor.read());
+      assertEquals(0, decompressor.available());
     }
-    assertTrue(Arrays.equals(src, result));
+
+    assertArrayEquals(sourceData, result);
+  }
+
+  // Close and error condition tests
+  @ParameterizedTest
+  @MethodSource("provideModeAlgorithmLengthParams")
+  void testOperationsAfterClose(Mode mode, Algorithm algorithm, int bufferSize) throws IOException {
+    ByteArrayInputStream inputStream = new ByteArrayInputStream(getCompressedData(algorithm));
+    QatDecompressorInputStream decompressor =
+        new QatDecompressorInputStream(inputStream, bufferSize, createQatBuilder(algorithm, mode));
+
+    decompressor.close();
+
+    byte[] buffer = new byte[sourceData.length];
+    assertAll(
+        () -> assertThrows(IOException.class, () -> decompressor.read(buffer)),
+        () -> assertThrows(IOException.class, () -> decompressor.read()),
+        () -> assertThrows(IOException.class, () -> decompressor.available()));
   }
 
   @ParameterizedTest
+  @MethodSource("provideModeAlgorithmLengthParams")
+  void testDoubleClose(Mode mode, Algorithm algorithm, int bufferSize) throws IOException {
+    ByteArrayInputStream inputStream = new ByteArrayInputStream(getCompressedData(algorithm));
+    QatDecompressorInputStream decompressor =
+        new QatDecompressorInputStream(inputStream, bufferSize, createQatBuilder(algorithm, mode));
+
+    assertDoesNotThrow(
+        () -> {
+          decompressor.close();
+          decompressor.close(); // Should not throw
+        });
+  }
+
+  // Parameter validation tests
+  @ParameterizedTest
   @MethodSource("provideModeAlgorithmParams")
-  public void testInputStreamReadBadOffset(Mode mode, Algorithm algo) throws IOException {
-    ByteArrayInputStream inputStream = new ByteArrayInputStream(selectInputBytes(algo));
-    byte[] result = new byte[src.length];
-    try (QatDecompressorInputStream decompressedStream =
+  void testInvalidReadParameters(Mode mode, Algorithm algorithm) throws IOException {
+    ByteArrayInputStream inputStream = new ByteArrayInputStream(getCompressedData(algorithm));
+    byte[] buffer = new byte[sourceData.length];
+
+    try (QatDecompressorInputStream decompressor =
         new QatDecompressorInputStream(
-            inputStream, 16 * 1024, new QatZipper.Builder().setAlgorithm(algo).setMode(mode))) {
-      try {
-        decompressedStream.read(result, -33, 100);
-        fail("Failed to catch IndexOutOfBoundsException");
-      } catch (IndexOutOfBoundsException oob) {
-        assertTrue(true);
+            inputStream, DEFAULT_BUFFER_SIZE, createQatBuilder(algorithm, mode))) {
+
+      assertAll(
+          "Invalid read parameters should throw exceptions",
+          () ->
+              assertThrows(
+                  IndexOutOfBoundsException.class, () -> decompressor.read(buffer, -33, 100)),
+          () ->
+              assertThrows(
+                  NullPointerException.class,
+                  () -> decompressor.read(null, buffer.length - 1, -100)),
+          () ->
+              assertThrows(
+                  IndexOutOfBoundsException.class,
+                  () -> decompressor.read(buffer, buffer.length - 1, -100)),
+          () ->
+              assertThrows(
+                  IndexOutOfBoundsException.class,
+                  () -> decompressor.read(buffer, buffer.length - 1, 100)));
+    }
+  }
+
+  // End-of-stream tests
+  @ParameterizedTest
+  @MethodSource("provideModeAlgorithmParams")
+  void testEndOfStreamBehavior(Mode mode, Algorithm algorithm) throws IOException {
+    ByteArrayInputStream inputStream = new ByteArrayInputStream(getCompressedData(algorithm));
+    byte[] firstBuffer = new byte[sourceData.length];
+    byte[] secondBuffer = new byte[sourceData.length];
+
+    try (QatDecompressorInputStream decompressor =
+        new QatDecompressorInputStream(
+            inputStream, DEFAULT_BUFFER_SIZE, createQatBuilder(algorithm, mode))) {
+
+      // Read all data
+      int firstRead = decompressor.read(firstBuffer);
+      assertEquals(sourceData.length, firstRead);
+
+      // Attempt to read beyond end of stream
+      int secondRead = decompressor.read(secondBuffer);
+      assertEquals(-1, secondRead, "Should return -1 at end of stream");
+      assertEquals(0, decompressor.available(), "Available should be 0 at end");
+
+      // Test single byte read at end of stream
+      int singleByteRead = decompressor.read();
+      assertEquals(-1, singleByteRead, "Single byte read should return -1 at end");
+    }
+
+    assertArrayEquals(sourceData, firstBuffer);
+  }
+
+  // Integration test with complex read patterns
+  @ParameterizedTest
+  @MethodSource("provideModeAlgorithmParams")
+  void testComplexReadPattern(Mode mode, Algorithm algorithm) throws IOException {
+    ByteArrayInputStream inputStream = new ByteArrayInputStream(getCompressedData(algorithm));
+    byte[] result = new byte[sourceData.length];
+
+    try (QatDecompressorInputStream decompressor =
+        new QatDecompressorInputStream(
+            inputStream, DEFAULT_BUFFER_SIZE, createQatBuilder(algorithm, mode))) {
+
+      int totalRead = 0;
+      int iteration = 0;
+
+      while (totalRead < result.length) {
+        int remaining = result.length - totalRead;
+
+        switch (iteration % 4) {
+          case 0: // Single byte read
+            if (remaining > 0) {
+              result[totalRead] = (byte) decompressor.read();
+              totalRead += 1;
+            }
+            break;
+          case 1: // Small chunk read
+            int smallChunk = Math.min(100, remaining);
+            int smallRead = decompressor.read(result, totalRead, smallChunk);
+            assertEquals(smallChunk, smallRead);
+            totalRead += smallRead;
+            break;
+          case 2: // Read using available()
+            int available = Math.min(decompressor.available(), remaining);
+            if (available > 0) {
+              int availableRead = decompressor.read(result, totalRead, available);
+              assertEquals(available, availableRead);
+              totalRead += availableRead;
+            }
+            break;
+          case 3: // Random chunk read
+            int randomChunk = Math.min(random.nextInt(1000) + 1, remaining);
+            int randomRead = decompressor.read(result, totalRead, randomChunk);
+            assertEquals(randomChunk, randomRead);
+            totalRead += randomRead;
+            break;
+        }
+        iteration++;
       }
     }
-  }
 
-  @ParameterizedTest
-  @MethodSource("provideModeAlgorithmParams")
-  public void testInputStreamReadNullArray(Mode mode, Algorithm algo) throws IOException {
-    ByteArrayInputStream inputStream = new ByteArrayInputStream(selectInputBytes(algo));
-    byte[] result = new byte[src.length];
-    try (QatDecompressorInputStream decompressedStream =
-        new QatDecompressorInputStream(
-            inputStream, 16 * 1024, new QatZipper.Builder().setAlgorithm(algo).setMode(mode))) {
-      try {
-        decompressedStream.read(null, result.length - 1, -100);
-        fail("Failed to catch NullPointerException");
-      } catch (NullPointerException npe) {
-        assertTrue(true);
-      }
-    }
-  }
-
-  @ParameterizedTest
-  @MethodSource("provideModeAlgorithmParams")
-  public void testInputStreamReadBadLength(Mode mode, Algorithm algo) throws IOException {
-    ByteArrayInputStream inputStream = new ByteArrayInputStream(selectInputBytes(algo));
-    byte[] result = new byte[src.length];
-    try (QatDecompressorInputStream decompressedStream =
-        new QatDecompressorInputStream(
-            inputStream, 16 * 1024, new QatZipper.Builder().setAlgorithm(algo).setMode(mode))) {
-      try {
-        decompressedStream.read(result, result.length - 1, -100);
-        fail("Failed to catch IndexOutOfBoundsException");
-      } catch (IndexOutOfBoundsException oob) {
-        assertTrue(true);
-      }
-    }
-  }
-
-  @ParameterizedTest
-  @MethodSource("provideModeAlgorithmParams")
-  public void testInputStreamReadBadOffsetAndLength(Mode mode, Algorithm algo) throws IOException {
-    ByteArrayInputStream inputStream = new ByteArrayInputStream(selectInputBytes(algo));
-    byte[] result = new byte[src.length];
-    try (QatDecompressorInputStream decompressedStream =
-        new QatDecompressorInputStream(
-            inputStream, 16 * 1024, new QatZipper.Builder().setAlgorithm(algo).setMode(mode))) {
-      try {
-        int r = decompressedStream.read(result, result.length - 1, 100);
-        fail("Failed to catch IndexOutOfBoundsException. Returned " + r);
-      } catch (IndexOutOfBoundsException oob) {
-        assertTrue(true);
-      }
-    }
-  }
-
-  @ParameterizedTest
-  @MethodSource("provideModeAlgorithmParams")
-  public void testInputStreamRead3EOF(Mode mode, Algorithm algo) throws IOException {
-    ByteArrayInputStream inputStream = new ByteArrayInputStream(selectInputBytes(algo));
-    byte[] result = new byte[src.length];
-    byte[] result2 = new byte[src.length];
-    try (QatDecompressorInputStream decompressedStream =
-        new QatDecompressorInputStream(
-            inputStream, 16 * 1024, new QatZipper.Builder().setAlgorithm(algo).setMode(mode))) {
-      int read = decompressedStream.read(result);
-      assertEquals(result.length, read);
-      read = decompressedStream.read(result2);
-      assertEquals(-1, read);
-      assertEquals(0, decompressedStream.available());
-    }
-    assertTrue(Arrays.equals(src, result));
-  }
-
-  @ParameterizedTest
-  @MethodSource("provideModeAlgorithmParams")
-  public void testInputStreamReadEOF(Mode mode, Algorithm algo) throws IOException {
-    ByteArrayInputStream inputStream = new ByteArrayInputStream(selectInputBytes(algo));
-    byte[] result = new byte[src.length];
-    try (QatDecompressorInputStream decompressedStream =
-        new QatDecompressorInputStream(
-            inputStream, 16 * 1024, new QatZipper.Builder().setAlgorithm(algo).setMode(mode))) {
-      int read = decompressedStream.read(result);
-      assertEquals(result.length, read);
-      read = decompressedStream.read();
-      assertEquals(-1, read);
-      assertEquals(0, decompressedStream.available());
-    }
-    assertTrue(Arrays.equals(src, result));
+    assertArrayEquals(sourceData, result);
   }
 }

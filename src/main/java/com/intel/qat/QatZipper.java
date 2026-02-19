@@ -11,13 +11,21 @@ import com.github.luben.zstd.ZstdCompressCtx;
 import com.github.luben.zstd.ZstdDecompressCtx;
 import java.nio.ByteBuffer;
 import java.nio.ReadOnlyBufferException;
+import java.util.Objects;
 
 /**
- * This class provides methods that can be used to compress and decompress data using {@link
- * Algorithm#DEFLATE} or {@link Algorithm#LZ4}.
+ * QatZipper provides high-performance compression and decompression using Intel QAT hardware
+ * acceleration or software fallback. Supports DEFLATE, LZ4, and ZSTD algorithms.
  *
- * <p>The following code snippet demonstrates how to use the class to compress and decompress a
- * string.
+ * <h2>Thread Safety</h2>
+ *
+ * This class is NOT thread-safe. Each thread must use its own QatZipper instance. The bytesRead and
+ * bytesWritten fields are updated during compress/decompress operations and reflect the state of
+ * the most recent operation only.
+ *
+ * <h2>Resource Management</h2>
+ *
+ * Resources are released by explicitly calling the <code>end()</code> method.
  *
  * <blockquote>
  *
@@ -51,22 +59,36 @@ import java.nio.ReadOnlyBufferException;
  *
  * </blockquote>
  *
- * To release QAT resources used by this <code>QatZipper</code>, the <code>end()</code> method
- * should be called explicitly.
+ * <h2>Buffer Position Behavior</h2>
+ *
+ * For ByteBuffer operations:
+ *
+ * <ul>
+ *   <li>Buffer positions mark the start of data to process
+ *   <li>Buffer limits mark the end of available data
+ *   <li>After successful operations, positions are advanced
+ *   <li>On error, positions may be partially advanced
+ * </ul>
+ *
+ * @see Algorithm
+ * @see Mode
+ * @see PollingMode
+ * @see DataFormat
  */
 public class QatZipper {
   /** The default compression algorithm. */
   public static final Algorithm DEFAULT_ALGORITHM = Algorithm.DEFLATE;
 
-  /** The default compression level is 6. */
-  public static final int DEFAULT_COMPRESS_LEVEL = 6;
+  /** The default compression level for DEFLATE is 6. */
+  public static final int DEFAULT_COMPRESSION_LEVEL_DEFLATE = 6;
+
+  /** The default compression level for ZSTD is 3. */
+  public static final int DEFAULT_COMPRESSION_LEVEL_ZSTD = 3;
 
   /** The default execution mode. */
   public static final Mode DEFAULT_MODE = Mode.AUTO;
 
-  /**
-   * The default number of times QatZipper attempts to acquire hardware resources is <code>0</code>.
-   */
+  /** The default number of times QatZipper attempts to acquire hardware resources. */
   public static final int DEFAULT_RETRY_COUNT = 0;
 
   /** The default polling mode. */
@@ -79,55 +101,49 @@ public class QatZipper {
   public static final HardwareBufferSize DEFAULT_HW_BUFFER_SIZE =
       HardwareBufferSize.DEFAULT_BUFFER_SIZE;
 
-  /** The current compression algorithm. */
-  private Algorithm algorithm = DEFAULT_ALGORITHM;
+  /** The default log level. */
+  public static final LogLevel DEFAULT_LOG_LEVEL = LogLevel.NONE;
 
-  /** The compression level. */
-  private int level = DEFAULT_COMPRESS_LEVEL;
+  // Configuration Fields
+  private final Algorithm algorithm;
+  private final int level;
+  private final Mode mode;
+  private final int retryCount;
+  private final PollingMode pollingMode;
+  private final DataFormat dataFormat;
+  private final HardwareBufferSize hwBufferSize;
+  private final LogLevel logLevel;
 
-  /** The mode of execution. */
-  private Mode mode = DEFAULT_MODE;
-
-  /**
-   * The number of retry counts for session creation before Qat-Java gives up and throws an error.
-   */
-  private int retryCount = DEFAULT_RETRY_COUNT;
-
-  /** The polling mode. */
-  private PollingMode pollingMode = DEFAULT_POLLING_MODE;
-
-  /** The data format. */
-  private DataFormat dataFormat = DEFAULT_DATA_FORMAT;
-
-  /** The buffer size for QAT device. */
-  private HardwareBufferSize hwBufferSize = DEFAULT_HW_BUFFER_SIZE;
-
-  /** Indicates if a QAT session is valid or not. */
+  /** Indicates if this QatZipper session is valid. */
   private boolean isValid;
 
-  /** Number of bytes read from the source by the most recent call to a compress/decompress. */
+  /**
+   * Number of bytes read from the source by the most recent compress/decompress call. Visible
+   * across threads.
+   */
   private int bytesRead;
 
   /**
-   * Number of bytes written to the destination by the most recent call to a compress/decompress.
+   * Number of bytes written to the destination by the most recent compress/decompress call. Visible
+   * across threads.
    */
   private int bytesWritten;
 
-  /** Id of this object (set by the JNI code) based on algorithm, etc.. */
+  /** QAT session key set by JNI code. */
   private int qzKey;
 
-  /** Zstd compress context. */
-  private ZstdCompressCtx zstdCompressCtx;
+  /** ZSTD compression context (null if algorithm is not ZSTD). */
+  public final ZstdCompressCtx zstdCompressCtx;
 
-  /** Zstd decompress context. */
-  private ZstdDecompressCtx zstdDecompressCtx;
+  /** ZSTD decompression context (null if algorithm is not ZSTD). */
+  public final ZstdDecompressCtx zstdDecompressCtx;
 
-  /** Checksum flag, currently valid for only ZSTD. */
+  /** Checksum flag for ZSTD (if enabled). */
   private boolean checksumFlag;
 
-  /** The compression algorithm to use. DEFLATE and LZ4 are supported. */
+  /** Supported compression algorithms. */
   public static enum Algorithm {
-    /** The deflate compression algorithm. */
+    /** The DEFLATE compression algorithm. */
     DEFLATE,
 
     /** The LZ4 compression algorithm. */
@@ -137,96 +153,57 @@ public class QatZipper {
     ZSTD
   }
 
-  /** The mode of execution for QAT. */
+  /** Execution modes for QAT operations. */
   public static enum Mode {
-    /**
-     * A hardware-only execution mode. QatZipper would fail if hardware resources cannot be acquired
-     * after finite retries.
-     */
+    /** Hardware-only mode. Fails if hardware resources unavailable. */
     HARDWARE,
 
-    /**
-     * A hardware execution mode with a software fail over. QatZipper would fail over to software
-     * execution mode if hardware resources cannot be acquired after finite retries.
-     */
-    AUTO;
+    /** Hybrid mode. Falls back to software if hardware unavailable. */
+    AUTO
   }
 
   /**
-   * Polling mode dictates how QAT processes compression/decompression requests and waits for a
-   * response, directly affecting the performance of these operations. Two polling modes are
-   * supported: BUSY and PERIODICAL. BUSY polling is the default polling mode.<br>
-   * <br>
-   * Use BUSY polling mode when:
-   *
-   * <ul>
-   *   <li>Your CPUs are not fully saturated and have cycles to spare.
-   *   <li>Your workload is latency-sensitive.
-   * </ul>
-   *
-   * <br>
-   * Use PERIODICAL polling mode when:
-   *
-   * <ul>
-   *   <li>Your workload has very high CPU utilization.
-   *   <li>Your workload is throughput-sensitive.
-   * </ul>
+   * Polling modes affect how QAT processes requests. BUSY polling is lower latency but uses more
+   * CPU. PERIODICAL polling is better for high CPU utilization scenarios.
    */
   public static enum PollingMode {
-    /** Use this mode unless your workload is CPU-bound. */
+    /** Low-latency polling. Use for latency-sensitive workloads. */
     BUSY,
 
-    /** Use this mode when your workload is CPU-bound. */
+    /** CPU-efficient polling. Use for high CPU utilization scenarios. */
     PERIODICAL
   }
 
-  /**
-   * The data format to use. Qat-Java supports the following: <br>
-   *
-   * <ul>
-   *   <li>DEFLATE_4B -- raw DEFLATE format with 4 byte header.
-   *   <li>DEFLATE_GZIP -- DEFLATE wrapped by GZip header and footer.
-   *   <li>DEFLATE_GZIP_EXT -- DEFLATE wrapped by GZip extended header and footer.
-   *   <li>DEFLATE_RAW -- raw DEFLATE format.
-   *   <li>ZLIB -- ZLIB
-   * </ul>
-   */
+  /** Data format options for compression/decompression. */
   public static enum DataFormat {
-    /** Raw DEFLATE format with 4 byte header. */
+    /** Raw DEFLATE with 4-byte header. */
     DEFLATE_4B,
 
-    /** DEFLATE wrapped by GZip header and footer. */
+    /** DEFLATE with GZip wrapper. */
     DEFLATE_GZIP,
 
-    /** DEFLATE wrapped by GZip extended header and footer. */
+    /** DEFLATE with extended GZip wrapper. */
     DEFLATE_GZIP_EXT,
 
     /** Raw DEFLATE format. */
     DEFLATE_RAW,
 
-    /** ZLIB */
+    /** ZLIB format. */
     ZLIB
   }
 
-  /**
-   * Hardware buffer size the QAT uses internally. <br>
-   *
-   * <ul>
-   *   <li>DEFAULT_BUFFER_SIZE -- 64KB
-   *   <li>MAX_BUFFER_SIZE -- 512KB
-   * </ul>
-   */
+  /** Hardware buffer size options for QAT device. */
   public static enum HardwareBufferSize {
-    /** The default buffer size for the QAT device (64KB). */
+    /** Default buffer size (64 KB). */
     DEFAULT_BUFFER_SIZE(64 * 1024),
 
-    /** The maximum buffer size allowed for the QAT device (512KB). */
+    /** Maximum buffer size (512 KB). */
     MAX_BUFFER_SIZE(512 * 1024);
 
     private final int value;
 
-    private HardwareBufferSize(int hwBufferSize) {
-      value = hwBufferSize;
+    HardwareBufferSize(int size) {
+      this.value = size;
     }
 
     /**
@@ -237,6 +214,26 @@ public class QatZipper {
     public int getValue() {
       return value;
     }
+  }
+
+  /** QAT logging levels. */
+  public static enum LogLevel {
+    /** None. */
+    NONE,
+    /** Fatal errors. */
+    FATAL,
+    /** Errors. */
+    ERROR,
+    /** Warning. */
+    WARNING,
+    /** Info. */
+    INFO,
+    /** Debug messages. */
+    DEBUG1,
+    /** Test messages. */
+    DEBUG2,
+    /** Memory related messages. */
+    DEBUG3
   }
 
   /**
@@ -255,7 +252,7 @@ public class QatZipper {
     static {
       boolean isQatAvailable;
       try {
-        final QatZipper qzip = new QatZipper.Builder().setMode(Mode.HARDWARE).build();
+        final QatZipper qzip = new QatZipper.Builder().mode(Mode.HARDWARE).build();
         qzip.end();
         isQatAvailable = true;
       } catch (UnsatisfiedLinkError
@@ -269,16 +266,30 @@ public class QatZipper {
   }
 
   /**
-   * Builder is used to build instances of {@link QatZipper} from values configured by the setters.
+   * Builder for QatZipper configuration. Provides fluent API for creating configured instances.
+   *
+   * <p>Example usage:
+   *
+   * <pre>{@code
+   * QatZipper zipper = new QatZipper.Builder()
+   *     .algorithm(Algorithm.ZSTD)
+   *     .level(6)
+   *     .mode(Mode.AUTO)
+   *     .build();
+   * }</pre>
    */
   public static class Builder {
     private Algorithm algorithm = DEFAULT_ALGORITHM;
-    private int level = DEFAULT_COMPRESS_LEVEL;
+    private int level =
+        algorithm == Algorithm.ZSTD
+            ? DEFAULT_COMPRESSION_LEVEL_ZSTD
+            : DEFAULT_COMPRESSION_LEVEL_DEFLATE;
     private Mode mode = DEFAULT_MODE;
     private int retryCount = DEFAULT_RETRY_COUNT;
     private PollingMode pollingMode = DEFAULT_POLLING_MODE;
     private DataFormat dataFormat = DEFAULT_DATA_FORMAT;
     private HardwareBufferSize hwBufferSize = DEFAULT_HW_BUFFER_SIZE;
+    private LogLevel logLevel = DEFAULT_LOG_LEVEL;
 
     /** Constructs a builder that has default values for QatZipper. */
     public Builder() {}
@@ -289,8 +300,8 @@ public class QatZipper {
      * @param algorithm the {@link Algorithm}.
      * @return This Builder.
      */
-    public Builder setAlgorithm(Algorithm algorithm) {
-      this.algorithm = algorithm;
+    public Builder algorithm(Algorithm algorithm) {
+      this.algorithm = Objects.requireNonNull(algorithm, "algorithm cannot be null");
       return this;
     }
 
@@ -299,39 +310,45 @@ public class QatZipper {
      *
      * @return The Algorithm.
      */
-    Algorithm getAlgorithm() {
+    public Algorithm getAlgorithm() {
       return this.algorithm;
     }
 
     /**
-     * Sets the compression level.
+     * Sets the compression level. Must be valid for the selected algorithm.
      *
      * @param level the compression level.
      * @return This Builder.
      */
-    public Builder setLevel(int level) {
+    public Builder level(int level) {
+      if (level < 1) {
+        throw new IllegalArgumentException("Compression level must be at least 1, got: " + level);
+      }
       this.level = level;
       return this;
     }
 
     /**
-     * Sets the mode of execution.
+     * Sets the execution mode.
      *
      * @param mode the {@link Mode}.
      * @return This Builder.
      */
-    public Builder setMode(Mode mode) {
-      this.mode = mode;
+    public Builder mode(Mode mode) {
+      this.mode = Objects.requireNonNull(mode, "mode cannot be null");
       return this;
     }
 
     /**
-     * Sets the number of tries to acquire hardware resouces before giving up.
+     * Sets the number of attempts to acquire hardware resouces before giving up.
      *
-     * @param retryCount the {@link PollingMode}.
+     * @param retryCount the number of retries before giving up.
      * @return This Builder.
      */
-    public Builder setRetryCount(int retryCount) {
+    public Builder retryCount(int retryCount) {
+      if (retryCount < 0) {
+        throw new IllegalArgumentException("retryCount cannot be negative");
+      }
       this.retryCount = retryCount;
       return this;
     }
@@ -342,8 +359,8 @@ public class QatZipper {
      * @param pollingMode the {@link PollingMode}.
      * @return This Builder.
      */
-    public Builder setPollingMode(PollingMode pollingMode) {
-      this.pollingMode = pollingMode;
+    public Builder pollingMode(PollingMode pollingMode) {
+      this.pollingMode = Objects.requireNonNull(pollingMode, "pollingMode cannot be null");
       return this;
     }
 
@@ -353,8 +370,8 @@ public class QatZipper {
      * @param dataFormat the {@link DataFormat}.
      * @return This Builder.
      */
-    public Builder setDataFormat(DataFormat dataFormat) {
-      this.dataFormat = dataFormat;
+    public Builder dataFormat(DataFormat dataFormat) {
+      this.dataFormat = Objects.requireNonNull(dataFormat, "dataFormat cannot be null");
       return this;
     }
 
@@ -364,8 +381,19 @@ public class QatZipper {
      * @param hwBufferSize the {@link HardwareBufferSize} for QAT.
      * @return This Builder.
      */
-    public Builder setHardwareBufferSize(HardwareBufferSize hwBufferSize) {
-      this.hwBufferSize = hwBufferSize;
+    public Builder hardwareBufferSize(HardwareBufferSize hwBufferSize) {
+      this.hwBufferSize = Objects.requireNonNull(hwBufferSize, "hwBufferSize cannot be null");
+      return this;
+    }
+
+    /**
+     * Sets the {@link LogLevel}.
+     *
+     * @param logLevel the {@link LogLevel}.
+     * @return This Builder.
+     */
+    public Builder logLevel(LogLevel logLevel) {
+      this.logLevel = Objects.requireNonNull(logLevel, "logLevel cannot be null");
       return this;
     }
 
@@ -374,66 +402,75 @@ public class QatZipper {
      *
      * @return A QatZipper.
      */
-    public QatZipper build() throws RuntimeException {
+    public QatZipper build() {
+      // Validate level is appropriate for algorithm
+      if (algorithm == Algorithm.ZSTD) {
+        if (level < 1 || level > 22) {
+          throw new IllegalArgumentException(
+              "ZSTD compression level must be between 1 and 22, got: " + level);
+        }
+      } else {
+        // DEFLATE and LZ4 have more restrictive limits
+        if (level < 1 || level > 9) {
+          throw new IllegalArgumentException(
+              "Compression level for " + algorithm + " must be between 1 and 9, got: " + level);
+        }
+      }
       return new QatZipper(this);
-    }
-
-    @Override
-    public String toString() {
-      return "QatZipper{algorithm="
-          + algorithm
-          + ", level="
-          + level
-          + ", mode="
-          + mode
-          + ", retryCount="
-          + retryCount
-          + ", pollingMode="
-          + pollingMode
-          + ", dataFormat="
-          + dataFormat
-          + ", hardwareBufferSize="
-          + hwBufferSize
-          + "}";
     }
   }
 
+  /**
+   * Constructs a QatZipper using the provided Builder configuration.
+   *
+   * @param builder the Builder with configuration
+   * @throws RuntimeException if QAT session initialization fails
+   */
   private QatZipper(Builder builder) throws RuntimeException {
-    algorithm = builder.algorithm;
-    level = builder.level;
-    mode = builder.mode;
-    retryCount = builder.retryCount;
-    pollingMode = builder.pollingMode;
-    dataFormat = builder.dataFormat;
-    hwBufferSize = builder.hwBufferSize;
+    this.algorithm = builder.algorithm;
+    this.level = builder.level;
+    this.mode = builder.mode;
+    this.retryCount = builder.retryCount;
+    this.pollingMode = builder.pollingMode;
+    this.dataFormat = builder.dataFormat;
+    this.hwBufferSize = builder.hwBufferSize;
+    this.logLevel = builder.logLevel;
 
     if (retryCount < 0) throw new IllegalArgumentException("Invalid value for retry count");
 
-    if (algorithm == Algorithm.ZSTD) {
-      zstdCompressCtx = new ZstdCompressCtx();
-      zstdDecompressCtx = new ZstdDecompressCtx();
-    }
-
+    // Initialize QAT session via JNI
     int status =
-        InternalJNI.setup(
+        InternalJNI.setupSession(
             this,
             algorithm.ordinal(),
             level,
             mode.ordinal(),
             pollingMode.ordinal(),
             dataFormat.ordinal(),
-            hwBufferSize.getValue());
+            hwBufferSize.getValue(),
+            logLevel.ordinal());
 
+    if (logLevel != LogLevel.NONE) {
+      InternalJNI.setLogLevel(logLevel.ordinal());
+    }
+
+    this.isValid = true;
+    this.bytesRead = 0;
+    this.bytesWritten = 0;
+
+    // Initialize ZSTD contexts if needed
     if (algorithm == Algorithm.ZSTD) {
-      final int QZ_OK = 0; // indicates that ZSTD can start QAT device
-      if (mode == Mode.HARDWARE || (mode == Mode.AUTO && status == QZ_OK)) {
+      this.zstdCompressCtx = new ZstdCompressCtx();
+      this.zstdCompressCtx.setLevel(level);
+      if (mode == Mode.HARDWARE || (mode == Mode.AUTO && status == 0)) {
         zstdCompressCtx.registerSequenceProducer(new QatZstdSequenceProducer());
         zstdCompressCtx.setSequenceProducerFallback(true);
       }
-      zstdCompressCtx.setLevel(level);
+      this.zstdDecompressCtx = new ZstdDecompressCtx();
+    } else {
+      this.zstdCompressCtx = null;
+      this.zstdDecompressCtx = null;
     }
-
-    isValid = true;
   }
 
   /**
@@ -453,7 +490,7 @@ public class QatZipper {
    *     <p>return A QatZipper.
    */
   public QatZipper(Algorithm algorithm) {
-    this(new Builder().setAlgorithm(algorithm));
+    this(new Builder().algorithm(algorithm));
   }
 
   /**
@@ -465,244 +502,466 @@ public class QatZipper {
    *     <p>return A QatZipper.
    */
   public QatZipper(Algorithm algorithm, int level) {
-    this(new Builder().setAlgorithm(algorithm).setLevel(level));
+    this(new Builder().algorithm(algorithm).level(level));
   }
 
   /**
-   * Returns the maximum compression length for the specified source length. Use this method to
-   * estimate the size of a buffer for compression given the size of a source buffer.
+   * Compresses the entire source array. Convenience method equivalent to compress(src, 0,
+   * src.length, dst, 0, dst.length).
    *
-   * @param len the length of the source array or buffer.
-   * @return the maximum compression length for the specified length.
-   */
-  public int maxCompressedLength(long len) {
-    if (!isValid) throw new IllegalStateException("QAT session has been closed");
-
-    if (algorithm != Algorithm.ZSTD) {
-      return InternalJNI.maxCompressedSize(qzKey, len);
-    }
-
-    return (int) Zstd.compressBound(len);
-  }
-
-  /**
-   * Compresses the source array and stores the result in the destination array. Returns the actual
-   * number of bytes of the compressed data.
-   *
-   * @param src the source array holding the source data
-   * @param dst the destination array for the compressed data
-   * @return the size of the compressed data in bytes
+   * @param src the source array holding uncompressed data
+   * @param dst the destination array for compressed data
+   * @return the number of bytes written to dst
+   * @throws IllegalStateException if this QatZipper has been closed
+   * @throws IllegalArgumentException if arrays are null or empty
+   * @throws RuntimeException if compression fails
    */
   public int compress(byte[] src, byte[] dst) {
+    if (src == null || dst == null) {
+      throw new IllegalArgumentException("Source and destination arrays cannot be null");
+    }
     return compress(src, 0, src.length, dst, 0, dst.length);
   }
 
   /**
-   * Compresses the source array, starting at the specified offset, and stores the result in the
-   * destination array starting at the specified destination offset. Returns the actual number of
-   * bytes of data compressed.
+   * Compresses source array data into destination array.
    *
-   * @param src the source array holding the source data
-   * @param srcOffset the start offset of the source data
-   * @param srcLen the length of source data to compress
-   * @param dst the destination array for the compressed data
-   * @param dstOffset the destination offset where to start storing the compressed data
-   * @param dstLen the maximum length that can be written to the destination array
-   * @return the size of the compressed data in bytes
+   * <p>After successful compression:
+   *
+   * <ul>
+   *   <li>bytesRead will equal srcLen
+   *   <li>bytesWritten will equal returned compressed size
+   * </ul>
+   *
+   * @param src the source array holding uncompressed data
+   * @param srcOffset the offset in source array where data starts
+   * @param srcLen the number of bytes to compress from source
+   * @param dst the destination array for compressed data
+   * @param dstOffset the offset in destination array where compressed data is written
+   * @param dstLen the maximum number of bytes that can be written to destination
+   * @return the number of bytes written to dst
+   * @throws IllegalStateException if this QatZipper has been closed
+   * @throws IllegalArgumentException if arrays are null or empty
+   * @throws ArrayIndexOutOfBoundsException if offsets are invalid
+   * @throws RuntimeException if compression fails
    */
   public int compress(
       byte[] src, int srcOffset, int srcLen, byte[] dst, int dstOffset, int dstLen) {
-    if (!isValid) throw new IllegalStateException("QAT session has been closed");
+    validateSessionOpen();
+    validateByteArrays(src, srcOffset, srcLen, dst, dstOffset, dstLen);
 
-    if (src == null || dst == null || srcLen == 0 || dst.length == 0)
-      throw new IllegalArgumentException(
-          "Either source or destination array or both have size 0 or null value");
-
-    if (srcOffset < 0 || srcLen < 0 || srcOffset > src.length - srcLen)
-      throw new ArrayIndexOutOfBoundsException("Source offset is out of bound");
-
-    if (dstOffset < 0 || dstLen < 0 || dstOffset > dst.length - dstLen)
-      throw new ArrayIndexOutOfBoundsException("Destination offset is out of bound");
-
-    if (algorithm != Algorithm.ZSTD) {
-      return compressByteArray(src, srcOffset, srcLen, dst, dstOffset, dstLen);
+    if (algorithm == Algorithm.ZSTD) {
+      return compressZSTDByteArray(src, srcOffset, srcLen, dst, dstOffset, dstLen);
     } else {
-      bytesRead = bytesWritten = 0;
-      int compressedSize =
-          zstdCompressCtx.compressByteArray(dst, dstOffset, dstLen, src, srcOffset, srcLen);
-      bytesWritten = compressedSize;
-      bytesRead = srcLen;
-      return compressedSize;
+      return compressQATByteArray(src, srcOffset, srcLen, dst, dstOffset, dstLen);
     }
   }
 
-  private int compressByteArray(
+  /** Internal compression using QAT for non-ZSTD algorithms. */
+  private int compressQATByteArray(
       byte[] src, int srcOffset, int srcLen, byte[] dst, int dstOffset, int dstLen) {
     bytesRead = bytesWritten = 0;
+
     int compressedSize =
         InternalJNI.compressByteArray(
             this, qzKey, src, srcOffset, srcLen, dst, dstOffset, dstLen, retryCount);
 
-    // bytesRead is updated by compressByteArray. We only need to update bytesWritten.
+    if (compressedSize < 0) {
+      throw new RuntimeException("QAT compression failed with error code: " + compressedSize);
+    }
+
+    bytesWritten = compressedSize;
+
+    return compressedSize;
+  }
+
+  /** Internal compression using ZSTD for byte arrays. */
+  private int compressZSTDByteArray(
+      byte[] src, int srcOffset, int srcLen, byte[] dst, int dstOffset, int dstLen) {
+    try {
+      bytesRead = bytesWritten = 0;
+      int compressedSize =
+          zstdCompressCtx.compressByteArray(dst, dstOffset, dstLen, src, srcOffset, srcLen);
+
+      if (compressedSize < 0) {
+        throw new RuntimeException("ZSTD compression failed with error code: " + compressedSize);
+      }
+
+      bytesRead = srcLen;
+      bytesWritten = compressedSize;
+      return compressedSize;
+    } catch (Exception e) {
+      bytesRead = 0;
+      bytesWritten = 0;
+      throw e instanceof RuntimeException ? (RuntimeException) e : new RuntimeException(e);
+    }
+  }
+
+  /**
+   * Compresses source buffer to destination buffer. Advances both buffer positions.
+   *
+   * <p>Buffer positions semantics:
+   *
+   * <ul>
+   *   <li>On input: position marks start of data, limit marks end
+   *   <li>On success: source position is advanced by bytesRead, destination position is advanced by
+   *       bytesWritten
+   *   <li>On error: positions may be partially advanced; check bytesRead/bytesWritten
+   * </ul>
+   *
+   * @param src the source buffer holding uncompressed data (position to limit)
+   * @param dst the destination buffer for compressed data (position to limit)
+   * @return the number of bytes written to dst
+   * @throws IllegalStateException if this QatZipper has been closed
+   * @throws IllegalArgumentException if buffers are invalid
+   * @throws ReadOnlyBufferException if destination buffer is read-only
+   * @throws RuntimeException if compression fails
+   */
+  public int compress(ByteBuffer src, ByteBuffer dst) {
+    validateSessionOpen();
+    validateByteBuffers(src, dst);
+    if (dst.isReadOnly()) {
+      throw new ReadOnlyBufferException();
+    }
+
+    if (algorithm == Algorithm.ZSTD) {
+      return compressZSTDByteBuffer(src, dst);
+    } else {
+      return compressQATByteBuffer(src, dst);
+    }
+  }
+
+  /**
+   * Internal compression using QAT for ByteBuffers. Handles all combinations of buffer types
+   * (direct/heap).
+   */
+  private int compressQATByteBuffer(ByteBuffer src, ByteBuffer dst) {
+    final int initialSrcPosition = src.position();
+    final int initialDstPosition = dst.position();
+    bytesRead = bytesWritten = 0;
+    int compressedSize;
+
+    try {
+      if (src.hasArray() && dst.hasArray()) {
+        compressedSize = compressQATArrayBuffers(src, dst, initialSrcPosition, initialDstPosition);
+      } else if (src.isDirect() && dst.isDirect()) {
+        compressedSize = compressQATDirectBuffers(src, dst, initialSrcPosition, initialDstPosition);
+      } else if (src.hasArray() && dst.isDirect()) {
+        compressedSize = compressQATArrayToDirect(src, dst, initialSrcPosition, initialDstPosition);
+      } else if (src.isDirect() && dst.hasArray()) {
+        compressedSize = compressQATDirectToArray(src, dst, initialSrcPosition, initialDstPosition);
+      } else {
+        // Mixed buffers: one direct, one heap but neither backed by simple array
+        compressedSize = compressQATMixedBuffers(src, dst, initialSrcPosition, initialDstPosition);
+      }
+    } catch (RuntimeException e) {
+      // Reset positions on error
+      src.position(initialSrcPosition);
+      dst.position(initialDstPosition);
+      bytesRead = 0;
+      bytesWritten = 0;
+      throw e;
+    }
+
+    // bytesRead = src.position() - initialSrcPosition;
     bytesWritten = compressedSize;
     return compressedSize;
   }
 
-  /**
-   * Compresses the source buffer and stores the result in the destination buffer. Returns actual
-   * number of bytes of compressed data.
-   *
-   * <p>On Success, the positions of both the source and destinations buffers are advanced by the
-   * number of bytes read from the source and the number of bytes of compressed data written to the
-   * destination.
-   *
-   * @param src the source buffer holding the source data
-   * @param dst the destination array that will store the compressed data
-   * @return the size of the compressed data in bytes
-   */
-  public int compress(ByteBuffer src, ByteBuffer dst) {
-    if (!isValid) throw new IllegalStateException("QAT session has been closed");
+  private int compressQATArrayBuffers(ByteBuffer src, ByteBuffer dst, int srcPos, int dstPos) {
+    int compressedSize =
+        InternalJNI.compressByteBuffer(
+            this,
+            qzKey,
+            src.array(),
+            srcPos,
+            src.remaining(),
+            dst.array(),
+            dstPos,
+            dst.remaining(),
+            retryCount);
+    if (compressedSize < 0) {
+      throw new RuntimeException("QAT compression failed with error code: " + compressedSize);
+    }
+    src.position(srcPos + bytesRead);
+    dst.position(dstPos + compressedSize);
+    return compressedSize;
+  }
 
-    if ((src == null || dst == null)
-        || (src.position() == src.limit() || dst.position() == dst.limit()))
-      throw new IllegalArgumentException();
+  private int compressQATDirectBuffers(ByteBuffer src, ByteBuffer dst, int srcPos, int dstPos) {
+    int compressedSize =
+        InternalJNI.compressDirectByteBuffer(
+            this, qzKey, src, srcPos, src.remaining(), dst, dstPos, dst.remaining(), retryCount);
+    if (compressedSize < 0) {
+      throw new RuntimeException("QAT compression failed with error code: " + compressedSize);
+    }
+    src.position(srcPos + bytesRead);
+    dst.position(dstPos + compressedSize);
+    return compressedSize;
+  }
 
-    if (dst.isReadOnly()) throw new ReadOnlyBufferException();
+  private int compressQATArrayToDirect(ByteBuffer src, ByteBuffer dst, int srcPos, int dstPos) {
+    int compressedSize =
+        InternalJNI.compressDirectByteBufferDst(
+            this,
+            qzKey,
+            src.array(),
+            srcPos,
+            src.remaining(),
+            dst,
+            dstPos,
+            dst.remaining(),
+            retryCount);
+    if (compressedSize < 0) {
+      throw new RuntimeException("QAT compression failed with error code: " + compressedSize);
+    }
+    src.position(srcPos + bytesRead);
+    dst.position(dstPos + compressedSize);
+    return compressedSize;
+  }
 
-    if (algorithm != Algorithm.ZSTD) {
-      return compressByteBuffer(src, dst);
-    } else {
-      // ZSTD treats the first parameter as the destination and the second as the source.
-      return zstdCompressCtx.compress(dst, src);
+  private int compressQATDirectToArray(ByteBuffer src, ByteBuffer dst, int srcPos, int dstPos) {
+    int compressedSize =
+        InternalJNI.compressDirectByteBufferSrc(
+            this,
+            qzKey,
+            src,
+            srcPos,
+            src.remaining(),
+            dst.array(),
+            dstPos,
+            dst.remaining(),
+            retryCount);
+    if (compressedSize < 0) {
+      throw new RuntimeException("QAT compression failed with error code: " + compressedSize);
+    }
+    src.position(srcPos + bytesRead);
+    dst.position(dstPos + compressedSize);
+    return compressedSize;
+  }
+
+  private int compressQATMixedBuffers(
+      ByteBuffer src, ByteBuffer dst, int initialSrcPos, int initialDstPos) {
+    final int srcLen = src.remaining();
+    final int dstLen = dst.remaining();
+
+    byte[] srcArr = new byte[srcLen];
+    byte[] dstArr = new byte[dstLen];
+
+    src.get(srcArr);
+    dst.get(dstArr);
+
+    src.position(initialSrcPos);
+    dst.position(initialDstPos);
+
+    int compressedSize = compressQATByteArray(srcArr, 0, srcLen, dstArr, 0, dstLen);
+    src.position(initialSrcPos + bytesRead);
+    dst.put(dstArr, 0, compressedSize);
+
+    return compressedSize;
+  }
+
+  /** Internal compression using ZSTD for ByteBuffers. Handles all combinations of buffer types. */
+  private int compressZSTDByteBuffer(ByteBuffer src, ByteBuffer dst) {
+    final int initialSrcPosition = src.position();
+    final int initialDstPosition = dst.position();
+    bytesRead = bytesWritten = 0;
+    int compressedSize;
+
+    try {
+      if (src.hasArray() && dst.hasArray()) {
+        compressedSize = compressZSTDArrayBuffers(src, dst, initialSrcPosition, initialDstPosition);
+      } else if (src.isDirect() && dst.isDirect()) {
+        compressedSize =
+            compressZSTDDirectBuffers(src, dst, initialSrcPosition, initialDstPosition);
+      } else if (src.hasArray() && dst.isDirect()) {
+        compressedSize =
+            compressZSTDArrayToDirect(src, dst, initialSrcPosition, initialDstPosition);
+      } else if (src.isDirect() && dst.hasArray()) {
+        compressedSize =
+            compressZSTDDirectToArray(src, dst, initialSrcPosition, initialDstPosition);
+      } else {
+        // Mixed buffers
+        compressedSize = compressZSTDMixedBuffers(src, dst, initialSrcPosition, initialDstPosition);
+      }
+    } catch (RuntimeException e) {
+      src.position(initialSrcPosition);
+      dst.position(initialDstPosition);
+      bytesRead = 0;
+      bytesWritten = 0;
+      throw e;
+    }
+
+    bytesRead = src.position() - initialSrcPosition;
+    bytesWritten = compressedSize;
+    return compressedSize;
+  }
+
+  private int compressZSTDArrayBuffers(ByteBuffer src, ByteBuffer dst, int srcPos, int dstPos) {
+    byte[] srcArr = src.array();
+    byte[] dstArr = dst.array();
+    int srcOffset = src.arrayOffset() + srcPos;
+    int dstOffset = dst.arrayOffset() + dstPos;
+    int srcLen = src.remaining();
+    int dstLen = dst.remaining();
+
+    int compressedSize =
+        zstdCompressCtx.compressByteArray(dstArr, dstOffset, dstLen, srcArr, srcOffset, srcLen);
+
+    if (compressedSize < 0) {
+      throw new RuntimeException("ZSTD compression failed with error code: " + compressedSize);
+    }
+
+    src.position(src.position() + srcLen);
+    dst.position(dstPos + compressedSize);
+    return compressedSize;
+  }
+
+  private int compressZSTDDirectBuffers(ByteBuffer src, ByteBuffer dst, int srcPos, int dstPos) {
+    int srcLen = src.remaining();
+    int dstLen = dst.remaining();
+    int compressedSize =
+        zstdCompressCtx.compressDirectByteBuffer(dst, dstPos, dstLen, src, srcPos, srcLen);
+
+    if (compressedSize < 0) {
+      throw new RuntimeException("ZSTD compression failed with error code: " + compressedSize);
+    }
+
+    src.position(src.position() + srcLen);
+    dst.position(dst.position() + compressedSize);
+
+    return compressedSize;
+  }
+
+  private int compressZSTDArrayToDirect(ByteBuffer src, ByteBuffer dst, int srcPos, int dstPos) {
+    byte[] srcArr = src.array();
+    int srcOffset = src.arrayOffset() + srcPos;
+    int srcLen = src.remaining();
+    int dstLen = dst.remaining();
+
+    // Convert array to temporary direct buffer
+    ByteBuffer tempSrc = ByteBuffer.allocateDirect(srcLen);
+    tempSrc.put(srcArr, srcOffset, srcLen);
+    tempSrc.flip();
+
+    try {
+      int compressedSize =
+          zstdCompressCtx.compressDirectByteBuffer(dst, dstPos, dstLen, tempSrc, srcOffset, srcLen);
+
+      if (compressedSize < 0) {
+        throw new RuntimeException("ZSTD compression failed with error code: " + compressedSize);
+      }
+
+      src.position(src.position() + srcLen);
+      dst.position(dst.position() + compressedSize);
+
+      return compressedSize;
+    } finally {
+      // Clean up temp buffer if needed
     }
   }
 
-  private int compressByteBuffer(ByteBuffer src, ByteBuffer dst) {
-    final int srcPos = src.position();
-    final int dstPos = dst.position();
+  private int compressZSTDDirectToArray(ByteBuffer src, ByteBuffer dst, int srcPos, int dstPos) {
+    int srcLen = src.remaining();
+    int dstLen = dst.remaining();
 
-    bytesRead = bytesWritten = 0;
+    // Convert array to temporary direct buffer
+    ByteBuffer tempDst = ByteBuffer.allocateDirect(dstLen);
 
-    int compressedSize = 0;
-    if (src.hasArray() && dst.hasArray()) {
-      compressedSize =
-          InternalJNI.compressByteBuffer(
-              qzKey,
-              src,
-              src.array(),
-              srcPos,
-              src.remaining(),
-              dst.array(),
-              dstPos,
-              dst.remaining(),
-              retryCount);
+    try {
+      int compressedSize =
+          zstdCompressCtx.compressDirectByteBuffer(tempDst, dstPos, dstLen, src, srcPos, srcLen);
+
+      if (compressedSize < 0) {
+        throw new RuntimeException("ZSTD compression failed with error code: " + compressedSize);
+      }
+
+      src.position(src.position() + srcLen);
+
+      byte[] dstArr = dst.array();
+      int dstOffset = dst.arrayOffset() + dstPos;
+      tempDst.flip();
+      tempDst.get(dstArr, dstOffset, compressedSize);
       dst.position(dstPos + compressedSize);
-    } else if (src.isDirect() && dst.isDirect()) {
-      compressedSize =
-          InternalJNI.compressDirectByteBuffer(
-              qzKey, src, srcPos, src.remaining(), dst, dstPos, dst.remaining(), retryCount);
-    } else if (src.hasArray() && dst.isDirect()) {
-      compressedSize =
-          InternalJNI.compressDirectByteBufferDst(
-              qzKey,
-              src,
-              src.array(),
-              srcPos,
-              src.remaining(),
-              dst,
-              dstPos,
-              dst.remaining(),
-              retryCount);
-    } else if (src.isDirect() && dst.hasArray()) {
-      compressedSize =
-          InternalJNI.compressDirectByteBufferSrc(
-              qzKey,
-              src,
-              srcPos,
-              src.remaining(),
-              dst.array(),
-              dstPos,
-              dst.remaining(),
-              retryCount);
-      dst.position(dstPos + compressedSize);
-    } else {
-      int srcLen = src.remaining();
-      int dstLen = dst.remaining();
 
-      byte[] srcArr = new byte[srcLen];
-      byte[] dstArr = new byte[dstLen];
-
-      src.get(srcArr);
-      dst.get(dstArr);
-
-      src.position(src.position() - srcLen);
-      dst.position(dst.position() - dstLen);
-
-      int pos = src.position();
-      compressedSize =
-          InternalJNI.compressByteBuffer(
-              qzKey, src, srcArr, 0, srcLen, dstArr, 0, dstLen, retryCount);
-      src.position(pos + src.position());
-      dst.put(dstArr, 0, compressedSize);
+      return compressedSize;
+    } finally {
+      // Clean up temp buffer if needed
     }
+  }
 
-    bytesRead = src.position() - srcPos;
-    bytesWritten = dst.position() - dstPos;
+  private int compressZSTDMixedBuffers(
+      ByteBuffer src, ByteBuffer dst, int initialSrcPos, int initialDstPos) {
+    final int srcLen = src.remaining();
+    final int dstLen = dst.remaining();
+
+    byte[] srcArr = new byte[srcLen];
+    byte[] dstArr = new byte[dstLen];
+
+    src.get(srcArr);
+    dst.get(dstArr);
+
+    src.position(initialSrcPos);
+    dst.position(initialDstPos);
+
+    int compressedSize = compressZSTDByteArray(srcArr, 0, srcLen, dstArr, 0, dstLen);
+    src.position(initialSrcPos + bytesRead);
+    dst.put(dstArr, 0, compressedSize);
 
     return compressedSize;
   }
 
   /**
-   * Decompresses the source array and stores the result in the destination array. Returns the
-   * actual number of bytes of decompressed data.
+   * Decompresses the entire source array. Convenience method equivalent to decompress(src, 0,
+   * src.length, dst, 0, dst.length).
    *
-   * @param src the source array holding the compressed data
-   * @param dst the destination array for the decompressed data
-   * @return the size of the decompressed data in bytes
+   * @param src the source array holding compressed data
+   * @param dst the destination array for decompressed data
+   * @return the number of bytes written to dst
+   * @throws IllegalStateException if this QatZipper has been closed
+   * @throws IllegalArgumentException if arrays are null or empty
+   * @throws RuntimeException if decompression fails
    */
   public int decompress(byte[] src, byte[] dst) {
     return decompress(src, 0, src.length, dst, 0, dst.length);
   }
 
   /**
-   * Decompresses the source array, starting at the specified offset, and stores the result in the
-   * destination array starting at the specified destination offset. Returns the actual number of
-   * bytes of data decompressed.
+   * Decompresses source array data into destination array.
    *
-   * @param src the source array holding the compressed data
-   * @param srcOffset the start offset of the source
-   * @param srcLen the length of source data to decompress
-   * @param dst the destination array for the decompressed data
-   * @param dstOffset the destination offset where to start storing the decompressed data
-   * @param dstLen the maximum length that can be written to the destination array
-   * @return the size of the decompressed data in bytes
+   * <p>After successful decompression:
+   *
+   * <ul>
+   *   <li>bytesRead will contain the number of compressed bytes processed
+   *   <li>bytesWritten will equal returned decompressed size
+   * </ul>
+   *
+   * @param src the source array holding compressed data
+   * @param srcOffset the offset in source array where data starts
+   * @param srcLen the number of compressed bytes to process
+   * @param dst the destination array for decompressed data
+   * @param dstOffset the offset in destination array where decompressed data is written
+   * @param dstLen the maximum number of bytes that can be written to destination
+   * @return the number of bytes written to dst
+   * @throws IllegalStateException if this QatZipper has been closed
+   * @throws IllegalArgumentException if arrays are null or empty
+   * @throws ArrayIndexOutOfBoundsException if offsets are invalid
+   * @throws RuntimeException if decompression fails
    */
   public int decompress(
       byte[] src, int srcOffset, int srcLen, byte[] dst, int dstOffset, int dstLen) {
-    if (!isValid) throw new IllegalStateException("QAT session has been closed");
+    validateSessionOpen();
+    validateByteArrays(src, srcOffset, srcLen, dst, dstOffset, dstLen);
 
-    if (src == null || dst == null || srcLen == 0 || dst.length == 0)
-      throw new IllegalArgumentException("Empty source or/and destination byte array(s)");
-
-    if (srcOffset < 0 || srcLen < 0 || srcOffset > src.length - srcLen)
-      throw new ArrayIndexOutOfBoundsException("Source offset is out of bound");
-
-    if (dstOffset < 0 || dstLen < 0 || dstOffset > dst.length - dstLen)
-      throw new ArrayIndexOutOfBoundsException("Destination offset is out of bound");
-
-    if (algorithm != Algorithm.ZSTD) {
-      return decompressByteArray(src, srcOffset, srcLen, dst, dstOffset, dstLen);
+    if (algorithm == Algorithm.ZSTD) {
+      return decompressZSTDByteArray(src, srcOffset, srcLen, dst, dstOffset, dstLen);
     } else {
-      bytesRead = bytesWritten = 0;
-      int decompressedSize =
-          zstdDecompressCtx.decompressByteArray(dst, dstOffset, dstLen, src, srcOffset, srcLen);
-      bytesWritten = decompressedSize;
-      bytesRead = srcLen;
-      return decompressedSize;
+      return decompressQATByteArray(src, srcOffset, srcLen, dst, dstOffset, dstLen);
     }
   }
 
-  private int decompressByteArray(
+  /** Internal decompression using QAT for non-ZSTD algorithms. */
+  private int decompressQATByteArray(
       byte[] src, int srcOffset, int srcLen, byte[] dst, int dstOffset, int dstLen) {
     bytesRead = bytesWritten = 0;
 
@@ -710,163 +969,516 @@ public class QatZipper {
         InternalJNI.decompressByteArray(
             this, qzKey, src, srcOffset, srcLen, dst, dstOffset, dstLen, retryCount);
 
-    // bytesRead is updated by decompressedByteArray. We only need to update bytesWritten.
-    bytesWritten = decompressedSize;
+    if (decompressedSize < 0) {
+      throw new RuntimeException("QAT decompression failed with error code: " + decompressedSize);
+    }
 
+    bytesWritten = decompressedSize;
     return decompressedSize;
   }
 
+  /** Internal decompression using ZSTD for byte arrays. */
+  private int decompressZSTDByteArray(
+      byte[] src, int srcOffset, int srcLen, byte[] dst, int dstOffset, int dstLen) {
+    try {
+      bytesRead = bytesWritten = 0;
+      int decompressedSize =
+          zstdDecompressCtx.decompressByteArray(dst, dstOffset, dstLen, src, srcOffset, srcLen);
+
+      if (decompressedSize < 0) {
+        throw new RuntimeException(
+            "ZSTD decompression failed with error code: " + decompressedSize);
+      }
+
+      bytesRead = srcLen;
+      bytesWritten = decompressedSize;
+      return decompressedSize;
+    } catch (Exception e) {
+      bytesRead = 0;
+      bytesWritten = 0;
+      throw e instanceof RuntimeException ? (RuntimeException) e : new RuntimeException(e);
+    }
+  }
+
   /**
-   * Deompresses the source buffer and stores the result in the destination buffer. Returns actual
-   * number of bytes of decompressed data.
+   * Decompresses source buffer to destination buffer. Advances both buffer positions.
    *
-   * <p>On Success, the positions of both the source and destinations buffers are advanced by the
-   * number of bytes of compressed data read from the source and the number of bytes of decompressed
-   * data written to the destination.
+   * <p>Buffer positions semantics:
    *
-   * @param src the source buffer holding the compressed data
-   * @param dst the destination array that will store the decompressed data
-   * @return the size of the decompressed data in bytes
+   * <ul>
+   *   <li>On input: position marks start of data, limit marks end
+   *   <li>On success: source position is advanced by bytesRead, destination position is advanced by
+   *       bytesWritten
+   *   <li>On error: positions may be partially advanced; check bytesRead/bytesWritten
+   * </ul>
+   *
+   * @param src the source buffer holding compressed data (position to limit)
+   * @param dst the destination buffer for decompressed data (position to limit)
+   * @return the number of bytes written to dst
+   * @throws IllegalStateException if this QatZipper has been closed
+   * @throws IllegalArgumentException if buffers are invalid
+   * @throws ReadOnlyBufferException if destination buffer is read-only
+   * @throws RuntimeException if decompression fails
    */
   public int decompress(ByteBuffer src, ByteBuffer dst) {
-    if (!isValid) throw new IllegalStateException("QAT session has been closed");
+    validateSessionOpen();
+    validateByteBuffers(src, dst);
 
-    if ((src == null || dst == null)
-        || (src.position() == src.limit() || dst.position() == dst.limit()))
-      throw new IllegalArgumentException();
+    if (dst.isReadOnly()) {
+      throw new ReadOnlyBufferException();
+    }
 
-    if (dst.isReadOnly()) throw new ReadOnlyBufferException();
-
-    if (algorithm != Algorithm.ZSTD) {
-      return decompressByteBuffer(src, dst);
+    if (algorithm == Algorithm.ZSTD) {
+      return decompressZSTDByteBuffer(src, dst);
     } else {
-      // ZSTD treats the first parameter as the destination and the second as the source.
-      if (!src.isDirect())
-        throw new IllegalArgumentException(
-            "Zstd-jni requires source buffers to be direct byte buffers");
-      return zstdDecompressCtx.decompress(dst, src);
+      return decompressQATByteBuffer(src, dst);
     }
   }
 
-  private int decompressByteBuffer(ByteBuffer src, ByteBuffer dst) {
-    final int srcPos = src.position();
-    final int dstPos = dst.position();
-
+  /** Internal decompression using QAT for ByteBuffers. Handles all combinations of buffer types. */
+  private int decompressQATByteBuffer(ByteBuffer src, ByteBuffer dst) {
+    final int initialSrcPosition = src.position();
+    final int initialDstPosition = dst.position();
     bytesRead = bytesWritten = 0;
+    int decompressedSize;
 
-    int decompressedSize = 0;
-    if (src.hasArray() && dst.hasArray()) {
-      decompressedSize =
-          InternalJNI.decompressByteBuffer(
-              qzKey,
-              src,
-              src.array(),
-              srcPos,
-              src.remaining(),
-              dst.array(),
-              dstPos,
-              dst.remaining(),
-              retryCount);
-      dst.position(dstPos + decompressedSize);
-    } else if (src.isDirect() && dst.isDirect()) {
-      decompressedSize =
-          InternalJNI.decompressDirectByteBuffer(
-              qzKey, src, srcPos, src.remaining(), dst, dstPos, dst.remaining(), retryCount);
-    } else if (src.hasArray() && dst.isDirect()) {
-      decompressedSize =
-          InternalJNI.decompressDirectByteBufferDst(
-              qzKey,
-              src,
-              src.array(),
-              srcPos,
-              src.remaining(),
-              dst,
-              dstPos,
-              dst.remaining(),
-              retryCount);
-    } else if (src.isDirect() && dst.hasArray()) {
-      decompressedSize =
-          InternalJNI.decompressDirectByteBufferSrc(
-              qzKey,
-              src,
-              srcPos,
-              src.remaining(),
-              dst.array(),
-              dstPos,
-              dst.remaining(),
-              retryCount);
-      dst.position(dstPos + decompressedSize);
-    } else {
-      int srcLen = src.remaining();
-      int dstLen = dst.remaining();
-
-      byte[] srcArr = new byte[srcLen];
-      byte[] dstArr = new byte[dstLen];
-
-      src.get(srcArr);
-      dst.get(dstArr);
-
-      src.position(src.position() - srcLen);
-      dst.position(dst.position() - dstLen);
-
-      int pos = src.position();
-      decompressedSize =
-          InternalJNI.decompressByteBuffer(
-              qzKey, src, srcArr, 0, srcLen, dstArr, 0, dstLen, retryCount);
-      src.position(pos + src.position());
-      dst.put(dstArr, 0, decompressedSize);
+    try {
+      if (src.hasArray() && dst.hasArray()) {
+        decompressedSize =
+            decompressQATArrayBuffers(src, dst, initialSrcPosition, initialDstPosition);
+      } else if (src.isDirect() && dst.isDirect()) {
+        decompressedSize =
+            decompressQATDirectBuffers(src, dst, initialSrcPosition, initialDstPosition);
+      } else if (src.hasArray() && dst.isDirect()) {
+        decompressedSize =
+            decompressQATArrayToDirect(src, dst, initialSrcPosition, initialDstPosition);
+      } else if (src.isDirect() && dst.hasArray()) {
+        decompressedSize =
+            decompressQATDirectToArray(src, dst, initialSrcPosition, initialDstPosition);
+      } else {
+        decompressedSize =
+            decompressQATMixedBuffers(src, dst, initialSrcPosition, initialDstPosition);
+      }
+    } catch (RuntimeException e) {
+      src.position(initialSrcPosition);
+      dst.position(initialDstPosition);
+      bytesRead = 0;
+      bytesWritten = 0;
+      throw e;
     }
 
-    if (decompressedSize < 0) throw new RuntimeException("QAT: Compression failed");
+    bytesWritten = dst.position() - initialDstPosition;
+    return decompressedSize;
+  }
 
-    bytesRead = src.position() - srcPos;
-    bytesWritten = dst.position() - dstPos;
+  private int decompressQATArrayBuffers(ByteBuffer src, ByteBuffer dst, int srcPos, int dstPos) {
+    int decompressedSize =
+        InternalJNI.decompressByteBuffer(
+            this,
+            qzKey,
+            src.array(),
+            srcPos,
+            src.remaining(),
+            dst.array(),
+            dstPos,
+            dst.remaining(),
+            retryCount);
+    if (decompressedSize < 0) {
+      throw new RuntimeException("QAT decompression failed with error code: " + decompressedSize);
+    }
+    src.position(srcPos + bytesRead);
+    dst.position(dstPos + decompressedSize);
+    return decompressedSize;
+  }
+
+  private int decompressQATDirectBuffers(ByteBuffer src, ByteBuffer dst, int srcPos, int dstPos) {
+    int decompressedSize =
+        InternalJNI.decompressDirectByteBuffer(
+            this, qzKey, src, srcPos, src.remaining(), dst, dstPos, dst.remaining(), retryCount);
+    if (decompressedSize < 0) {
+      throw new RuntimeException("QAT decompression failed with error code: " + decompressedSize);
+    }
+    src.position(srcPos + bytesRead);
+    dst.position(dstPos + decompressedSize);
+    return decompressedSize;
+  }
+
+  private int decompressQATArrayToDirect(ByteBuffer src, ByteBuffer dst, int srcPos, int dstPos) {
+    int decompressedSize =
+        InternalJNI.decompressDirectByteBufferDst(
+            this,
+            qzKey,
+            src.array(),
+            srcPos,
+            src.remaining(),
+            dst,
+            dstPos,
+            dst.remaining(),
+            retryCount);
+    if (decompressedSize < 0) {
+      throw new RuntimeException("QAT decompression failed with error code: " + decompressedSize);
+    }
+    src.position(srcPos + bytesRead);
+    dst.position(dstPos + decompressedSize);
+    return decompressedSize;
+  }
+
+  private int decompressQATDirectToArray(ByteBuffer src, ByteBuffer dst, int srcPos, int dstPos) {
+    int decompressedSize =
+        InternalJNI.decompressDirectByteBufferSrc(
+            this,
+            qzKey,
+            src,
+            srcPos,
+            src.remaining(),
+            dst.array(),
+            dstPos,
+            dst.remaining(),
+            retryCount);
+    if (decompressedSize < 0) {
+      throw new RuntimeException("QAT decompression failed with error code: " + decompressedSize);
+    }
+    src.position(srcPos + bytesRead);
+    dst.position(dstPos + decompressedSize);
+    return decompressedSize;
+  }
+
+  private int decompressQATMixedBuffers(
+      ByteBuffer src, ByteBuffer dst, int initialSrcPos, int initialDstPos) {
+    final int srcLen = src.remaining();
+    final int dstLen = dst.remaining();
+
+    byte[] srcArr = new byte[srcLen];
+    byte[] dstArr = new byte[dstLen];
+
+    src.get(srcArr);
+    dst.get(dstArr);
+
+    src.position(initialSrcPos);
+    dst.position(initialDstPos);
+
+    int decompressedSize = decompressQATByteArray(srcArr, 0, srcLen, dstArr, 0, dstLen);
+    src.position(initialSrcPos + bytesRead);
+    dst.put(dstArr, 0, decompressedSize);
 
     return decompressedSize;
   }
 
   /**
-   * Returns the number of bytes read from the source array or buffer by the most recent call to
-   * compress/decompress.
+   * Internal decompression using ZSTD for ByteBuffers. Handles all combinations of buffer types.
+   */
+  private int decompressZSTDByteBuffer(ByteBuffer src, ByteBuffer dst) {
+    final int initialSrcPosition = src.position();
+    final int initialDstPosition = dst.position();
+    bytesRead = bytesWritten = 0;
+    int decompressedSize;
+
+    try {
+      if (src.hasArray() && dst.hasArray()) {
+        decompressedSize =
+            decompressZSTDArrayBuffers(src, dst, initialSrcPosition, initialDstPosition);
+      } else if (src.isDirect() && dst.isDirect()) {
+        decompressedSize =
+            decompressZSTDDirectBuffers(src, dst, initialSrcPosition, initialDstPosition);
+      } else if (src.hasArray() && dst.isDirect()) {
+        decompressedSize =
+            decompressZSTDArrayToDirect(src, dst, initialSrcPosition, initialDstPosition);
+      } else if (src.isDirect() && dst.hasArray()) {
+        decompressedSize =
+            decompressZSTDDirectToArray(src, dst, initialSrcPosition, initialDstPosition);
+      } else {
+        decompressedSize =
+            decompressZSTDMixedBuffers(src, dst, initialSrcPosition, initialDstPosition);
+      }
+    } catch (RuntimeException e) {
+      src.position(initialSrcPosition);
+      dst.position(initialDstPosition);
+      bytesRead = 0;
+      bytesWritten = 0;
+      throw e;
+    }
+
+    bytesRead = src.position() - initialSrcPosition;
+    bytesWritten = dst.position() - initialDstPosition;
+    return decompressedSize;
+  }
+
+  private int decompressZSTDArrayBuffers(ByteBuffer src, ByteBuffer dst, int srcPos, int dstPos) {
+    byte[] srcArr = src.array();
+    byte[] dstArr = dst.array();
+    int srcOffset = src.arrayOffset() + srcPos;
+    int dstOffset = dst.arrayOffset() + dstPos;
+    int srcLen = src.remaining();
+    int dstLen = dst.remaining();
+
+    int decompressedSize =
+        zstdDecompressCtx.decompressByteArray(dstArr, dstOffset, dstLen, srcArr, srcOffset, srcLen);
+
+    if (decompressedSize < 0) {
+      throw new RuntimeException("ZSTD decompression failed with error code: " + decompressedSize);
+    }
+
+    src.position(srcPos + bytesRead);
+    dst.position(dstPos + decompressedSize);
+    return decompressedSize;
+  }
+
+  private int decompressZSTDDirectBuffers(ByteBuffer src, ByteBuffer dst, int srcPos, int dstPos) {
+    int decompressedSize = zstdDecompressCtx.decompress(dst, src);
+
+    if (decompressedSize < 0) {
+      throw new RuntimeException("ZSTD decompression failed with error code: " + decompressedSize);
+    }
+
+    src.position(srcPos + bytesRead);
+    dst.position(dstPos + decompressedSize);
+
+    return decompressedSize;
+  }
+
+  private int decompressZSTDArrayToDirect(ByteBuffer src, ByteBuffer dst, int srcPos, int dstPos) {
+    byte[] srcArr = src.array();
+    int srcOffset = src.arrayOffset() + srcPos;
+    int srcLen = src.remaining();
+
+    ByteBuffer tempSrc = ByteBuffer.allocateDirect(srcLen);
+    tempSrc.put(srcArr, srcOffset, srcLen);
+    tempSrc.flip();
+
+    try {
+      int decompressedSize = zstdDecompressCtx.decompress(dst, tempSrc);
+
+      if (decompressedSize < 0) {
+        throw new RuntimeException(
+            "ZSTD decompression failed with error code: " + decompressedSize);
+      }
+
+      src.position(srcPos + bytesRead);
+      dst.position(dstPos + decompressedSize);
+
+      return decompressedSize;
+    } finally {
+      // Clean up temp buffer if needed
+    }
+  }
+
+  private int decompressZSTDDirectToArray(ByteBuffer src, ByteBuffer dst, int srcPos, int dstPos) {
+    int dstLen = dst.remaining();
+
+    ByteBuffer tempDst = ByteBuffer.allocateDirect(dstLen);
+
+    try {
+      int decompressedSize = zstdDecompressCtx.decompress(tempDst, src);
+
+      if (decompressedSize < 0) {
+        throw new RuntimeException(
+            "ZSTD decompression failed with error code: " + decompressedSize);
+      }
+
+      src.position(srcPos + bytesRead);
+
+      byte[] dstArr = dst.array();
+      int dstOffset = dst.arrayOffset() + dstPos;
+      tempDst.flip();
+      tempDst.get(dstArr, dstOffset, decompressedSize);
+      dst.position(dstPos + decompressedSize);
+
+      return decompressedSize;
+    } finally {
+      // Clean up temp buffer if needed
+    }
+  }
+
+  private int decompressZSTDMixedBuffers(
+      ByteBuffer src, ByteBuffer dst, int initialSrcPos, int initialDstPos) {
+    final int srcLen = src.remaining();
+    final int dstLen = dst.remaining();
+
+    byte[] srcArr = new byte[srcLen];
+    byte[] dstArr = new byte[dstLen];
+
+    src.get(srcArr);
+    dst.get(dstArr);
+
+    src.position(initialSrcPos);
+    dst.position(initialDstPos);
+
+    int decompressedSize = decompressZSTDByteArray(srcArr, 0, srcLen, dstArr, 0, dstLen);
+    src.position(initialSrcPos + bytesRead);
+    dst.put(dstArr, 0, decompressedSize);
+
+    return decompressedSize;
+  }
+
+  /**
+   * Gets the maximum compressed size for data of given length. Useful for pre-allocating output
+   * buffers.
    *
-   * @return the number of bytes read from source.
+   * @param sourceLength the length of uncompressed data
+   * @return the maximum possible compressed size
+   */
+  public int maxCompressedLength(long sourceLength) {
+    validateSessionOpen();
+
+    if (sourceLength < 0) {
+      throw new IllegalArgumentException("sourceLength cannot be negative");
+    }
+    if (algorithm == Algorithm.ZSTD) {
+      return (int) Zstd.compressBound(sourceLength);
+    }
+    // For QAT algorithms, delegate to JNI
+    return InternalJNI.maxCompressedLength(qzKey, sourceLength);
+  }
+
+  /**
+   * Returns the number of bytes read from the source by the most recent compress/decompress
+   * operation.
+   *
+   * <p>Note: For operations that fail, this may represent bytes processed before failure.
+   *
+   * @return number of bytes read from source in the most recent operation
    */
   public int getBytesRead() {
     return bytesRead;
   }
 
   /**
-   * Returns the number of bytes written to the destination array or buffer by the most recent call
-   * to compress/decompress.
+   * Returns the number of bytes written to the destination by the most recent compress/decompress
+   * operation.
    *
-   * @return the number of bytes written to destination.
+   * <p>Note: For operations that fail, this may represent bytes written before failure.
+   *
+   * @return number of bytes written to destination in the most recent operation
    */
   public int getBytesWritten() {
     return bytesWritten;
   }
 
   /**
-   * Sets a checksum flag. Currently valid only for ZSTD.
+   * Sets whether to include checksum in compressed output. Only supported for ZSTD algorithm.
    *
-   * @param checksumFlag the checksum flag.
-   * @throws UnsupportedOperationException if called for a compressor algorithm other than ZSTD.
+   * @param checksumFlag whether to enable checksum
+   * @throws UnsupportedOperationException if algorithm is not ZSTD
    */
   public void setChecksumFlag(boolean checksumFlag) {
-    if (algorithm != Algorithm.ZSTD)
-      throw new UnsupportedOperationException(
-          "Setting a checksum flag is currently valid only for ZSTD compressor");
+    if (algorithm != Algorithm.ZSTD) {
+      throw new UnsupportedOperationException("Checksum flag is only supported for ZSTD algorithm");
+    }
     zstdCompressCtx.setChecksum(checksumFlag);
+    this.checksumFlag = checksumFlag;
   }
 
   /**
-   * Ends the current QAT session by freeing up resources. A new session must be used after a
-   * successful call of this method.
+   * Gets the checksum flag status for ZSTD algorithm.
    *
-   * @throws RuntimeException if QAT session cannot be gracefully ended.
+   * @return whether checksum is enabled
+   * @throws UnsupportedOperationException if algorithm is not ZSTD
+   */
+  public boolean getChecksumFlag() {
+    if (algorithm != Algorithm.ZSTD) {
+      throw new UnsupportedOperationException("Checksum flag is only supported for ZSTD algorithm");
+    }
+    return checksumFlag;
+  }
+
+  /**
+   * Validates that this QatZipper session is still open.
+   *
+   * @throws IllegalStateException if session has been closed
+   */
+  private void validateSessionOpen() {
+    if (!isValid) {
+      throw new IllegalStateException("QatZipper session has been closed");
+    }
+  }
+
+  /**
+   * Validates byte arrays for compression/decompression operations.
+   *
+   * @throws IllegalArgumentException if arrays are invalid
+   * @throws ArrayIndexOutOfBoundsException if offsets/lengths are out of bounds
+   */
+  private void validateByteArrays(
+      byte[] src, int srcOffset, int srcLen, byte[] dst, int dstOffset, int dstLen) {
+    if (src == null || dst == null) {
+      throw new IllegalArgumentException("Source and destination arrays cannot be null");
+    }
+    if (srcLen == 0 || dstLen == 0) {
+      throw new IllegalArgumentException("Source and destination length cannot be zero");
+    }
+    validateArrayBounds(src, srcOffset, srcLen, "source");
+    validateArrayBounds(dst, dstOffset, dstLen, "destination");
+  }
+
+  /**
+   * Validates array bounds for a single array.
+   *
+   * @throws ArrayIndexOutOfBoundsException if bounds are invalid
+   */
+  private void validateArrayBounds(byte[] array, int offset, int length, String arrayName) {
+    if (offset < 0) {
+      throw new ArrayIndexOutOfBoundsException(
+          String.format("%s offset cannot be negative: %d", arrayName, offset));
+    }
+    if (length < 0) {
+      throw new ArrayIndexOutOfBoundsException(
+          String.format("%s length cannot be negative: %d", arrayName, length));
+    }
+    if (offset + length > array.length) {
+      throw new ArrayIndexOutOfBoundsException(
+          String.format(
+              "%s bounds exceeded: offset=%d, length=%d, array.length=%d",
+              arrayName, offset, length, array.length));
+    }
+  }
+
+  /**
+   * Validates ByteBuffers for compression/decompression operations.
+   *
+   * @throws IllegalArgumentException if buffers are invalid
+   */
+  private void validateByteBuffers(ByteBuffer src, ByteBuffer dst) {
+    if (src == null || dst == null) {
+      throw new IllegalArgumentException("Source and destination buffers cannot be null");
+    }
+    if (src.position() >= src.limit()) {
+      throw new IllegalArgumentException("Source buffer position >= limit; no data to process");
+    }
+    if (dst.position() >= dst.limit()) {
+      throw new IllegalArgumentException(
+          "Destination buffer position >= limit; no space for output");
+    }
+  }
+
+  /**
+   * Closes this QatZipper and releases associated resources. Can be called multiple times safely.
+   *
+   * @throws RuntimeException if QAT session cannot be gracefully closed
    */
   public void end() throws RuntimeException {
-    if (!isValid) throw new IllegalStateException("Invalid QAT session");
-    InternalJNI.teardown(qzKey);
-    isValid = false;
+    if (isValid) {
+      try {
+        InternalJNI.teardown(qzKey);
+        isValid = false;
+      } catch (Exception e) {
+        throw new RuntimeException("Failed to close QAT session", e);
+      } finally {
+        // Close ZSTD contexts if initialized
+        if (zstdCompressCtx != null) {
+          try {
+            zstdCompressCtx.close();
+          } catch (Exception e) {
+            // Ignore exceptions during cleanup
+          }
+        }
+        if (zstdDecompressCtx != null) {
+          try {
+            zstdDecompressCtx.close();
+          } catch (Exception e) {
+            // Ignore exceptions during cleanup
+          }
+        }
+      }
+    }
   }
 }

@@ -18,624 +18,311 @@ import java.util.Random;
 
 public class FuzzerTest {
   private static final Random RANDOM = new Random();
+  private static final int MIN_STREAM_SIZE = 32;
+  private static final int MAX_BUFFER_SIZE = 1024 * 1024;
+  private static final int STREAM_READ_BUFFER_SIZE = 1024;
 
   public static void fuzzerTestOneInput(FuzzedDataProvider data) throws IOException {
+    if (data.remainingBytes() == 0) return;
+
+    byte[] sourceData = data.consumeRemainingAsBytes();
+
+    // Test all compression scenarios
+    testAllCompressionScenarios(sourceData);
+  }
+
+  private static void testAllCompressionScenarios(byte[] sourceData) throws IOException {
+    QatZipper.Algorithm[] algorithms = {
+      QatZipper.Algorithm.DEFLATE, QatZipper.Algorithm.LZ4, QatZipper.Algorithm.ZSTD
+    };
+
+    for (QatZipper.Algorithm algorithm : algorithms) {
+      // Basic compression tests
+      testByteArrayCompression(sourceData, algorithm);
+
+      // Compression with parameters
+      testByteArrayWithOffsets(sourceData, algorithm);
+
+      // ByteBuffer tests (ZSTD requires direct source buffers)
+      if (algorithm == QatZipper.Algorithm.ZSTD) {
+        // ZSTD requires direct source byte buffers
+        testByteBufferCompression(sourceData, algorithm, true);
+        testZstdSpecificTests(sourceData);
+      } else {
+        testByteBufferCompression(sourceData, algorithm, false);
+        testByteBufferCompression(sourceData, algorithm, true);
+
+        // Mixed buffer type tests (skip for ZSTD due to direct buffer requirement)
+        testMixedBufferTypes(sourceData, algorithm);
+      }
+
+      // Advanced configuration tests
+      testWithAdvancedConfiguration(sourceData, algorithm);
+
+      // Stream-based tests
+      testStreamCompression(sourceData, algorithm, false);
+      testStreamCompression(sourceData, algorithm, true);
+    }
+  }
+
+  private static void testByteArrayCompression(byte[] sourceData, QatZipper.Algorithm algorithm) {
+    QatZipper qzip = new QatZipper.Builder().algorithm(algorithm).build();
     try {
-      if (data.remainingBytes() == 0) return;
+      byte[] compressed = new byte[qzip.maxCompressedLength(sourceData.length)];
+      byte[] decompressed = new byte[sourceData.length];
 
-      // Save remaining bytes as a source data
-      byte[] src = data.consumeRemainingAsBytes();
+      int compressedSize =
+          qzip.compress(sourceData, 0, sourceData.length, compressed, 0, compressed.length);
+      qzip.decompress(compressed, 0, compressedSize, decompressed, 0, decompressed.length);
 
-      testByteArray(src);
-      testByteArrayWithParams(src);
-      testByteBuffer(src);
-      testDirectByteBuffer(src);
-      testMixedTypesOne(src);
-      testMixedTypesTwo(src);
-      testMixedTypesThree(src);
-      testWithCompressionLengthAndRetry(src);
-      testByteArrayLZ4(src);
-      testByteArrayWithParamsLZ4(src);
-      testByteBufferLZ4(src);
-      testDirectByteBufferLZ4(src);
-      testDecompressionSrcBBDstDBB(src);
-      testDecompressionSrcBBDstDBBLZ4(src);
-      testDecompressionSrcDBBDstBB(src);
-      testDecompressionSrcDBBDstBBLZ4(src);
-      testDecompressionSrcBBRODstBB(src);
-      testDecompressionSrcBBRODstBBLZ4(src);
-      testMixedTypesOneLZ4(src);
-      testMixedTypesTwoLZ4(src);
-      testMixedTypesThreeLZ4(src);
-      testWithCompressionLengthAndRetryLZ4(src);
-      testQatStreamDeflate(src);
-      testQatStreamLZ4(src);
-      testQatStreamDeflate2(src);
-      testQatStreamLZ42(src);
-    } catch (RuntimeException e) {
-      throw e;
+      assert Arrays.equals(sourceData, decompressed)
+          : String.format("Array compression failed for %s", algorithm);
+    } finally {
+      qzip.end();
     }
   }
 
-  static void testByteArray(byte[] src) {
-    QatZipper qzip = new QatZipper.Builder().build();
-    byte[] dst = new byte[qzip.maxCompressedLength(src.length)];
-    byte[] dec = new byte[src.length];
+  private static void testByteArrayWithOffsets(byte[] sourceData, QatZipper.Algorithm algorithm) {
+    if (sourceData.length == 0) return;
 
-    int compressedSize = qzip.compress(src, 0, src.length, dst, 0, dst.length);
-    qzip.decompress(dst, 0, compressedSize, dec, 0, dec.length);
-    qzip.end();
+    QatZipper qzip = new QatZipper.Builder().algorithm(algorithm).build();
+    try {
+      int offset = RANDOM.nextInt(sourceData.length);
+      int length = sourceData.length - offset;
 
-    assert Arrays.equals(src, dec) : "The source and decompressed arrays do not match.";
+      byte[] compressed = new byte[qzip.maxCompressedLength(length)];
+      byte[] decompressed = new byte[length];
+
+      int compressedSize =
+          qzip.compress(sourceData, offset, length, compressed, 0, compressed.length);
+      int decompressedSize =
+          qzip.decompress(compressed, 0, compressedSize, decompressed, 0, decompressed.length);
+
+      byte[] expectedData = Arrays.copyOfRange(sourceData, offset, sourceData.length);
+      byte[] actualData = Arrays.copyOfRange(decompressed, 0, decompressedSize);
+
+      assert Arrays.equals(expectedData, actualData)
+          : String.format("Array compression with offsets failed for %s", algorithm);
+    } finally {
+      qzip.end();
+    }
   }
 
-  static void testByteArrayLZ4(byte[] src) {
-    QatZipper qzip = new QatZipper.Builder().setAlgorithm(QatZipper.Algorithm.LZ4).build();
-    byte[] dst = new byte[qzip.maxCompressedLength(src.length)];
-    byte[] dec = new byte[src.length];
+  private static void testByteBufferCompression(
+      byte[] sourceData, QatZipper.Algorithm algorithm, boolean direct) {
+    QatZipper qzip = new QatZipper.Builder().algorithm(algorithm).build();
+    try {
+      // ZSTD requires direct source buffers, so force direct for source when using ZSTD
+      boolean useDirectSource = direct || (algorithm == QatZipper.Algorithm.ZSTD);
 
-    int compressedSize = qzip.compress(src, 0, src.length, dst, 0, dst.length);
-    qzip.decompress(dst, 0, compressedSize, dec, 0, dec.length);
-    qzip.end();
+      ByteBuffer sourceBuf = createBuffer(sourceData.length, useDirectSource);
+      sourceBuf.put(sourceData).flip();
 
-    assert Arrays.equals(src, dec) : "The source and decompressed arrays do not match.";
+      int compressedSize = qzip.maxCompressedLength(sourceData.length);
+      assert compressedSize > 0 : "Compressed size should be positive";
+
+      ByteBuffer compressedBuf = createBuffer(compressedSize, direct);
+      qzip.compress(sourceBuf, compressedBuf);
+      sourceBuf.flip();
+      compressedBuf.flip();
+
+      ByteBuffer decompressedBuf = createBuffer(sourceData.length, direct);
+      qzip.decompress(compressedBuf, decompressedBuf);
+      decompressedBuf.flip();
+
+      assert sourceBuf.compareTo(decompressedBuf) == 0
+          : String.format("ByteBuffer compression failed for %s (direct: %s)", algorithm, direct);
+    } finally {
+      qzip.end();
+    }
   }
 
-  static void testByteArrayWithParams(byte[] src) {
-    QatZipper qzip = new QatZipper.Builder().build();
+  private static void testMixedBufferTypes(byte[] sourceData, QatZipper.Algorithm algorithm) {
+    // Skip mixed buffer type tests entirely for ZSTD due to direct buffer requirements
+    if (algorithm == QatZipper.Algorithm.ZSTD) {
+      return;
+    }
 
-    int srcOffset = RANDOM.nextInt(src.length);
+    QatZipper qzip = new QatZipper.Builder().algorithm(algorithm).build();
+    try {
+      // Test various buffer type combinations
+      testBufferCombination(qzip, sourceData, false, true, false); // heap->direct->heap
+      testBufferCombination(qzip, sourceData, true, false, true); // direct->heap->direct
+      testBufferCombination(qzip, sourceData, false, false, true); // heap->heap->direct
+      testBufferCombination(qzip, sourceData, true, true, false); // direct->direct->heap
 
-    byte[] dst = new byte[qzip.maxCompressedLength(src.length)];
-    byte[] dec = new byte[src.length];
-
-    int compressedSize = qzip.compress(src, srcOffset, src.length - srcOffset, dst, 0, dst.length);
-    int decompressedSize = qzip.decompress(dst, 0, compressedSize, dec, 0, dec.length);
-
-    qzip.end();
-
-    assert Arrays.equals(
-            Arrays.copyOfRange(src, srcOffset, src.length),
-            Arrays.copyOfRange(dec, 0, decompressedSize))
-        : "The source and decompressed arrays do not match.";
+      // Test with read-only buffers (only for DEFLATE and LZ4)
+      testReadOnlyBufferCompression(qzip, sourceData);
+    } finally {
+      qzip.end();
+    }
   }
 
-  static void testByteArrayWithParamsLZ4(byte[] src) {
-    QatZipper qzip = new QatZipper.Builder().setAlgorithm(QatZipper.Algorithm.LZ4).build();
+  private static void testBufferCombination(
+      QatZipper qzip, byte[] sourceData, boolean srcDirect, boolean compDirect, boolean decDirect) {
+    // For ZSTD, always use direct source buffers
+    boolean useDirectSource = srcDirect;
+    if (qzip.toString().contains("ZSTD")) {
+      useDirectSource = true;
+    }
 
-    int srcOffset = RANDOM.nextInt(src.length);
+    ByteBuffer sourceBuf = createBuffer(sourceData.length, useDirectSource);
+    sourceBuf.put(sourceData).flip();
 
-    byte[] dst = new byte[qzip.maxCompressedLength(src.length)];
-    byte[] dec = new byte[src.length];
+    int compressedSize = qzip.maxCompressedLength(sourceData.length);
+    ByteBuffer compressedBuf = createBuffer(compressedSize, compDirect);
+    qzip.compress(sourceBuf, compressedBuf);
+    sourceBuf.flip();
+    compressedBuf.flip();
 
-    int compressedSize = qzip.compress(src, srcOffset, src.length - srcOffset, dst, 0, dst.length);
-    int decompressedSize = qzip.decompress(dst, 0, compressedSize, dec, 0, dec.length);
+    ByteBuffer decompressedBuf = createBuffer(sourceData.length, decDirect);
+    qzip.decompress(compressedBuf, decompressedBuf);
+    decompressedBuf.flip();
 
-    qzip.end();
-
-    assert Arrays.equals(
-            Arrays.copyOfRange(src, srcOffset, src.length),
-            Arrays.copyOfRange(dec, 0, decompressedSize))
-        : "The source and decompressed arrays do not match.";
+    assert sourceBuf.compareTo(decompressedBuf) == 0
+        : String.format(
+            "Mixed buffer type test failed (src:%s, comp:%s, dec:%s)",
+            useDirectSource, compDirect, decDirect);
   }
 
-  static void testByteBuffer(byte[] src) {
-    ByteBuffer srcBuf = ByteBuffer.allocate(src.length);
-    srcBuf.put(src, 0, src.length);
-    srcBuf.flip();
+  private static void testReadOnlyBufferCompression(QatZipper qzip, byte[] sourceData) {
+    // This method is only called for DEFLATE and LZ4 algorithms
+    ByteBuffer sourceBuf = ByteBuffer.allocate(sourceData.length);
+    sourceBuf.put(sourceData).flip();
 
-    QatZipper qzip = new QatZipper.Builder().build();
-    int compressedSize = qzip.maxCompressedLength(src.length);
+    int compressedSize = qzip.maxCompressedLength(sourceData.length);
+    ByteBuffer readOnlySource = sourceBuf.asReadOnlyBuffer();
 
-    assert compressedSize > 0;
+    ByteBuffer compressedBuf = ByteBuffer.allocateDirect(compressedSize);
+    qzip.compress(readOnlySource, compressedBuf);
+    compressedBuf.flip();
 
-    ByteBuffer comBuf = ByteBuffer.allocate(compressedSize);
-    qzip.compress(srcBuf, comBuf);
-    comBuf.flip();
-
-    ByteBuffer decBuf = ByteBuffer.allocate(src.length);
-    qzip.decompress(comBuf, decBuf);
-
-    qzip.end();
-
-    assert srcBuf.compareTo(decBuf) == 0 : "The source and decompressed buffers do not match.";
+    ByteBuffer decompressedBuf = ByteBuffer.allocate(sourceData.length);
+    ByteBuffer readOnlyCompressed = compressedBuf.asReadOnlyBuffer();
+    qzip.decompress(readOnlyCompressed, decompressedBuf);
+    decompressedBuf.flip();
+    /*
+    System.out.printf(
+        "%d, %d, %d, %d\n",
+        sourceBuf.position(),
+        sourceBuf.limit(),
+        decompressedBuf.position(),
+        decompressedBuf.limit());
+    */
+    assert sourceBuf.compareTo(decompressedBuf) == 0
+        : "Read-only buffer compression failed for DEFLATE/LZ4";
   }
 
-  static void testByteBufferLZ4(byte[] src) {
-    ByteBuffer srcBuf = ByteBuffer.allocate(src.length);
-    srcBuf.put(src, 0, src.length);
-    srcBuf.flip();
+  private static void testZstdSpecificTests(byte[] sourceData) {
+    // Test ZSTD-specific features like checksum functionality
+    QatZipper qzip = new QatZipper.Builder().algorithm(QatZipper.Algorithm.ZSTD).build();
+    try {
+      // Test with checksum disabled (this should work)
+      qzip.setChecksumFlag(false);
 
-    QatZipper qzip = new QatZipper.Builder().setAlgorithm(QatZipper.Algorithm.LZ4).build();
-    int compressedSize = qzip.maxCompressedLength(src.length);
+      ByteBuffer sourceBuf = ByteBuffer.allocateDirect(sourceData.length);
+      sourceBuf.put(sourceData).flip();
 
-    assert compressedSize > 0;
+      int compressedSize = qzip.maxCompressedLength(sourceData.length);
+      ByteBuffer compressedBuf = ByteBuffer.allocateDirect(compressedSize);
+      qzip.compress(sourceBuf, compressedBuf);
+      sourceBuf.flip();
+      compressedBuf.flip();
 
-    ByteBuffer comBuf = ByteBuffer.allocate(compressedSize);
-    qzip.compress(srcBuf, comBuf);
-    comBuf.flip();
+      ByteBuffer decompressedBuf = ByteBuffer.allocateDirect(sourceData.length);
+      qzip.decompress(compressedBuf, decompressedBuf);
+      decompressedBuf.flip();
 
-    ByteBuffer decBuf = ByteBuffer.allocate(src.length);
-    qzip.decompress(comBuf, decBuf);
-
-    qzip.end();
-
-    assert srcBuf.compareTo(decBuf) == 0 : "The source and decompressed buffers do not match.";
+      assert sourceBuf.compareTo(decompressedBuf) == 0 : "ZSTD checksum test failed";
+    } finally {
+      qzip.end();
+    }
   }
 
-  static void testDirectByteBuffer(byte[] src) {
-    ByteBuffer srcBuf = ByteBuffer.allocateDirect(src.length);
-    srcBuf.put(src, 0, src.length);
-    srcBuf.flip();
-
-    QatZipper qzip = new QatZipper.Builder().build();
-    int compressedSize = qzip.maxCompressedLength(src.length);
-
-    assert compressedSize > 0;
-
-    ByteBuffer comBuf = ByteBuffer.allocateDirect(compressedSize);
-    qzip.compress(srcBuf, comBuf);
-    comBuf.flip();
-
-    ByteBuffer decBuf = ByteBuffer.allocateDirect(src.length);
-    qzip.decompress(comBuf, decBuf);
-
-    qzip.end();
-
-    assert srcBuf.compareTo(decBuf) == 0 : "The source and decompressed buffers do not match.";
-  }
-
-  static void testDecompressionSrcBBDstDBB(byte[] src) {
-    ByteBuffer srcBuf = ByteBuffer.allocate(src.length);
-    srcBuf.put(src, 0, src.length);
-    srcBuf.flip();
-
-    QatZipper qzip = new QatZipper.Builder().build();
-    int compressedSize = qzip.maxCompressedLength(src.length);
-
-    assert compressedSize > 0;
-
-    ByteBuffer comBuf = ByteBuffer.allocate(compressedSize);
-    qzip.compress(srcBuf, comBuf);
-    comBuf.flip();
-
-    ByteBuffer decBuf = ByteBuffer.allocateDirect(src.length);
-    qzip.decompress(comBuf, decBuf);
-
-    qzip.end();
-
-    assert srcBuf.compareTo(decBuf) == 0 : "The source and decompressed buffers do not match.";
-  }
-
-  static void testDecompressionSrcBBDstDBBLZ4(byte[] src) {
-    ByteBuffer srcBuf = ByteBuffer.allocate(src.length);
-    srcBuf.put(src, 0, src.length);
-    srcBuf.flip();
-
-    QatZipper qzip = new QatZipper.Builder().setAlgorithm(QatZipper.Algorithm.LZ4).build();
-    int compressedSize = qzip.maxCompressedLength(src.length);
-
-    assert compressedSize > 0;
-
-    ByteBuffer comBuf = ByteBuffer.allocate(compressedSize);
-    qzip.compress(srcBuf, comBuf);
-    comBuf.flip();
-
-    ByteBuffer decBuf = ByteBuffer.allocateDirect(src.length);
-    qzip.decompress(comBuf, decBuf);
-
-    qzip.end();
-
-    assert srcBuf.compareTo(decBuf) == 0 : "The source and decompressed buffers do not match.";
-  }
-
-  static void testDecompressionSrcDBBDstBB(byte[] src) {
-    ByteBuffer srcBuf = ByteBuffer.allocate(src.length);
-    srcBuf.put(src, 0, src.length);
-    srcBuf.flip();
-
-    QatZipper qzip = new QatZipper.Builder().build();
-    int compressedSize = qzip.maxCompressedLength(src.length);
-
-    assert compressedSize > 0;
-
-    ByteBuffer comBuf = ByteBuffer.allocateDirect(compressedSize);
-    qzip.compress(srcBuf, comBuf);
-    comBuf.flip();
-
-    ByteBuffer decBuf = ByteBuffer.allocate(src.length);
-    qzip.decompress(comBuf, decBuf);
-
-    qzip.end();
-
-    assert srcBuf.compareTo(decBuf) == 0 : "The source and decompressed buffers do not match.";
-  }
-
-  static void testDecompressionSrcDBBDstBBLZ4(byte[] src) {
-    ByteBuffer srcBuf = ByteBuffer.allocate(src.length);
-    srcBuf.put(src, 0, src.length);
-    srcBuf.flip();
-
-    QatZipper qzip = new QatZipper.Builder().build();
-    int compressedSize = qzip.maxCompressedLength(src.length);
-
-    assert compressedSize > 0;
-
-    ByteBuffer comBuf = ByteBuffer.allocateDirect(compressedSize);
-    qzip.compress(srcBuf, comBuf);
-    comBuf.flip();
-
-    ByteBuffer decBuf = ByteBuffer.allocate(src.length);
-    qzip.decompress(comBuf, decBuf);
-
-    qzip.end();
-
-    assert srcBuf.compareTo(decBuf) == 0 : "The source and decompressed buffers do not match.";
-  }
-
-  static void testDecompressionSrcBBRODstBB(byte[] src) {
-    ByteBuffer srcBuf = ByteBuffer.allocate(src.length);
-    srcBuf.put(src, 0, src.length);
-    srcBuf.flip();
-
-    QatZipper qzip = new QatZipper.Builder().build();
-    int compressedSize = qzip.maxCompressedLength(src.length);
-
-    assert compressedSize > 0;
-
-    ByteBuffer comBuf = ByteBuffer.allocateDirect(compressedSize);
-    qzip.compress(srcBuf, comBuf);
-    comBuf.flip();
-
-    ByteBuffer decBuf = ByteBuffer.allocate(src.length);
-    ByteBuffer comBufRO = comBuf.asReadOnlyBuffer();
-    qzip.decompress(comBufRO, decBuf);
-
-    qzip.end();
-
-    assert srcBuf.compareTo(decBuf) == 0 : "The source and decompressed buffers do not match.";
-  }
-
-  static void testDecompressionSrcBBRODstBBLZ4(byte[] src) {
-    ByteBuffer srcBuf = ByteBuffer.allocate(src.length);
-    srcBuf.put(src, 0, src.length);
-    srcBuf.flip();
-
-    QatZipper qzip = new QatZipper.Builder().build();
-    int compressedSize = qzip.maxCompressedLength(src.length);
-
-    assert compressedSize > 0;
-
-    ByteBuffer comBuf = ByteBuffer.allocateDirect(compressedSize);
-    qzip.compress(srcBuf, comBuf);
-    comBuf.flip();
-
-    ByteBuffer decBuf = ByteBuffer.allocate(src.length);
-    ByteBuffer comBufRO = comBuf.asReadOnlyBuffer();
-    qzip.decompress(comBufRO, decBuf);
-
-    qzip.end();
-
-    assert srcBuf.compareTo(decBuf) == 0 : "The source and decompressed buffers do not match.";
-  }
-
-  static void testDirectByteBufferLZ4(byte[] src) {
-    ByteBuffer srcBuf = ByteBuffer.allocateDirect(src.length);
-    srcBuf.put(src, 0, src.length);
-    srcBuf.flip();
-
-    QatZipper qzip = new QatZipper.Builder().setAlgorithm(QatZipper.Algorithm.LZ4).build();
-    int compressedSize = qzip.maxCompressedLength(src.length);
-
-    assert compressedSize > 0;
-
-    ByteBuffer comBuf = ByteBuffer.allocateDirect(compressedSize);
-    qzip.compress(srcBuf, comBuf);
-    comBuf.flip();
-
-    ByteBuffer decBuf = ByteBuffer.allocateDirect(src.length);
-    qzip.decompress(comBuf, decBuf);
-
-    qzip.end();
-
-    assert srcBuf.compareTo(decBuf) == 0 : "The source and decompressed buffers do not match.";
-  }
-
-  static void testMixedTypesOne(byte[] src) {
-    ByteBuffer srcBuf = ByteBuffer.allocate(src.length);
-    srcBuf.put(src, 0, src.length);
-    srcBuf.flip();
-
-    QatZipper qzip = new QatZipper.Builder().build();
-    int compressedSize = qzip.maxCompressedLength(src.length);
-
-    assert compressedSize > 0;
-
-    ByteBuffer comBuf = ByteBuffer.allocateDirect(compressedSize);
-    qzip.compress(srcBuf, comBuf);
-    comBuf.flip();
-
-    ByteBuffer decBuf = ByteBuffer.allocateDirect(src.length);
-    qzip.decompress(comBuf, decBuf);
-
-    qzip.end();
-
-    assert srcBuf.compareTo(decBuf) == 0 : "The source and decompressed buffers do not match.";
-  }
-
-  static void testMixedTypesOneLZ4(byte[] src) {
-    ByteBuffer srcBuf = ByteBuffer.allocate(src.length);
-    srcBuf.put(src, 0, src.length);
-    srcBuf.flip();
-
-    QatZipper qzip = new QatZipper.Builder().setAlgorithm(QatZipper.Algorithm.LZ4).build();
-    int compressedSize = qzip.maxCompressedLength(src.length);
-
-    assert compressedSize > 0;
-
-    ByteBuffer comBuf = ByteBuffer.allocateDirect(compressedSize);
-    qzip.compress(srcBuf, comBuf);
-    comBuf.flip();
-
-    ByteBuffer decBuf = ByteBuffer.allocateDirect(src.length);
-    qzip.decompress(comBuf, decBuf);
-
-    qzip.end();
-
-    assert srcBuf.compareTo(decBuf) == 0 : "The source and decompressed buffers do not match.";
-  }
-
-  static void testMixedTypesTwo(byte[] src) {
-    ByteBuffer srcBuf = ByteBuffer.allocateDirect(src.length);
-    srcBuf.put(src, 0, src.length);
-    srcBuf.flip();
-
-    QatZipper qzip = new QatZipper.Builder().build();
-    int compressedSize = qzip.maxCompressedLength(src.length);
-
-    assert compressedSize > 0;
-
-    ByteBuffer comBuf = ByteBuffer.allocate(compressedSize);
-    qzip.compress(srcBuf, comBuf);
-    comBuf.flip();
-
-    ByteBuffer decBuf = ByteBuffer.allocate(src.length);
-    qzip.decompress(comBuf, decBuf);
-
-    qzip.end();
-
-    assert srcBuf.compareTo(decBuf) == 0 : "The source and decompressed buffers do not match.";
-  }
-
-  static void testMixedTypesTwoLZ4(byte[] src) {
-    ByteBuffer srcBuf = ByteBuffer.allocateDirect(src.length);
-    srcBuf.put(src, 0, src.length);
-    srcBuf.flip();
-
-    QatZipper qzip = new QatZipper.Builder().setAlgorithm(QatZipper.Algorithm.LZ4).build();
-    int compressedSize = qzip.maxCompressedLength(src.length);
-
-    assert compressedSize > 0;
-
-    ByteBuffer comBuf = ByteBuffer.allocate(compressedSize);
-    qzip.compress(srcBuf, comBuf);
-    comBuf.flip();
-
-    ByteBuffer decBuf = ByteBuffer.allocate(src.length);
-    qzip.decompress(comBuf, decBuf);
-
-    qzip.end();
-
-    assert srcBuf.compareTo(decBuf) == 0 : "The source and decompressed buffers do not match.";
-  }
-
-  static void testMixedTypesThree(byte[] src) {
-    ByteBuffer srcBuf = ByteBuffer.allocate(src.length);
-    srcBuf.put(src, 0, src.length);
-    srcBuf.flip();
-
-    QatZipper qzip = new QatZipper.Builder().build();
-    int compressedSize = qzip.maxCompressedLength(src.length);
-
-    assert compressedSize > 0;
-    ByteBuffer readonlyBuf = srcBuf.asReadOnlyBuffer();
-    srcBuf.flip();
-
-    ByteBuffer comBuf = ByteBuffer.allocate(compressedSize);
-    qzip.compress(readonlyBuf, comBuf);
-    comBuf.flip();
-
-    ByteBuffer decBuf = ByteBuffer.allocate(src.length);
-    qzip.decompress(comBuf, decBuf);
-
-    qzip.end();
-
-    assert srcBuf.compareTo(decBuf) == 0 : "The source and decompressed buffers do not match.";
-  }
-
-  static void testMixedTypesThreeLZ4(byte[] src) {
-    ByteBuffer srcBuf = ByteBuffer.allocate(src.length);
-    srcBuf.put(src, 0, src.length);
-    srcBuf.flip();
-
-    QatZipper qzip = new QatZipper.Builder().setAlgorithm(QatZipper.Algorithm.LZ4).build();
-    int compressedSize = qzip.maxCompressedLength(src.length);
-
-    assert compressedSize > 0;
-    ByteBuffer readonlyBuf = srcBuf.asReadOnlyBuffer();
-    srcBuf.flip();
-
-    ByteBuffer comBuf = ByteBuffer.allocate(compressedSize);
-    qzip.compress(readonlyBuf, comBuf);
-    comBuf.flip();
-
-    ByteBuffer decBuf = ByteBuffer.allocate(src.length);
-    qzip.decompress(comBuf, decBuf);
-
-    qzip.end();
-
-    assert srcBuf.compareTo(decBuf) == 0 : "The source and decompressed buffers do not match.";
-  }
-
-  static void testWithCompressionLengthAndRetry(byte[] src) {
-    int comLevel = RANDOM.nextInt(9) + 1;
+  private static void testWithAdvancedConfiguration(
+      byte[] sourceData, QatZipper.Algorithm algorithm) {
+    int compressionLevel = RANDOM.nextInt(9) + 1;
     int retryCount = RANDOM.nextInt(20);
 
-    QatZipper qzip = new QatZipper.Builder().setLevel(comLevel).setRetryCount(retryCount).build();
+    QatZipper qzip =
+        new QatZipper.Builder()
+            .algorithm(algorithm)
+            .level(compressionLevel)
+            .retryCount(retryCount)
+            .build();
+    try {
+      byte[] compressed = new byte[qzip.maxCompressedLength(sourceData.length)];
+      byte[] decompressed = new byte[sourceData.length];
 
-    byte[] dst = new byte[qzip.maxCompressedLength(src.length)];
-    byte[] dec = new byte[src.length];
+      int compressedSize =
+          qzip.compress(sourceData, 0, sourceData.length, compressed, 0, compressed.length);
+      qzip.decompress(compressed, 0, compressedSize, decompressed, 0, decompressed.length);
 
-    int compressedSize = qzip.compress(src, 0, src.length, dst, 0, dst.length);
-    qzip.decompress(dst, 0, compressedSize, dec, 0, dec.length);
-
-    qzip.end();
-
-    assert Arrays.equals(src, dec) : "The source and decompressed arrays do not match.";
-  }
-
-  static void testWithCompressionLengthAndRetryLZ4(byte[] src) {
-    int comLevel = RANDOM.nextInt(9) + 1;
-    int retryCount = RANDOM.nextInt(20);
-
-    QatZipper qzip = new QatZipper.Builder().setLevel(comLevel).setRetryCount(retryCount).build();
-
-    byte[] dst = new byte[qzip.maxCompressedLength(src.length)];
-    byte[] dec = new byte[src.length];
-
-    int compressedSize = qzip.compress(src, 0, src.length, dst, 0, dst.length);
-    qzip.decompress(dst, 0, compressedSize, dec, 0, dec.length);
-
-    qzip.end();
-
-    assert Arrays.equals(src, dec) : "The source and decompressed arrays do not match.";
-  }
-
-  static void testQatStreamDeflate(byte[] src) throws IOException {
-    if (src.length < 32) return;
-    int compressBufferSize = 1 + Math.abs(RANDOM.nextInt(1024 * 1024));
-    int decompressBufferSize = 1 + Math.abs(RANDOM.nextInt(1024 * 1024));
-
-    QatZipper.Algorithm algo = QatZipper.Algorithm.DEFLATE;
-    ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-    try (QatCompressorOutputStream compressedStream =
-        new QatCompressorOutputStream(outputStream, compressBufferSize, algo)) {
-      compressedStream.write(src);
+      assert Arrays.equals(sourceData, decompressed)
+          : String.format(
+              "Advanced configuration test failed for %s (level: %d, retry: %d)",
+              algorithm, compressionLevel, retryCount);
+    } finally {
+      qzip.end();
     }
-    byte[] outputStreamBuf = outputStream.toByteArray();
-    byte[] buffer = new byte[1024];
-    ByteArrayOutputStream resultStream = new ByteArrayOutputStream();
-    ByteArrayInputStream inputStream = new ByteArrayInputStream(outputStreamBuf);
-    try (QatDecompressorInputStream decompressedStream =
-        new QatDecompressorInputStream(inputStream, decompressBufferSize, algo)) {
-      int bytesRead;
-      while ((bytesRead = decompressedStream.read(buffer)) != -1) {
-        resultStream.write(buffer, 0, bytesRead);
+  }
+
+  private static void testStreamCompression(
+      byte[] sourceData, QatZipper.Algorithm algorithm, boolean singleByteRead) throws IOException {
+    if (sourceData.length < MIN_STREAM_SIZE) return;
+
+    int compressBufferSize = 1 + Math.abs(RANDOM.nextInt(MAX_BUFFER_SIZE));
+    int decompressBufferSize = 1 + Math.abs(RANDOM.nextInt(MAX_BUFFER_SIZE));
+
+    // Compress using stream
+    ByteArrayOutputStream compressedStream = new ByteArrayOutputStream();
+    try (QatCompressorOutputStream compressor =
+        new QatCompressorOutputStream(compressedStream, compressBufferSize, algorithm)) {
+      compressor.write(sourceData);
+    }
+
+    // Decompress using stream
+    byte[] compressedData = compressedStream.toByteArray();
+    ByteArrayOutputStream decompressedStream = new ByteArrayOutputStream();
+
+    try (ByteArrayInputStream inputStream = new ByteArrayInputStream(compressedData);
+        QatDecompressorInputStream decompressor =
+            new QatDecompressorInputStream(inputStream, decompressBufferSize, algorithm)) {
+
+      if (singleByteRead) {
+        decompressSingleByte(decompressor, decompressedStream);
+      } else {
+        decompressBuffered(decompressor, decompressedStream);
       }
-      assert decompressedStream.available() == 0;
+
+      assert decompressor.available() == 0 : "Stream should be fully consumed";
     }
-    assert Arrays.equals(src, resultStream.toByteArray())
-        : "The source and decompressed arrays do not match. cb = "
-            + compressBufferSize
-            + " db = "
-            + decompressBufferSize
-            + " srcLen is "
-            + src.length;
+
+    byte[] result = decompressedStream.toByteArray();
+    assert Arrays.equals(sourceData, result)
+        : String.format(
+            "Stream compression failed for %s (compress buffer: %d, decompress buffer: %d, single byte: %s, source length: %d)",
+            algorithm, compressBufferSize, decompressBufferSize, singleByteRead, sourceData.length);
   }
 
-  static void testQatStreamLZ4(byte[] src) throws IOException {
-    if (src.length < 32) return;
-    ByteBuffer.wrap(Arrays.copyOf(src, 8));
-    int compressBufferSize = 1 + Math.abs(RANDOM.nextInt(1024 * 1024));
-    int decompressBufferSize = 1 + Math.abs(RANDOM.nextInt(1024 * 1024));
-
-    QatZipper.Algorithm algo = QatZipper.Algorithm.LZ4;
-    ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-    try (QatCompressorOutputStream compressedStream =
-        new QatCompressorOutputStream(outputStream, compressBufferSize, algo)) {
-      compressedStream.write(src);
+  private static void decompressBuffered(
+      QatDecompressorInputStream decompressor, ByteArrayOutputStream output) throws IOException {
+    byte[] buffer = new byte[STREAM_READ_BUFFER_SIZE];
+    int bytesRead;
+    while ((bytesRead = decompressor.read(buffer)) != -1) {
+      output.write(buffer, 0, bytesRead);
     }
-    byte[] outputStreamBuf = outputStream.toByteArray();
-    byte[] buffer = new byte[1024];
-    ByteArrayOutputStream resultStream = new ByteArrayOutputStream();
-    ByteArrayInputStream inputStream = new ByteArrayInputStream(outputStreamBuf);
-    try (QatDecompressorInputStream decompressedStream =
-        new QatDecompressorInputStream(inputStream, decompressBufferSize, algo)) {
-      int bytesRead;
-      while ((bytesRead = decompressedStream.read(buffer)) != -1) {
-        resultStream.write(buffer, 0, bytesRead);
-      }
-      assert decompressedStream.available() == 0;
-    }
-    assert Arrays.equals(src, resultStream.toByteArray())
-        : "The source and decompressed arrays do not match. cb = "
-            + compressBufferSize
-            + " db = "
-            + decompressBufferSize
-            + " srcLen is "
-            + src.length;
   }
 
-  static void testQatStreamDeflate2(byte[] src) throws IOException {
-    if (src.length < 32) return;
-    int compressBufferSize = 1 + Math.abs(RANDOM.nextInt(1024 * 1024));
-    int decompressBufferSize = 1 + Math.abs(RANDOM.nextInt(1024 * 1024));
-
-    QatZipper.Algorithm algo = QatZipper.Algorithm.DEFLATE;
-    ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-    try (QatCompressorOutputStream compressedStream =
-        new QatCompressorOutputStream(outputStream, compressBufferSize, algo)) {
-      compressedStream.write(src);
+  private static void decompressSingleByte(
+      QatDecompressorInputStream decompressor, ByteArrayOutputStream output) throws IOException {
+    int byteValue;
+    while ((byteValue = decompressor.read()) != -1) {
+      output.write(byteValue);
     }
-    byte[] outputStreamBuf = outputStream.toByteArray();
-    ByteArrayOutputStream resultStream = new ByteArrayOutputStream();
-    ByteArrayInputStream inputStream = new ByteArrayInputStream(outputStreamBuf);
-    try (QatDecompressorInputStream decompressedStream =
-        new QatDecompressorInputStream(inputStream, decompressBufferSize, algo)) {
-      int bytesRead;
-      while ((bytesRead = decompressedStream.read()) != -1) {
-        resultStream.write(bytesRead);
-      }
-      assert decompressedStream.available() == 0;
-    }
-    assert Arrays.equals(src, resultStream.toByteArray())
-        : "The source and decompressed arrays do not match. cb = "
-            + compressBufferSize
-            + " db = "
-            + decompressBufferSize
-            + " srcLen is "
-            + src.length;
   }
 
-  static void testQatStreamLZ42(byte[] src) throws IOException {
-    if (src.length < 32) return;
-    ByteBuffer.wrap(Arrays.copyOf(src, 8));
-    int compressBufferSize = 1 + Math.abs(RANDOM.nextInt(1024 * 1024));
-    int decompressBufferSize = 1 + Math.abs(RANDOM.nextInt(1024 * 1024));
-
-    QatZipper.Algorithm algo = QatZipper.Algorithm.LZ4;
-    ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-    try (QatCompressorOutputStream compressedStream =
-        new QatCompressorOutputStream(outputStream, compressBufferSize, algo)) {
-      compressedStream.write(src);
-    }
-    byte[] outputStreamBuf = outputStream.toByteArray();
-    ByteArrayOutputStream resultStream = new ByteArrayOutputStream();
-    ByteArrayInputStream inputStream = new ByteArrayInputStream(outputStreamBuf);
-    try (QatDecompressorInputStream decompressedStream =
-        new QatDecompressorInputStream(inputStream, decompressBufferSize, algo)) {
-      int bytesRead;
-      while ((bytesRead = decompressedStream.read()) != -1) {
-        resultStream.write(bytesRead);
-      }
-      assert decompressedStream.available() == 0;
-    }
-    assert Arrays.equals(src, resultStream.toByteArray())
-        : "The source and decompressed arrays do not match. cb = "
-            + compressBufferSize
-            + " db = "
-            + decompressBufferSize
-            + " srcLen is "
-            + src.length;
+  private static ByteBuffer createBuffer(int size, boolean direct) {
+    return direct ? ByteBuffer.allocateDirect(size) : ByteBuffer.allocate(size);
   }
 }

@@ -6,10 +6,8 @@
 
 package com.intel.qat.jmh;
 
-import com.intel.qat.QatCompressorOutputStream;
-import com.intel.qat.QatDecompressorInputStream;
-import com.intel.qat.QatZipper;
-import com.intel.qat.QatZipper.Algorithm;
+import com.github.luben.zstd.ZstdInputStream;
+import com.github.luben.zstd.ZstdOutputStream;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -31,19 +29,18 @@ import org.openjdk.jmh.annotations.TearDown;
 import org.openjdk.jmh.annotations.Warmup;
 
 /**
- * JMH benchmark for Intel QAT streaming compression. Measures compression and decompression
- * performance using QatCompressorOutputStream and QatDecompressorInputStream.
+ * JMH benchmark for ZSTD compression via zstd-jni streaming API. Measures compression and
+ * decompression performance using ZstdOutputStream and ZstdInputStream.
  *
  * <p>Parameters: - inputFilePath: Path to the file to compress - compressionLevel: Compression
- * level (0-9, default: 6) - bufferSizeBytes: I/O buffer size (default: 65536) - algorithmName:
- * Compression algorithm (DEFLATE, LZ4, ZSTD)
+ * level (1-22, default: 3) - bufferSizeBytes: I/O buffer size (default: 65536)
  */
 @BenchmarkMode(Mode.Throughput)
 @OutputTimeUnit(TimeUnit.SECONDS)
 @Warmup(iterations = 3, time = 10, timeUnit = TimeUnit.SECONDS)
 @Measurement(iterations = 5, time = 10, timeUnit = TimeUnit.SECONDS)
 @Fork(value = 1)
-public class QatJavaStreamBench {
+public class ZstdStreamBench {
   private static final AtomicBoolean resultsLogged = new AtomicBoolean(false);
 
   /**
@@ -55,23 +52,18 @@ public class QatJavaStreamBench {
     @Param({""})
     public String inputFilePath;
 
-    @Param({"6"})
+    @Param({"3"})
     public int compressionLevel;
 
     @Param({"65536"})
     public int bufferSizeBytes;
 
-    @Param({"DEFLATE", "LZ4", "ZSTD"})
-    public String algorithmName;
-
     private byte[] inputData;
     private byte[] compressedData;
-    private Algorithm compressionAlgorithm;
 
     @Setup
     public void setup() throws IOException {
       validateInputFile();
-      compressionAlgorithm = parseAlgorithm(algorithmName);
       loadInputData();
       compressInputDataUsingStream();
       verifyDecompression();
@@ -94,32 +86,16 @@ public class QatJavaStreamBench {
       }
     }
 
-    private Algorithm parseAlgorithm(String algorithmName) {
-      switch (algorithmName.toUpperCase()) {
-        case "DEFLATE":
-          return Algorithm.DEFLATE;
-        case "LZ4":
-          return Algorithm.LZ4;
-        case "ZSTD":
-          return Algorithm.ZSTD;
-        default:
-          throw new IllegalArgumentException(
-              "Invalid algorithm: " + algorithmName + ". Supported: DEFLATE, LZ4, ZSTD");
-      }
-    }
-
     private void loadInputData() throws IOException {
       inputData = Files.readAllBytes(Paths.get(inputFilePath));
     }
 
     private void compressInputDataUsingStream() throws IOException {
       ByteArrayOutputStream compressedOutput = new ByteArrayOutputStream();
-      QatZipper.Builder builder =
-          new QatZipper.Builder().algorithm(compressionAlgorithm).level(compressionLevel);
 
-      try (QatCompressorOutputStream qatOutputStream =
-          new QatCompressorOutputStream(compressedOutput, bufferSizeBytes, builder)) {
-        qatOutputStream.write(inputData);
+      try (ZstdOutputStream zstdOutputStream =
+          new ZstdOutputStream(compressedOutput, compressionLevel)) {
+        zstdOutputStream.write(inputData);
       }
 
       compressedData = compressedOutput.toByteArray();
@@ -127,16 +103,13 @@ public class QatJavaStreamBench {
 
     private void verifyDecompression() throws IOException {
       ByteArrayInputStream compressedInput = new ByteArrayInputStream(compressedData);
-      QatZipper.Builder builder =
-          new QatZipper.Builder().algorithm(compressionAlgorithm).level(compressionLevel);
 
       int totalBytesRead = 0;
       byte[] buffer = new byte[bufferSizeBytes];
 
-      try (QatDecompressorInputStream qatInputStream =
-          new QatDecompressorInputStream(compressedInput, bufferSizeBytes, builder)) {
+      try (ZstdInputStream zstdInputStream = new ZstdInputStream(compressedInput)) {
         int bytesRead;
-        while ((bytesRead = qatInputStream.read(buffer)) != -1) {
+        while ((bytesRead = zstdInputStream.read(buffer)) != -1) {
           totalBytesRead += bytesRead;
         }
       }
@@ -156,13 +129,12 @@ public class QatJavaStreamBench {
         double compressionPercentage = 100.0 * (1.0 - 1.0 / compressionRatio);
 
         System.out.println("\n" + "=".repeat(60));
-        System.out.println("QAT STREAMING COMPRESSION STATISTICS");
+        System.out.println("ZSTD STREAMING COMPRESSION STATISTICS");
         System.out.println("=".repeat(60));
-        System.out.printf("Algorithm:       %s%n", algorithmName);
         System.out.printf("Compression Level: %d%n", compressionLevel);
-        System.out.printf("Buffer Size:     %,d bytes%n", bufferSizeBytes);
-        System.out.printf("Original Size:   %,d bytes%n", inputData.length);
-        System.out.printf("Compressed Size: %,d bytes%n", compressedData.length);
+        System.out.printf("Buffer Size:       %,d bytes%n", bufferSizeBytes);
+        System.out.printf("Original Size:     %,d bytes%n", inputData.length);
+        System.out.printf("Compressed Size:   %,d bytes%n", compressedData.length);
         System.out.printf(
             "Compression Ratio: %.2f (%.1f%% reduction)%n",
             compressionRatio, compressionPercentage);
@@ -172,8 +144,8 @@ public class QatJavaStreamBench {
   }
 
   /**
-   * Benchmarks QAT streaming compression throughput. Measures the performance of compressing data
-   * using QatCompressorOutputStream.
+   * Benchmarks ZSTD streaming compression throughput. Measures the performance of compressing data
+   * using ZstdOutputStream.
    *
    * @param state Thread-local state containing input data
    * @return Compressed data (prevents JIT optimization)
@@ -182,20 +154,18 @@ public class QatJavaStreamBench {
   @Benchmark
   public byte[] compress(ThreadState state) throws IOException {
     ByteArrayOutputStream compressedOutput = new ByteArrayOutputStream();
-    QatZipper.Builder builder =
-        new QatZipper.Builder().algorithm(state.compressionAlgorithm).level(state.compressionLevel);
 
-    try (QatCompressorOutputStream qatOutputStream =
-        new QatCompressorOutputStream(compressedOutput, state.bufferSizeBytes, builder)) {
-      qatOutputStream.write(state.inputData);
+    try (ZstdOutputStream zstdOutputStream =
+        new ZstdOutputStream(compressedOutput, state.compressionLevel)) {
+      zstdOutputStream.write(state.inputData);
     }
 
     return compressedOutput.toByteArray();
   }
 
   /**
-   * Benchmarks QAT streaming decompression throughput. Measures the performance of decompressing
-   * data using QatDecompressorInputStream.
+   * Benchmarks ZSTD streaming decompression throughput. Measures the performance of decompressing
+   * data using ZstdInputStream.
    *
    * @param state Thread-local state containing compressed data
    * @return Total bytes decompressed (prevents JIT optimization)
@@ -204,16 +174,13 @@ public class QatJavaStreamBench {
   @Benchmark
   public int decompress(ThreadState state) throws IOException {
     ByteArrayInputStream compressedInput = new ByteArrayInputStream(state.compressedData);
-    QatZipper.Builder builder =
-        new QatZipper.Builder().algorithm(state.compressionAlgorithm).level(state.compressionLevel);
 
     int totalBytesRead = 0;
     byte[] buffer = new byte[state.bufferSizeBytes];
 
-    try (QatDecompressorInputStream qatInputStream =
-        new QatDecompressorInputStream(compressedInput, state.bufferSizeBytes, builder)) {
+    try (ZstdInputStream zstdInputStream = new ZstdInputStream(compressedInput)) {
       int bytesRead;
-      while ((bytesRead = qatInputStream.read(buffer)) != -1) {
+      while ((bytesRead = zstdInputStream.read(buffer)) != -1) {
         totalBytesRead += bytesRead;
       }
     }

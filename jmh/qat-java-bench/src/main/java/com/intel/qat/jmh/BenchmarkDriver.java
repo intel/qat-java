@@ -21,9 +21,9 @@ public class BenchmarkDriver {
     try {
       CommandLineOptions cmdOpts = new CommandLineOptions(args);
 
-      Optional<Collection<String>> col = cmdOpts.getParameter("file");
+      Optional<Collection<String>> col = cmdOpts.getParameter("inputFilePath");
       if (!col.hasValue()) {
-        throw new IllegalArgumentException("A file parameter is required.");
+        throw new IllegalArgumentException("An inputFilePath parameter is required.");
       }
       String file = col.get().iterator().next();
 
@@ -35,7 +35,7 @@ public class BenchmarkDriver {
       long fileSize = new File(file).length();
       for (RunResult rr : results) {
         Result r = rr.getPrimaryResult();
-        String algo = rr.getParams().getParam("algorithm");
+        String algo = rr.getParams().getParam("algorithmName");
         String name = rr.getParams().getBenchmark() + (algo != null ? " (" + algo + ")" : "");
         if (r.getScoreUnit().equals("ops/s")) {
           double speed = r.getScore() * fileSize / (1024 * 1024);
