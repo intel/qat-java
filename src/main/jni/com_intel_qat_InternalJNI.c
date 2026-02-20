@@ -428,7 +428,10 @@ static QzSessionHandle_T *get_or_create_session(JNIEnv *env, int32_t qz_key) {
 }
 
 /**
- * Sets up a zlib deflate compression session with specified parameters.
+ * Compresses a buffer pointed to by the given source pointer and writes it to
+ * the destination buffer pointed to by the destination pointer. The read and
+ * write of the source and destination buffers is bounded by the source and
+ * destination lengths respectively.
  *
  * @param env            A pointer to the JNI environment.
  * @param qz_key         Value representing unique compression params.
@@ -459,8 +462,6 @@ static int compress_slowpath(JNIEnv *env,
     rc = qzCompress(sess, src_ptr, &src_len, dst_ptr, &dst_len, 1);
     retry_count--;
   }
-  return NULL;
-}
 
   if (rc != QZ_OK) {
     (*env)->ThrowNew(env,
@@ -469,11 +470,10 @@ static int compress_slowpath(JNIEnv *env,
     return rc;
   }
 
-  // Create a new session and update the reference count
-  sess_ptr = create_session(env, qz_key);
-  sess_ptr->reference_count++;
+  *bytes_read = src_len;
+  *bytes_written = dst_len;
 
-  return sess_ptr;
+  return QZ_OK;
 }
 
 /**
