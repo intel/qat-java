@@ -1,4 +1,4 @@
-## Java* Native Interface Binding for Intel® QuickAssist Technology
+# Java* Native Interface Binding for Intel® QuickAssist Technology
 
 **Qat-Java** is a library that accelerates data compression using Intel® [QuickAssist Technology (QAT)](https://www.intel.com/content/www/us/en/architecture-and-technology/intel-quick-assist-technology-overview.html).  
 For more details on Intel® QAT and installation instructions, refer to the [QAT Documentation](https://intel.github.io/quickassist/index.html).
@@ -28,7 +28,7 @@ To build Qat-Java, run:
 mvn clean package
 ```
 
-### Additional Maven Targets
+### Additional Maven Goals
 
 In addition to `mvn clean package`, the following Maven goals are available:
 
@@ -51,7 +51,7 @@ mvn test
 
 ## Fuzz Testing
 
-To enable fuzz testing, install the [Jazzer](https://github.com/CodeIntelligenceTesting/jazzer/blob/main/CONTRIBUTING.md) tool and run:
+To enable fuzz testing, install the [Jazzer](https://github.com/CodeIntelligenceTesting/jazzer) tool and run:
 
 ```
 mvn test -Dfuzzing=true
@@ -61,8 +61,14 @@ mvn test -Dfuzzing=true
 
 To run an example from the `com.intel.qat.examples` package, use the following command:
 
+**Linux:**
 ```
 java -cp .:./target/classes/:path/to/zstd-jni-1.5.6-1.jar com.intel.qat.examples.<ExampleClass>
+```
+
+**Windows:**
+```
+java -cp .;.\target\classes\;path\to\zstd-jni-1.5.6-1.jar com.intel.qat.examples.<ExampleClass>
 ```
 
 ## Authors
@@ -80,6 +86,10 @@ java -cp .:./target/classes/:path/to/zstd-jni-1.5.6-1.jar com.intel.qat.examples
 
 Thank you for your interest in contributing!  
 Please refer to the [CONTRIBUTING.md](CONTRIBUTING.md) document for details on how to get involved.
+
+## License
+
+This project is licensed under the terms of the [BSD License](LICENSE).
 
 ## Contact
 
