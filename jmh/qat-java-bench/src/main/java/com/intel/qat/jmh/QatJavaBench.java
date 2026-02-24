@@ -8,9 +8,7 @@ package com.intel.qat.jmh;
 
 import com.intel.qat.QatZipper;
 import com.intel.qat.QatZipper.Algorithm;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.concurrent.TimeUnit;

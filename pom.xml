@@ -1,82 +1,135 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
+
     <groupId>com.intel.qat</groupId>
     <artifactId>qat-java</artifactId>
     <version>2.3.2</version>
     <packaging>jar</packaging>
+
     <name>qat-java</name>
     <description>Qat-Java is a data compression library that uses Intel® QAT to speed up compression.</description>
     <url>https://github.com/intel/qat-java</url>
+
     <licenses>
         <license>
-            <name>BSD License</name>
+            <name>BSD 3-Clause License</name>
             <url>https://opensource.org/license/bsd-3-clause</url>
+            <distribution>repo</distribution>
         </license>
     </licenses>
+
     <scm>
         <connection>scm:git:git://github.com/intel/qat-java.git</connection>
         <developerConnection>scm:git:git@github.com:intel/qat-java.git</developerConnection>
         <url>https://github.com/intel/qat-java</url>
+        <tag>HEAD</tag>
     </scm>
+
     <developers>
         <developer>
             <name>Mammo, Mulugeta</name>
             <email>mulugeta.mammo@intel.com</email>
             <organization>Intel</organization>
-            <organizationUrl/>
+            <organizationUrl>https://www.intel.com</organizationUrl>
         </developer>
-         <developer>
+        <developer>
             <name>Denloye, Olasoji</name>
             <email>olasoji.denloye@intel.com</email>
             <organization>Intel</organization>
-            <organizationUrl/>
+            <organizationUrl>https://www.intel.com</organizationUrl>
         </developer>
     </developers>
+
+    <!-- ================================================================== -->
+    <!--  Centralized version properties                                    -->
+    <!-- ================================================================== -->
     <properties>
+        <!-- Encoding -->
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+
+        <!-- Java version -->
+        <java.release>11</java.release>
+
+        <!-- Test control -->
         <skipTests>${fuzzing}</skipTests>
+
+        <!-- Fuzzing parameters -->
         <fuzzParameters>-runs=1000 -max_total_time=300 -max_len=4194304</fuzzParameters>
+
+        <!-- Dependency versions -->
+        <zstd-jni.version>1.5.6-8</zstd-jni.version>
+        <junit-jupiter.version>5.11.4</junit-jupiter.version>
+        <junit-platform.version>1.11.4</junit-platform.version>
+        <jazzer.version>0.22.1</jazzer.version>
+
+        <!-- Plugin versions -->
+        <maven-compiler-plugin.version>3.14.0</maven-compiler-plugin.version>
+        <maven-enforcer-plugin.version>3.5.0</maven-enforcer-plugin.version>
+        <maven-jar-plugin.version>3.4.2</maven-jar-plugin.version>
+        <maven-surefire-plugin.version>3.5.2</maven-surefire-plugin.version>
+        <maven-surefire-report-plugin.version>3.5.2</maven-surefire-report-plugin.version>
+        <maven-site-plugin.version>4.0.0-M16</maven-site-plugin.version>
+        <maven-project-info-reports-plugin.version>3.9.0</maven-project-info-reports-plugin.version>
+        <maven-source-plugin.version>3.3.1</maven-source-plugin.version>
+        <maven-javadoc-plugin.version>3.11.2</maven-javadoc-plugin.version>
+        <maven-antrun-plugin.version>3.1.0</maven-antrun-plugin.version>
+        <jacoco-maven-plugin.version>0.8.12</jacoco-maven-plugin.version>
+        <spotless-maven-plugin.version>2.44.3</spotless-maven-plugin.version>
+        <google-java-format.version>1.25.2</google-java-format.version>
+        <exec-maven-plugin.version>3.5.0</exec-maven-plugin.version>
+        <ant-contrib.version>1.0b3</ant-contrib.version>
     </properties>
+
+    <!-- ================================================================== -->
+    <!--  Build configuration                                               -->
+    <!-- ================================================================== -->
     <build>
         <plugins>
+            <!-- Compiler -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.11.0</version>
+                <version>${maven-compiler-plugin.version}</version>
                 <configuration>
-                    <release>11</release>
-                    <module>true</module>
+                    <release>${java.release}</release>
                 </configuration>
             </plugin>
+
+            <!-- Enforcer — require minimum JDK -->
             <plugin>
-              <groupId>org.apache.maven.plugins</groupId>
-              <artifactId>maven-enforcer-plugin</artifactId>
-              <version>3.4.1</version> <!-- or latest -->
-              <executions>
-                <execution>
-                  <id>enforce-java</id>
-                  <goals>
-                    <goal>enforce</goal>
-                  </goals>
-                  <configuration>
-                    <rules>
-                      <requireJavaVersion>
-                        <version>[11,)</version> <!-- Require JDK 11 or higher -->
-                      </requireJavaVersion>
-                    </rules>
-                    <failFast>true</failFast>
-                  </configuration>
-                </execution>
-              </executions>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <version>${maven-enforcer-plugin.version}</version>
+                <executions>
+                    <execution>
+                        <id>enforce-java</id>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <requireJavaVersion>
+                                    <version>[${java.release},)</version>
+                                </requireJavaVersion>
+                                <requireMavenVersion>
+                                    <version>[3.6.3,)</version>
+                                </requireMavenVersion>
+                            </rules>
+                            <failFast>true</failFast>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
+
+            <!-- JAR packaging -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-jar-plugin</artifactId>
-                <version>3.3.0</version>
+                <version>${maven-jar-plugin.version}</version>
                 <configuration>
                     <archive>
                         <manifest>
@@ -88,44 +141,53 @@
                     </excludes>
                 </configuration>
             </plugin>
+
+            <!-- Surefire (unit tests) -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <version>3.2.2</version>
+                <version>${maven-surefire-plugin.version}</version>
                 <configuration>
                     <argLine>@{argLine} -Djava.library.path=${project.build.directory}/cbuild</argLine>
                 </configuration>
             </plugin>
+
+            <!-- Site generation -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-site-plugin</artifactId>
-                <version>4.0.0-M12</version>
+                <version>${maven-site-plugin.version}</version>
             </plugin>
+
+            <!-- Project info reports -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-project-info-reports-plugin</artifactId>
-                <version>3.5.0</version>
+                <version>${maven-project-info-reports-plugin.version}</version>
             </plugin>
+
+            <!-- Source JAR -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-source-plugin</artifactId>
-                <version>3.3.0</version>
+                <version>${maven-source-plugin.version}</version>
                 <executions>
                     <execution>
                         <id>attach-sources</id>
                         <goals>
-                            <goal>jar</goal>
+                            <goal>jar-no-fork</goal>
                         </goals>
                     </execution>
                 </executions>
             </plugin>
+
+            <!-- Javadoc JAR -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-javadoc-plugin</artifactId>
-                <version>3.6.3</version>
+                <version>${maven-javadoc-plugin.version}</version>
                 <configuration>
-                    <source>8</source>
-                    <javadocVersion>${java.version}</javadocVersion>
+                    <source>${java.release}</source>
                     <detectJavaApiLink>false</detectJavaApiLink>
                     <excludePackageNames>com.intel.qat.examples</excludePackageNames>
                 </configuration>
@@ -138,14 +200,12 @@
                     </execution>
                 </executions>
             </plugin>
+
+            <!-- Code coverage -->
             <plugin>
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
-                <version>0.8.11</version>
-                <configuration>
-                    <destFile>${basedir}/target/coverage-reports/jacoco-unit.exec</destFile>
-                    <dataFile>${basedir}/target/coverage-reports/jacoco-unit.exec</dataFile>
-                </configuration>
+                <version>${jacoco-maven-plugin.version}</version>
                 <executions>
                     <execution>
                         <id>jacoco-initialize</id>
@@ -162,10 +222,12 @@
                     </execution>
                 </executions>
             </plugin>
+
+            <!-- Code formatting (Spotless + Google Java Format) -->
             <plugin>
                 <groupId>com.diffplug.spotless</groupId>
                 <artifactId>spotless-maven-plugin</artifactId>
-                <version>2.41.1</version>
+                <version>${spotless-maven-plugin.version}</version>
                 <executions>
                     <execution>
                         <id>format</id>
@@ -180,63 +242,65 @@
                     <formats>
                         <format>
                             <includes>
-                              <include>*.java</include>
+                                <include>*.java</include>
                             </includes>
                         </format>
                     </formats>
                     <java>
                         <googleJavaFormat>
-                          <version>1.18.1</version>
+                            <version>${google-java-format.version}</version>
                         </googleJavaFormat>
                     </java>
                 </configuration>
             </plugin>
+
+            <!-- Native (JNI) build via Ant -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-antrun-plugin</artifactId>
-                <version>3.1.0</version>
+                <version>${maven-antrun-plugin.version}</version>
                 <executions>
+                    <!-- Compile native code -->
                     <execution>
                         <id>build-cpp</id>
                         <phase>generate-sources</phase>
-                        <configuration>
-                            <target>
-                                <taskdef resource="net/sf/antcontrib/antcontrib.properties"
-                                         classpathref="maven.plugin.classpath"/>
-                                <if>
-                                    <!--suppress UnresolvedMavenProperty -->
-                                    <equals arg1="${fuzzing}" arg2="true"/>
-                                    <then>
-                                        <mkdir dir="${project.build.directory}/cbuild"/>
-                                        <exec executable="cmake" dir="${project.build.directory}/cbuild"
-                                              failonerror="true">
-                                            <arg line="${basedir}/src/main/jni -DSANITIZE_MEMORY=[ON]"/>
-                                        </exec>
-                                        <exec executable="make" dir="${project.build.directory}/cbuild"
-                                              failonerror="true">
-                                            <arg line="VERBOSE=1"/>
-                                        </exec>
-                                        <copy file="${project.build.directory}/cbuild/libqat-java.so"
-                                              tofile="${project.build.directory}/classes/com/intel/qat/linux/${os.arch}/libqat-java.so"/>
-                                    </then>
-                                    <else>
-                                        <mkdir dir="${project.build.directory}/cbuild"/>
-                                        <exec executable="cmake" dir="${project.build.directory}/cbuild" failonerror="true">
-                                            <arg line="${basedir}/src/main/jni "/>
-                                        </exec>
-                                        <exec executable="make" dir="${project.build.directory}/cbuild" failonerror="true">
-                                            <arg line="VERBOSE=1"/>
-                                        </exec>
-                                        <copy file="${project.build.directory}/cbuild/libqat-java.so"
-                                              tofile="${project.build.directory}/classes/com/intel/qat/linux/${os.arch}/libqat-java.so"/>
-                                    </else>
-                                </if>
-                            </target>
-                        </configuration>
                         <goals>
                             <goal>run</goal>
                         </goals>
+                        <configuration>
+                            <target>
+                                <mkdir dir="${project.build.directory}/cbuild"/>
+
+                                <taskdef resource="net/sf/antcontrib/antcontrib.properties"
+                                         classpathref="maven.plugin.classpath"/>
+
+                                <!-- Determine cmake arguments: add sanitizer flag when fuzzing -->
+                                <condition property="cmake.extra.args"
+                                           value="-DSANITIZE_MEMORY=[ON]"
+                                           else="">
+                                    <!--suppress UnresolvedMavenProperty -->
+                                    <equals arg1="${fuzzing}" arg2="true"/>
+                                </condition>
+
+                                <exec executable="cmake"
+                                      dir="${project.build.directory}/cbuild"
+                                      failonerror="true">
+                                    <arg line="${basedir}/src/main/jni ${cmake.extra.args}"/>
+                                </exec>
+
+                                <exec executable="make"
+                                      dir="${project.build.directory}/cbuild"
+                                      failonerror="true">
+                                    <arg line="VERBOSE=1"/>
+                                </exec>
+
+                                <copy file="${project.build.directory}/cbuild/libqat-java.so"
+                                      tofile="${project.build.directory}/classes/com/intel/qat/linux/${os.arch}/libqat-java.so"/>
+                            </target>
+                        </configuration>
                     </execution>
+
+                    <!-- Clean native artifacts -->
                     <execution>
                         <id>clean-native</id>
                         <phase>clean</phase>
@@ -245,8 +309,7 @@
                         </goals>
                         <configuration>
                             <target>
-                                <echo level="info">Builddir: ${project.build.directory}</echo>
-                                <echo level="info">Basedir: ${basedir}</echo>
+                                <echo level="info">Cleaning native build dir: ${project.build.directory}/cbuild</echo>
                                 <delete dir="${project.build.directory}/cbuild"/>
                             </target>
                         </configuration>
@@ -256,7 +319,7 @@
                     <dependency>
                         <groupId>ant-contrib</groupId>
                         <artifactId>ant-contrib</artifactId>
-                        <version>1.0b3</version>
+                        <version>${ant-contrib.version}</version>
                         <exclusions>
                             <exclusion>
                                 <groupId>ant</groupId>
@@ -268,43 +331,62 @@
             </plugin>
         </plugins>
     </build>
+
+    <!-- ================================================================== -->
+    <!--  Reporting                                                         -->
+    <!-- ================================================================== -->
     <reporting>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-report-plugin</artifactId>
-                <version>3.2.2</version>
+                <version>${maven-surefire-report-plugin.version}</version>
                 <configuration>
                     <linkXRef>false</linkXRef>
                 </configuration>
             </plugin>
         </plugins>
     </reporting>
+
+    <!-- ================================================================== -->
+    <!--  Dependencies                                                      -->
+    <!-- ================================================================== -->
     <dependencies>
+        <!-- Zstandard JNI bindings (compile scope — part of public API) -->
         <dependency>
             <groupId>com.github.luben</groupId>
             <artifactId>zstd-jni</artifactId>
-            <version>1.5.6-1</version>
+            <version>${zstd-jni.version}</version>
+        </dependency>
+
+        <!-- JUnit 5 -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>${junit-jupiter.version}</version>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.junit.platform</groupId>
             <artifactId>junit-platform-suite</artifactId>
-            <version>1.10.1</version>
+            <version>${junit-platform.version}</version>
             <scope>test</scope>
         </dependency>
-        <dependency>
-            <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter</artifactId>
-            <version>5.10.1</version>
-            <scope>test</scope>
-        </dependency>
+
+        <!-- Fuzz testing -->
         <dependency>
             <groupId>com.code-intelligence</groupId>
             <artifactId>jazzer</artifactId>
-            <version>0.22.1</version>
+            <version>${jazzer.version}</version>
+            <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <!-- ================================================================== -->
+    <!--  Profiles                                                          -->
+    <!-- ================================================================== -->
     <profiles>
+        <!-- Fuzzing profile — activated with -Dfuzzing=true -->
         <profile>
             <id>fuzz</id>
             <activation>
@@ -316,9 +398,9 @@
             <build>
                 <plugins>
                     <plugin>
-                        <artifactId>exec-maven-plugin</artifactId>
-                        <version>3.0.0</version>
                         <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>exec-maven-plugin</artifactId>
+                        <version>${exec-maven-plugin.version}</version>
                         <executions>
                             <execution>
                                 <id>FuzzerTest</id>
@@ -332,18 +414,39 @@
                                     <arguments>
                                         <argument>-ea</argument>
                                         <argument>-cp</argument>
-                                        <argument>${project.build.directory}/qat-java-2.3.2.jar</argument>
+                                        <argument>${project.build.directory}/${project.artifactId}-${project.version}.jar</argument>
                                         <argument>-cp</argument>
                                         <classpath/>
                                         <argument>com.code_intelligence.jazzer.Jazzer</argument>
-                                        <argument>
-                                            --target_class=com.intel.qat.fuzzing.FuzzerTest
-                                        </argument>
+                                        <argument>--target_class=com.intel.qat.fuzzing.FuzzerTest</argument>
                                         <argument>--asan</argument>
                                         <argument>--native</argument>
                                         <commandlineArgs>${fuzzParameters}</commandlineArgs>
                                     </arguments>
                                 </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <!-- Release profile — for Maven Central publishing -->
+        <profile>
+            <id>release</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-gpg-plugin</artifactId>
+                        <version>3.2.7</version>
+                        <executions>
+                            <execution>
+                                <id>sign-artifacts</id>
+                                <phase>verify</phase>
+                                <goals>
+                                    <goal>sign</goal>
+                                </goals>
                             </execution>
                         </executions>
                     </plugin>
