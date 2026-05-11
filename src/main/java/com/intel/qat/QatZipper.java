@@ -9,9 +9,11 @@ package com.intel.qat;
 import com.github.luben.zstd.Zstd;
 import com.github.luben.zstd.ZstdCompressCtx;
 import com.github.luben.zstd.ZstdDecompressCtx;
+import java.lang.ref.Reference;
 import java.nio.ByteBuffer;
 import java.nio.ReadOnlyBufferException;
 import java.util.Objects;
+import sun.nio.ch.DirectBuffer;
 
 /**
  * QatZipper provides high-performance compression and decompression using Intel QAT hardware
@@ -560,19 +562,19 @@ public class QatZipper {
   /** Internal compression using QAT for non-ZSTD algorithms. */
   private int compressQATByteArray(
       byte[] src, int srcOffset, int srcLen, byte[] dst, int dstOffset, int dstLen) {
-    bytesRead = bytesWritten = 0;
+    long result =
+        InternalJNI.compressBytesBytes(
+            qzKey, src, srcOffset, srcLen, dst, dstOffset, dstLen, retryCount);
 
-    int compressedSize =
-        InternalJNI.compressByteArray(
-            this, qzKey, src, srcOffset, srcLen, dst, dstOffset, dstLen, retryCount);
-
-    if (compressedSize < 0) {
-      throw new RuntimeException("QAT compression failed with error code: " + compressedSize);
+    if (result < 0) {
+      bytesRead = 0;
+      bytesWritten = 0;
+      throw new RuntimeException("QAT compression failed with error code: " + result);
     }
 
-    bytesWritten = compressedSize;
-
-    return compressedSize;
+    bytesRead = InternalJNI.bytesRead(result);
+    bytesWritten = InternalJNI.bytesWritten(result);
+    return bytesWritten;
   }
 
   /** Internal compression using ZSTD for byte arrays. */
@@ -635,130 +637,253 @@ public class QatZipper {
    * Internal compression using QAT for ByteBuffers. Handles all combinations of buffer types
    * (direct/heap).
    */
+  /**
+   * Internal compression using QAT for ByteBuffers, handling every combination of
+   * direct/heap/read-only on each side in a single method.
+   *
+   * <p>The structure mirrors {@code java.util.zip.Deflater.deflate(ByteBuffer, int)} in OpenJDK:
+   *
+   * <ul>
+   *   <li>For a direct buffer, extract its absolute address via {@code ((DirectBuffer)
+   *       buf).address() + position()} and pass it as a {@code long} to the {@code ...Buffer...}
+   *       JNI variant. This avoids the JNI {@code GetDirectBufferAddress} round-trip on every call;
+   *       the Java-side {@code DirectBuffer.address()} is a HotSpot intrinsic that compiles to a
+   *       single field read.
+   *   <li>For a heap buffer, prefer {@link ByteBuffer#array()} when {@link ByteBuffer#hasArray()}
+   *       is true (which excludes read-only buffers); add {@link ByteBuffer#arrayOffset()} to the
+   *       position to get the true backing-array index.
+   *   <li>For a buffer that is neither direct nor array-backed (read-only heap is the canonical
+   *       case), fall through to a staging copy through a direct ByteBuffer -- two unavoidable
+   *       copies, no more.
+   *   <li>Every call into JNI with a direct buffer is wrapped in {@code try { ... } finally {
+   *       Reference.reachabilityFence(buf); }} so the {@link java.lang.ref.Cleaner} cannot free the
+   *       buffer's native memory while JNI is reading or writing it.
+   * </ul>
+   */
   private int compressQATByteBuffer(ByteBuffer src, ByteBuffer dst) {
-    final int initialSrcPosition = src.position();
-    final int initialDstPosition = dst.position();
-    bytesRead = bytesWritten = 0;
-    int compressedSize;
+    final int initialSrcPos = src.position();
+    final int initialDstPos = dst.position();
+    final int srcRem = src.remaining();
+    final int dstRem = dst.remaining();
 
     try {
-      if (src.hasArray() && dst.hasArray()) {
-        compressedSize = compressQATArrayBuffers(src, dst, initialSrcPosition, initialDstPosition);
-      } else if (src.isDirect() && dst.isDirect()) {
-        compressedSize = compressQATDirectBuffers(src, dst, initialSrcPosition, initialDstPosition);
-      } else if (src.hasArray() && dst.isDirect()) {
-        compressedSize = compressQATArrayToDirect(src, dst, initialSrcPosition, initialDstPosition);
-      } else if (src.isDirect() && dst.hasArray()) {
-        compressedSize = compressQATDirectToArray(src, dst, initialSrcPosition, initialDstPosition);
+      long result;
+      if (src.isDirect()) {
+        if (dst.isDirect()) {
+          result = compressBufferBuffer(src, initialSrcPos, srcRem, dst, initialDstPos, dstRem);
+        } else if (dst.hasArray()) {
+          result =
+              compressBufferBytes(
+                  src,
+                  initialSrcPos,
+                  srcRem,
+                  dst.array(),
+                  dst.arrayOffset() + initialDstPos,
+                  dstRem);
+        } else {
+          // direct src, mixed-mode dst -- stage dst through a direct buffer.
+          return compressViaMixedDst(src, initialSrcPos, dst, initialDstPos);
+        }
+      } else if (src.hasArray()) {
+        if (dst.isDirect()) {
+          result =
+              compressBytesBuffer(
+                  src.array(),
+                  src.arrayOffset() + initialSrcPos,
+                  srcRem,
+                  dst,
+                  initialDstPos,
+                  dstRem);
+        } else if (dst.hasArray()) {
+          result =
+              InternalJNI.compressBytesBytes(
+                  qzKey,
+                  src.array(),
+                  src.arrayOffset() + initialSrcPos,
+                  srcRem,
+                  dst.array(),
+                  dst.arrayOffset() + initialDstPos,
+                  dstRem,
+                  retryCount);
+        } else {
+          return compressViaMixedDst(src, initialSrcPos, dst, initialDstPos);
+        }
       } else {
-        // Mixed buffers: one direct, one heap but neither backed by simple array
-        compressedSize = compressQATMixedBuffers(src, dst, initialSrcPosition, initialDstPosition);
+        // mixed-mode src (e.g. read-only heap); stage src.
+        return compressViaMixedSrc(src, initialSrcPos, dst, initialDstPos);
       }
+
+      if (result < 0) {
+        bytesRead = 0;
+        bytesWritten = 0;
+        throw new RuntimeException("QAT compression failed with error code: " + result);
+      }
+      int br = InternalJNI.bytesRead(result);
+      int bw = InternalJNI.bytesWritten(result);
+      bytesRead = br;
+      bytesWritten = bw;
+      src.position(initialSrcPos + br);
+      dst.position(initialDstPos + bw);
+      return bw;
     } catch (RuntimeException e) {
-      // Reset positions on error
-      src.position(initialSrcPosition);
-      dst.position(initialDstPosition);
+      src.position(initialSrcPos);
+      dst.position(initialDstPos);
       bytesRead = 0;
       bytesWritten = 0;
       throw e;
     }
-
-    // bytesRead = src.position() - initialSrcPosition;
-    bytesWritten = compressedSize;
-    return compressedSize;
   }
 
-  private int compressQATArrayBuffers(ByteBuffer src, ByteBuffer dst, int srcPos, int dstPos) {
-    int compressedSize =
-        InternalJNI.compressByteBuffer(
-            this,
-            qzKey,
-            src.array(),
-            srcPos,
-            src.remaining(),
-            dst.array(),
-            dstPos,
-            dst.remaining(),
-            retryCount);
-    if (compressedSize < 0) {
-      throw new RuntimeException("QAT compression failed with error code: " + compressedSize);
+  /** Bytes -> direct buffer, with a reachabilityFence around the JNI call. */
+  private long compressBytesBuffer(
+      byte[] srcArr, int srcOff, int srcLen, ByteBuffer dst, int dstPos, int dstLen) {
+    long dstAddr = ((DirectBuffer) dst).address() + dstPos;
+    try {
+      return InternalJNI.compressBytesBuffer(
+          qzKey, srcArr, srcOff, srcLen, dstAddr, dstLen, retryCount);
+    } finally {
+      Reference.reachabilityFence(dst);
     }
-    src.position(srcPos + bytesRead);
-    dst.position(dstPos + compressedSize);
-    return compressedSize;
   }
 
-  private int compressQATDirectBuffers(ByteBuffer src, ByteBuffer dst, int srcPos, int dstPos) {
-    int compressedSize =
-        InternalJNI.compressDirectByteBuffer(
-            this, qzKey, src, srcPos, src.remaining(), dst, dstPos, dst.remaining(), retryCount);
-    if (compressedSize < 0) {
-      throw new RuntimeException("QAT compression failed with error code: " + compressedSize);
+  /** Direct buffer -> bytes, with a reachabilityFence around the JNI call. */
+  private long compressBufferBytes(
+      ByteBuffer src, int srcPos, int srcLen, byte[] dstArr, int dstOff, int dstLen) {
+    long srcAddr = ((DirectBuffer) src).address() + srcPos;
+    try {
+      return InternalJNI.compressBufferBytes(
+          qzKey, srcAddr, srcLen, dstArr, dstOff, dstLen, retryCount);
+    } finally {
+      Reference.reachabilityFence(src);
     }
-    src.position(srcPos + bytesRead);
-    dst.position(dstPos + compressedSize);
-    return compressedSize;
   }
 
-  private int compressQATArrayToDirect(ByteBuffer src, ByteBuffer dst, int srcPos, int dstPos) {
-    int compressedSize =
-        InternalJNI.compressDirectByteBufferDst(
-            this,
-            qzKey,
-            src.array(),
-            srcPos,
-            src.remaining(),
-            dst,
-            dstPos,
-            dst.remaining(),
-            retryCount);
-    if (compressedSize < 0) {
-      throw new RuntimeException("QAT compression failed with error code: " + compressedSize);
+  /** Direct -> direct, with reachabilityFences around the JNI call. */
+  private long compressBufferBuffer(
+      ByteBuffer src, int srcPos, int srcLen, ByteBuffer dst, int dstPos, int dstLen) {
+    long srcAddr = ((DirectBuffer) src).address() + srcPos;
+    long dstAddr = ((DirectBuffer) dst).address() + dstPos;
+    try {
+      return InternalJNI.compressBufferBuffer(qzKey, srcAddr, srcLen, dstAddr, dstLen, retryCount);
+    } finally {
+      Reference.reachabilityFence(src);
+      Reference.reachabilityFence(dst);
     }
-    src.position(srcPos + bytesRead);
-    dst.position(dstPos + compressedSize);
-    return compressedSize;
   }
 
-  private int compressQATDirectToArray(ByteBuffer src, ByteBuffer dst, int srcPos, int dstPos) {
-    int compressedSize =
-        InternalJNI.compressDirectByteBufferSrc(
-            this,
-            qzKey,
-            src,
-            srcPos,
-            src.remaining(),
-            dst.array(),
-            dstPos,
-            dst.remaining(),
-            retryCount);
-    if (compressedSize < 0) {
-      throw new RuntimeException("QAT compression failed with error code: " + compressedSize);
-    }
-    src.position(srcPos + bytesRead);
-    dst.position(dstPos + compressedSize);
-    return compressedSize;
-  }
-
-  private int compressQATMixedBuffers(
-      ByteBuffer src, ByteBuffer dst, int initialSrcPos, int initialDstPos) {
-    final int srcLen = src.remaining();
+  /**
+   * Rare-mode path where the destination is neither direct nor array-backed (read-only heap buffer
+   * is the canonical case). Stage the destination through a direct ByteBuffer and copy back at the
+   * end -- one mandatory copy out.
+   */
+  private int compressViaMixedDst(
+      ByteBuffer src, int initialSrcPos, ByteBuffer dst, int initialDstPos) {
     final int dstLen = dst.remaining();
-
-    byte[] srcArr = new byte[srcLen];
-    byte[] dstArr = new byte[dstLen];
-
-    src.get(srcArr);
-    dst.get(dstArr);
-
-    src.position(initialSrcPos);
-    dst.position(initialDstPos);
-
-    int compressedSize = compressQATByteArray(srcArr, 0, srcLen, dstArr, 0, dstLen);
+    ByteBuffer dstStaging = ByteBuffer.allocateDirect(dstLen);
+    int compressed;
+    if (src.isDirect()) {
+      long result =
+          compressBufferBuffer(src, initialSrcPos, src.remaining(), dstStaging, 0, dstLen);
+      if (result < 0) {
+        bytesRead = bytesWritten = 0;
+        throw new RuntimeException("QAT compression failed with error code: " + result);
+      }
+      compressed = InternalJNI.bytesWritten(result);
+      bytesRead = InternalJNI.bytesRead(result);
+    } else {
+      // src is array-backed
+      long result =
+          compressBytesBuffer(
+              src.array(),
+              src.arrayOffset() + initialSrcPos,
+              src.remaining(),
+              dstStaging,
+              0,
+              dstLen);
+      if (result < 0) {
+        bytesRead = bytesWritten = 0;
+        throw new RuntimeException("QAT compression failed with error code: " + result);
+      }
+      compressed = InternalJNI.bytesWritten(result);
+      bytesRead = InternalJNI.bytesRead(result);
+    }
+    dstStaging.position(0);
+    dstStaging.limit(compressed);
+    dst.put(dstStaging);
+    bytesWritten = compressed;
     src.position(initialSrcPos + bytesRead);
-    dst.put(dstArr, 0, compressedSize);
+    return compressed;
+  }
 
-    return compressedSize;
+  /**
+   * Rare-mode path where the source is neither direct nor array-backed. Stage the source through a
+   * direct ByteBuffer -- one mandatory copy in.
+   */
+  private int compressViaMixedSrc(
+      ByteBuffer src, int initialSrcPos, ByteBuffer dst, int initialDstPos) {
+    final int srcLen = src.remaining();
+    ByteBuffer srcStaging = ByteBuffer.allocateDirect(srcLen);
+    srcStaging.put(src);
+    srcStaging.flip();
+    src.position(initialSrcPos);
+
+    int compressed;
+    if (dst.isDirect()) {
+      long result =
+          compressBufferBuffer(srcStaging, 0, srcLen, dst, initialDstPos, dst.remaining());
+      if (result < 0) {
+        bytesRead = bytesWritten = 0;
+        throw new RuntimeException("QAT compression failed with error code: " + result);
+      }
+      compressed = InternalJNI.bytesWritten(result);
+      bytesRead = InternalJNI.bytesRead(result);
+      dst.position(initialDstPos + compressed);
+    } else if (dst.hasArray()) {
+      long result =
+          compressBufferBytes(
+              srcStaging,
+              0,
+              srcLen,
+              dst.array(),
+              dst.arrayOffset() + initialDstPos,
+              dst.remaining());
+      if (result < 0) {
+        bytesRead = bytesWritten = 0;
+        throw new RuntimeException("QAT compression failed with error code: " + result);
+      }
+      compressed = InternalJNI.bytesWritten(result);
+      bytesRead = InternalJNI.bytesRead(result);
+      dst.position(initialDstPos + compressed);
+    } else {
+      // both mixed-mode -- stage both sides
+      return compressViaBothMixed(srcStaging, initialSrcPos, dst, initialDstPos);
+    }
+    bytesWritten = compressed;
+    src.position(initialSrcPos + bytesRead);
+    return compressed;
+  }
+
+  /**
+   * Both src and dst are mixed-mode (read-only heap on both sides). Both sides stage through direct
+   * buffers. srcStaging is already filled by the caller.
+   */
+  private int compressViaBothMixed(
+      ByteBuffer srcStaging, int initialSrcPos, ByteBuffer dst, int initialDstPos) {
+    final int dstLen = dst.remaining();
+    ByteBuffer dstStaging = ByteBuffer.allocateDirect(dstLen);
+    long result =
+        compressBufferBuffer(srcStaging, 0, srcStaging.remaining(), dstStaging, 0, dstLen);
+    if (result < 0) {
+      bytesRead = bytesWritten = 0;
+      throw new RuntimeException("QAT compression failed with error code: " + result);
+    }
+    int compressed = InternalJNI.bytesWritten(result);
+    bytesRead = InternalJNI.bytesRead(result);
+    dstStaging.position(0);
+    dstStaging.limit(compressed);
+    dst.put(dstStaging);
+    bytesWritten = compressed;
+    return compressed;
   }
 
   /** Internal compression using ZSTD for ByteBuffers. Handles all combinations of buffer types. */
@@ -963,18 +1088,19 @@ public class QatZipper {
   /** Internal decompression using QAT for non-ZSTD algorithms. */
   private int decompressQATByteArray(
       byte[] src, int srcOffset, int srcLen, byte[] dst, int dstOffset, int dstLen) {
-    bytesRead = bytesWritten = 0;
+    long result =
+        InternalJNI.decompressBytesBytes(
+            qzKey, src, srcOffset, srcLen, dst, dstOffset, dstLen, retryCount);
 
-    int decompressedSize =
-        InternalJNI.decompressByteArray(
-            this, qzKey, src, srcOffset, srcLen, dst, dstOffset, dstLen, retryCount);
-
-    if (decompressedSize < 0) {
-      throw new RuntimeException("QAT decompression failed with error code: " + decompressedSize);
+    if (result < 0) {
+      bytesRead = 0;
+      bytesWritten = 0;
+      throw new RuntimeException("QAT decompression failed with error code: " + result);
     }
 
-    bytesWritten = decompressedSize;
-    return decompressedSize;
+    bytesRead = InternalJNI.bytesRead(result);
+    bytesWritten = InternalJNI.bytesWritten(result);
+    return bytesWritten;
   }
 
   /** Internal decompression using ZSTD for byte arrays. */
@@ -1036,132 +1162,215 @@ public class QatZipper {
   }
 
   /** Internal decompression using QAT for ByteBuffers. Handles all combinations of buffer types. */
+  /**
+   * Internal decompression using QAT for ByteBuffers. Symmetric to {@link #compressQATByteBuffer}
+   * -- see that method for the design rationale.
+   */
   private int decompressQATByteBuffer(ByteBuffer src, ByteBuffer dst) {
-    final int initialSrcPosition = src.position();
-    final int initialDstPosition = dst.position();
-    bytesRead = bytesWritten = 0;
-    int decompressedSize;
+    final int initialSrcPos = src.position();
+    final int initialDstPos = dst.position();
+    final int srcRem = src.remaining();
+    final int dstRem = dst.remaining();
 
     try {
-      if (src.hasArray() && dst.hasArray()) {
-        decompressedSize =
-            decompressQATArrayBuffers(src, dst, initialSrcPosition, initialDstPosition);
-      } else if (src.isDirect() && dst.isDirect()) {
-        decompressedSize =
-            decompressQATDirectBuffers(src, dst, initialSrcPosition, initialDstPosition);
-      } else if (src.hasArray() && dst.isDirect()) {
-        decompressedSize =
-            decompressQATArrayToDirect(src, dst, initialSrcPosition, initialDstPosition);
-      } else if (src.isDirect() && dst.hasArray()) {
-        decompressedSize =
-            decompressQATDirectToArray(src, dst, initialSrcPosition, initialDstPosition);
+      long result;
+      if (src.isDirect()) {
+        if (dst.isDirect()) {
+          result = decompressBufferBuffer(src, initialSrcPos, srcRem, dst, initialDstPos, dstRem);
+        } else if (dst.hasArray()) {
+          result =
+              decompressBufferBytes(
+                  src,
+                  initialSrcPos,
+                  srcRem,
+                  dst.array(),
+                  dst.arrayOffset() + initialDstPos,
+                  dstRem);
+        } else {
+          return decompressViaMixedDst(src, initialSrcPos, dst, initialDstPos);
+        }
+      } else if (src.hasArray()) {
+        if (dst.isDirect()) {
+          result =
+              decompressBytesBuffer(
+                  src.array(),
+                  src.arrayOffset() + initialSrcPos,
+                  srcRem,
+                  dst,
+                  initialDstPos,
+                  dstRem);
+        } else if (dst.hasArray()) {
+          result =
+              InternalJNI.decompressBytesBytes(
+                  qzKey,
+                  src.array(),
+                  src.arrayOffset() + initialSrcPos,
+                  srcRem,
+                  dst.array(),
+                  dst.arrayOffset() + initialDstPos,
+                  dstRem,
+                  retryCount);
+        } else {
+          return decompressViaMixedDst(src, initialSrcPos, dst, initialDstPos);
+        }
       } else {
-        decompressedSize =
-            decompressQATMixedBuffers(src, dst, initialSrcPosition, initialDstPosition);
+        return decompressViaMixedSrc(src, initialSrcPos, dst, initialDstPos);
       }
+
+      if (result < 0) {
+        bytesRead = 0;
+        bytesWritten = 0;
+        throw new RuntimeException("QAT decompression failed with error code: " + result);
+      }
+      int br = InternalJNI.bytesRead(result);
+      int bw = InternalJNI.bytesWritten(result);
+      bytesRead = br;
+      bytesWritten = bw;
+      src.position(initialSrcPos + br);
+      dst.position(initialDstPos + bw);
+      return bw;
     } catch (RuntimeException e) {
-      src.position(initialSrcPosition);
-      dst.position(initialDstPosition);
+      src.position(initialSrcPos);
+      dst.position(initialDstPos);
       bytesRead = 0;
       bytesWritten = 0;
       throw e;
     }
-
-    bytesWritten = dst.position() - initialDstPosition;
-    return decompressedSize;
   }
 
-  private int decompressQATArrayBuffers(ByteBuffer src, ByteBuffer dst, int srcPos, int dstPos) {
-    int decompressedSize =
-        InternalJNI.decompressByteBuffer(
-            this,
-            qzKey,
-            src.array(),
-            srcPos,
-            src.remaining(),
-            dst.array(),
-            dstPos,
-            dst.remaining(),
-            retryCount);
-    if (decompressedSize < 0) {
-      throw new RuntimeException("QAT decompression failed with error code: " + decompressedSize);
+  private long decompressBytesBuffer(
+      byte[] srcArr, int srcOff, int srcLen, ByteBuffer dst, int dstPos, int dstLen) {
+    long dstAddr = ((DirectBuffer) dst).address() + dstPos;
+    try {
+      return InternalJNI.decompressBytesBuffer(
+          qzKey, srcArr, srcOff, srcLen, dstAddr, dstLen, retryCount);
+    } finally {
+      Reference.reachabilityFence(dst);
     }
-    src.position(srcPos + bytesRead);
-    dst.position(dstPos + decompressedSize);
-    return decompressedSize;
   }
 
-  private int decompressQATDirectBuffers(ByteBuffer src, ByteBuffer dst, int srcPos, int dstPos) {
-    int decompressedSize =
-        InternalJNI.decompressDirectByteBuffer(
-            this, qzKey, src, srcPos, src.remaining(), dst, dstPos, dst.remaining(), retryCount);
-    if (decompressedSize < 0) {
-      throw new RuntimeException("QAT decompression failed with error code: " + decompressedSize);
+  private long decompressBufferBytes(
+      ByteBuffer src, int srcPos, int srcLen, byte[] dstArr, int dstOff, int dstLen) {
+    long srcAddr = ((DirectBuffer) src).address() + srcPos;
+    try {
+      return InternalJNI.decompressBufferBytes(
+          qzKey, srcAddr, srcLen, dstArr, dstOff, dstLen, retryCount);
+    } finally {
+      Reference.reachabilityFence(src);
     }
-    src.position(srcPos + bytesRead);
-    dst.position(dstPos + decompressedSize);
-    return decompressedSize;
   }
 
-  private int decompressQATArrayToDirect(ByteBuffer src, ByteBuffer dst, int srcPos, int dstPos) {
-    int decompressedSize =
-        InternalJNI.decompressDirectByteBufferDst(
-            this,
-            qzKey,
-            src.array(),
-            srcPos,
-            src.remaining(),
-            dst,
-            dstPos,
-            dst.remaining(),
-            retryCount);
-    if (decompressedSize < 0) {
-      throw new RuntimeException("QAT decompression failed with error code: " + decompressedSize);
+  private long decompressBufferBuffer(
+      ByteBuffer src, int srcPos, int srcLen, ByteBuffer dst, int dstPos, int dstLen) {
+    long srcAddr = ((DirectBuffer) src).address() + srcPos;
+    long dstAddr = ((DirectBuffer) dst).address() + dstPos;
+    try {
+      return InternalJNI.decompressBufferBuffer(
+          qzKey, srcAddr, srcLen, dstAddr, dstLen, retryCount);
+    } finally {
+      Reference.reachabilityFence(src);
+      Reference.reachabilityFence(dst);
     }
-    src.position(srcPos + bytesRead);
-    dst.position(dstPos + decompressedSize);
-    return decompressedSize;
   }
 
-  private int decompressQATDirectToArray(ByteBuffer src, ByteBuffer dst, int srcPos, int dstPos) {
-    int decompressedSize =
-        InternalJNI.decompressDirectByteBufferSrc(
-            this,
-            qzKey,
-            src,
-            srcPos,
-            src.remaining(),
-            dst.array(),
-            dstPos,
-            dst.remaining(),
-            retryCount);
-    if (decompressedSize < 0) {
-      throw new RuntimeException("QAT decompression failed with error code: " + decompressedSize);
-    }
-    src.position(srcPos + bytesRead);
-    dst.position(dstPos + decompressedSize);
-    return decompressedSize;
-  }
-
-  private int decompressQATMixedBuffers(
-      ByteBuffer src, ByteBuffer dst, int initialSrcPos, int initialDstPos) {
-    final int srcLen = src.remaining();
+  private int decompressViaMixedDst(
+      ByteBuffer src, int initialSrcPos, ByteBuffer dst, int initialDstPos) {
     final int dstLen = dst.remaining();
-
-    byte[] srcArr = new byte[srcLen];
-    byte[] dstArr = new byte[dstLen];
-
-    src.get(srcArr);
-    dst.get(dstArr);
-
-    src.position(initialSrcPos);
-    dst.position(initialDstPos);
-
-    int decompressedSize = decompressQATByteArray(srcArr, 0, srcLen, dstArr, 0, dstLen);
+    ByteBuffer dstStaging = ByteBuffer.allocateDirect(dstLen);
+    int decompressed;
+    if (src.isDirect()) {
+      long result =
+          decompressBufferBuffer(src, initialSrcPos, src.remaining(), dstStaging, 0, dstLen);
+      if (result < 0) {
+        bytesRead = bytesWritten = 0;
+        throw new RuntimeException("QAT decompression failed with error code: " + result);
+      }
+      decompressed = InternalJNI.bytesWritten(result);
+      bytesRead = InternalJNI.bytesRead(result);
+    } else {
+      long result =
+          decompressBytesBuffer(
+              src.array(),
+              src.arrayOffset() + initialSrcPos,
+              src.remaining(),
+              dstStaging,
+              0,
+              dstLen);
+      if (result < 0) {
+        bytesRead = bytesWritten = 0;
+        throw new RuntimeException("QAT decompression failed with error code: " + result);
+      }
+      decompressed = InternalJNI.bytesWritten(result);
+      bytesRead = InternalJNI.bytesRead(result);
+    }
+    dstStaging.position(0);
+    dstStaging.limit(decompressed);
+    dst.put(dstStaging);
+    bytesWritten = decompressed;
     src.position(initialSrcPos + bytesRead);
-    dst.put(dstArr, 0, decompressedSize);
+    return decompressed;
+  }
 
-    return decompressedSize;
+  private int decompressViaMixedSrc(
+      ByteBuffer src, int initialSrcPos, ByteBuffer dst, int initialDstPos) {
+    final int srcLen = src.remaining();
+    ByteBuffer srcStaging = ByteBuffer.allocateDirect(srcLen);
+    srcStaging.put(src);
+    srcStaging.flip();
+    src.position(initialSrcPos);
+
+    int decompressed;
+    if (dst.isDirect()) {
+      long result =
+          decompressBufferBuffer(srcStaging, 0, srcLen, dst, initialDstPos, dst.remaining());
+      if (result < 0) {
+        bytesRead = bytesWritten = 0;
+        throw new RuntimeException("QAT decompression failed with error code: " + result);
+      }
+      decompressed = InternalJNI.bytesWritten(result);
+      bytesRead = InternalJNI.bytesRead(result);
+      dst.position(initialDstPos + decompressed);
+    } else if (dst.hasArray()) {
+      long result =
+          decompressBufferBytes(
+              srcStaging,
+              0,
+              srcLen,
+              dst.array(),
+              dst.arrayOffset() + initialDstPos,
+              dst.remaining());
+      if (result < 0) {
+        bytesRead = bytesWritten = 0;
+        throw new RuntimeException("QAT decompression failed with error code: " + result);
+      }
+      decompressed = InternalJNI.bytesWritten(result);
+      bytesRead = InternalJNI.bytesRead(result);
+      dst.position(initialDstPos + decompressed);
+    } else {
+      return decompressViaBothMixed(srcStaging, initialSrcPos, dst, initialDstPos);
+    }
+    bytesWritten = decompressed;
+    src.position(initialSrcPos + bytesRead);
+    return decompressed;
+  }
+
+  private int decompressViaBothMixed(
+      ByteBuffer srcStaging, int initialSrcPos, ByteBuffer dst, int initialDstPos) {
+    final int dstLen = dst.remaining();
+    ByteBuffer dstStaging = ByteBuffer.allocateDirect(dstLen);
+    long result =
+        decompressBufferBuffer(srcStaging, 0, srcStaging.remaining(), dstStaging, 0, dstLen);
+    if (result < 0) {
+      bytesRead = bytesWritten = 0;
+      throw new RuntimeException("QAT decompression failed with error code: " + result);
+    }
+    int decompressed = InternalJNI.bytesWritten(result);
+    bytesRead = InternalJNI.bytesRead(result);
+    dstStaging.position(0);
+    dstStaging.limit(decompressed);
+    dst.put(dstStaging);
+    bytesWritten = decompressed;
+    return decompressed;
   }
 
   /**
