@@ -97,6 +97,18 @@ enum InternalJNI {
   static native long decompressBufferBuffer(
       int qzKey, long srcAddr, int srcLen, long dstAddr, int dstLen, int retryCount);
 
+  // ---- decompressFull (native loop over concatenated frames) ----
+
+  static native int decompressFullBytesBytes(
+      int qzKey,
+      byte[] src,
+      int srcOff,
+      int srcLen,
+      byte[] dst,
+      int dstOff,
+      int dstLen,
+      int retryCount);
+
   // ---- other ----
 
   static native long zstdGetSeqProdFunction();

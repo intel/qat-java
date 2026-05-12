@@ -1103,6 +1103,47 @@ public class QatZipper {
     return bytesWritten;
   }
 
+  /**
+   * Decompresses a source array containing multiple concatenated compressed frames into a
+   * destination array in a single JNI call. The native side pins both arrays once, loops calling
+   * qzDecompress until all input is consumed, then unpins. This is the Inflater-style "native loop"
+   * approach — it reduces JNI overhead from N transitions (one per frame) to exactly 1.
+   *
+   * <p>Use this method when the source buffer contains back-to-back compressed frames (e.g. Lucene
+   * sub-blocks) that should all be decompressed into a contiguous output buffer.
+   *
+   * @param src the source array containing concatenated compressed frames
+   * @param srcOffset the start offset in the source array
+   * @param srcLen the total number of compressed bytes to process
+   * @param dst the destination array for decompressed data
+   * @param dstOffset the start offset in the destination array
+   * @param dstLen the maximum number of bytes that can be written to destination
+   * @return the total number of bytes written to dst
+   * @throws IllegalStateException if this QatZipper has been closed
+   * @throws IllegalArgumentException if arrays are null or empty
+   * @throws ArrayIndexOutOfBoundsException if offsets are invalid
+   * @throws RuntimeException if decompression fails
+   */
+  public int decompressFull(
+      byte[] src, int srcOffset, int srcLen, byte[] dst, int dstOffset, int dstLen) {
+    validateSessionOpen();
+    validateByteArrays(src, srcOffset, srcLen, dst, dstOffset, dstLen);
+
+    int totalWritten =
+        InternalJNI.decompressFullBytesBytes(
+            qzKey, src, srcOffset, srcLen, dst, dstOffset, dstLen, retryCount);
+
+    if (totalWritten < 0) {
+      bytesRead = 0;
+      bytesWritten = 0;
+      throw new RuntimeException("QAT decompression failed with error code: " + totalWritten);
+    }
+
+    bytesRead = srcLen;
+    bytesWritten = totalWritten;
+    return totalWritten;
+  }
+
   /** Internal decompression using ZSTD for byte arrays. */
   private int decompressZSTDByteArray(
       byte[] src, int srcOffset, int srcLen, byte[] dst, int dstOffset, int dstLen) {

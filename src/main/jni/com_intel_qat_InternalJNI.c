@@ -1074,6 +1074,104 @@ Java_com_intel_qat_InternalJNI_decompressBufferBuffer(JNIEnv *env,
   return PACK_RESULT(bytes_read, bytes_written);
 }
 
+/* ---------------- decompressFull (native loop) ---------------- */
+
+/**
+ * Decompresses a source byte[] containing multiple concatenated compressed
+ * frames into a destination byte[].  Pins both arrays once, loops calling
+ * qzDecompress until all input is consumed, then unpins.  This reduces JNI
+ * overhead from N transitions (one per frame) to exactly 1.
+ *
+ * Returns total_bytes_written on success (always >= 0), or a negative
+ * qatzip error code on failure.
+ */
+JNIEXPORT jint JNICALL
+Java_com_intel_qat_InternalJNI_decompressFullBytesBytes(JNIEnv *env,
+                                                        jclass clz,
+                                                        jint qz_key,
+                                                        jbyteArray src_arr,
+                                                        jint src_off,
+                                                        jint src_len,
+                                                        jbyteArray dst_arr,
+                                                        jint dst_off,
+                                                        jint dst_len,
+                                                        jint retry_count) {
+  (void)clz;
+  (void)retry_count;
+
+  QzSession_T *sess = get_qz_session(env, qz_key);
+  if (unlikely(sess == NULL)) return -1;
+
+  uint8_t *src_ptr =
+      (uint8_t *)(*env)->GetPrimitiveArrayCritical(env, src_arr, NULL);
+  if (unlikely(!src_ptr)) {
+    if ((*env)->ExceptionCheck(env) == JNI_FALSE) {
+      (*env)->ThrowNew(env,
+                       (*env)->FindClass(env, "java/lang/OutOfMemoryError"),
+                       "Failed to access source array");
+    }
+    return -1;
+  }
+
+  uint8_t *dst_ptr =
+      (uint8_t *)(*env)->GetPrimitiveArrayCritical(env, dst_arr, NULL);
+  if (unlikely(!dst_ptr)) {
+    (*env)->ReleasePrimitiveArrayCritical(env, src_arr, (jbyte *)src_ptr,
+                                          JNI_ABORT);
+    if ((*env)->ExceptionCheck(env) == JNI_FALSE) {
+      (*env)->ThrowNew(env,
+                       (*env)->FindClass(env, "java/lang/OutOfMemoryError"),
+                       "Failed to access destination array");
+    }
+    return -1;
+  }
+
+  uint8_t *sp = src_ptr + src_off;
+  uint8_t *dp = dst_ptr + dst_off;
+  unsigned int src_remaining = (unsigned int)src_len;
+  unsigned int dst_remaining = (unsigned int)dst_len;
+  int total_written = 0;
+  int rc = QZ_OK;
+
+  while (src_remaining > 0 && dst_remaining > 0) {
+    unsigned int consumed = src_remaining;
+    unsigned int produced = dst_remaining;
+
+    rc = qzDecompress(sess, sp, &consumed, dp, &produced);
+
+    if (unlikely(rc != QZ_OK && rc != QZ_BUF_ERROR && rc != QZ_DATA_ERROR)) {
+      break;
+    }
+
+    if (consumed == 0 && produced == 0) {
+      /* No progress — avoid infinite loop */
+      break;
+    }
+
+    sp += consumed;
+    dp += produced;
+    src_remaining -= consumed;
+    dst_remaining -= produced;
+    total_written += (int)produced;
+
+    /* Reset rc for the while-loop condition check */
+    rc = QZ_OK;
+  }
+
+  (*env)->ReleasePrimitiveArrayCritical(env, dst_arr, (jbyte *)dst_ptr, 0);
+  (*env)->ReleasePrimitiveArrayCritical(env, src_arr, (jbyte *)src_ptr,
+                                        JNI_ABORT);
+
+  if (unlikely(rc != QZ_OK)) {
+    (*env)->ThrowNew(env,
+                     (*env)->FindClass(env, "java/lang/IllegalStateException"),
+                     get_err_str(rc));
+    return (jint)rc;
+  }
+
+  return (jint)total_written;
+}
+
 /**
  * Calculates the maximum possible compressed size for a given source size.
  *
@@ -1282,3 +1380,4 @@ JNIEXPORT void JNICALL JNI_OnUnload(JavaVM *vm, void *reserved) {
     pthread_mutex_destroy(&g_init_qzstd_mtx);
   }
 }
+

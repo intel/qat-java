@@ -97,6 +97,14 @@ JNIEXPORT jlong JNICALL Java_com_intel_qat_InternalJNI_decompressBufferBuffer
 
 /*
  * Class:     com_intel_qat_InternalJNI
+ * Method:    decompressFullBytesBytes
+ * Signature: (I[BII[BIII)I
+ */
+JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_decompressFullBytesBytes
+  (JNIEnv *, jclass, jint, jbyteArray, jint, jint, jbyteArray, jint, jint, jint);
+
+/*
+ * Class:     com_intel_qat_InternalJNI
  * Method:    zstdGetSeqProdFunction
  * Signature: ()J
  */
@@ -139,3 +147,4 @@ JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_setLogLevel
 }
 #endif
 #endif
+
