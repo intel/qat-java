@@ -1104,6 +1104,77 @@ public class QatZipper {
   }
 
   /**
+   * Compresses a source array split into fixed-size sub-blocks into a destination array in a single
+   * JNI call. The native side pins all arrays once, loops calling qzCompress for each sub-block,
+   * stores each block's compressed size in the sizes array, then unpins. This reduces JNI overhead
+   * from N transitions (one per sub-block) to exactly 1.
+   *
+   * <p>Use this method when the source buffer should be compressed as multiple fixed-size
+   * sub-blocks (e.g. Lucene sub-blocks) whose compressed data is written contiguously into a single
+   * output buffer.
+   *
+   * @param src the source array containing uncompressed data
+   * @param srcOffset the start offset in the source array
+   * @param srcLen the total number of bytes to compress
+   * @param blockLength the sub-block size; the last block may be smaller
+   * @param dst the destination array for compressed data
+   * @param dstOffset the start offset in the destination array
+   * @param dstLen the maximum number of bytes that can be written to destination
+   * @param sizes an int array with at least ceil(srcLen / blockLength) entries; on return,
+   *     sizes[startBlock..startBlock+N-1] holds the compressed size of each sub-block
+   * @param startBlock the sub-block index to start compressing from (for resumption after grow)
+   * @return the total number of bytes written to dst for blocks [startBlock..last], or a negative
+   *     value {@code -(blocksCompleted + 1)} if the destination buffer was too small. In the
+   *     partial case, sizes[startBlock..startBlock+blocksCompleted-1] are valid.
+   * @throws IllegalStateException if this QatZipper has been closed
+   * @throws IllegalArgumentException if arrays are null or empty
+   * @throws ArrayIndexOutOfBoundsException if offsets are invalid
+   * @throws RuntimeException if compression fails for a reason other than buffer overflow
+   */
+  public int compressFull(
+      byte[] src,
+      int srcOffset,
+      int srcLen,
+      int blockLength,
+      byte[] dst,
+      int dstOffset,
+      int dstLen,
+      int[] sizes,
+      int startBlock) {
+    validateSessionOpen();
+    validateByteArrays(src, srcOffset, srcLen, dst, dstOffset, dstLen);
+
+    int result =
+        InternalJNI.compressFullBytesBytes(
+            qzKey,
+            src,
+            srcOffset,
+            srcLen,
+            blockLength,
+            dst,
+            dstOffset,
+            dstLen,
+            sizes,
+            startBlock,
+            retryCount);
+
+    if (result >= 0) {
+      // All remaining blocks compressed successfully
+      bytesRead = srcLen - startBlock * blockLength;
+      bytesWritten = result;
+      return result;
+    }
+
+    // Negative: either partial progress or real error.
+    // Partial progress is encoded as -(blocksCompleted + 1) where blocksCompleted >= 0.
+    // Real JNI errors (session null, etc.) are -1 with an exception already thrown.
+    // qzCompress errors throw IllegalStateException from native.
+    // So if we reach here without an exception, it's partial progress.
+    // Return the negative value directly — caller interprets it.
+    return result;
+  }
+
+  /**
    * Decompresses a source array containing multiple concatenated compressed frames into a
    * destination array in a single JNI call. The native side pins both arrays once, loops calling
    * qzDecompress until all input is consumed, then unpins. This is the Inflater-style "native loop"

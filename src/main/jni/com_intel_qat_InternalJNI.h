@@ -65,6 +65,14 @@ JNIEXPORT jlong JNICALL Java_com_intel_qat_InternalJNI_compressBufferBuffer
 
 /*
  * Class:     com_intel_qat_InternalJNI
+ * Method:    compressFullBytesBytes
+ * Signature: (I[BIII[BII[III)I
+ */
+JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_compressFullBytesBytes
+  (JNIEnv *, jclass, jint, jbyteArray, jint, jint, jint, jbyteArray, jint, jint, jintArray, jint, jint);
+
+/*
+ * Class:     com_intel_qat_InternalJNI
  * Method:    decompressBytesBytes
  * Signature: (I[BII[BIII)J
  */

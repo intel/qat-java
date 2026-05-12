@@ -1074,6 +1074,154 @@ Java_com_intel_qat_InternalJNI_decompressBufferBuffer(JNIEnv *env,
   return PACK_RESULT(bytes_read, bytes_written);
 }
 
+/* ---------------- compressFull (native loop over sub-blocks) ----------- */
+
+/**
+ * Compresses a source byte[] split into fixed-size sub-blocks into a
+ * destination byte[], storing each block's compressed size in an int[]
+ * array.  Pins all three arrays once, loops calling qzCompress for each
+ * sub-block starting from start_block, then unpins.  This reduces JNI
+ * overhead from N transitions (one per sub-block) to exactly 1.
+ *
+ * On success (all remaining blocks compressed): returns total_bytes_written
+ * (always >= 0).
+ *
+ * On QZ_BUF_ERROR (destination full mid-way): commits the blocks that DID
+ * fit (sizes[start_block..last] are written), and returns
+ * -(blocks_completed + 1) so the Java caller can distinguish partial
+ * progress from a real error.  blocks_completed counts only the blocks
+ * compressed in THIS call.
+ *
+ * On any other error: throws IllegalStateException.
+ */
+JNIEXPORT jint JNICALL
+Java_com_intel_qat_InternalJNI_compressFullBytesBytes(JNIEnv *env,
+                                                      jclass clz,
+                                                      jint qz_key,
+                                                      jbyteArray src_arr,
+                                                      jint src_off,
+                                                      jint src_len,
+                                                      jint block_length,
+                                                      jbyteArray dst_arr,
+                                                      jint dst_off,
+                                                      jint dst_len,
+                                                      jintArray sizes_arr,
+                                                      jint start_block,
+                                                      jint retry_count) {
+  (void)clz;
+
+  QzSession_T *sess = get_qz_session(env, qz_key);
+  if (unlikely(sess == NULL)) return -1;
+
+  uint8_t *src_ptr =
+      (uint8_t *)(*env)->GetPrimitiveArrayCritical(env, src_arr, NULL);
+  if (unlikely(!src_ptr)) {
+    if ((*env)->ExceptionCheck(env) == JNI_FALSE) {
+      (*env)->ThrowNew(env,
+                       (*env)->FindClass(env, "java/lang/OutOfMemoryError"),
+                       "Failed to access source array");
+    }
+    return -1;
+  }
+
+  uint8_t *dst_ptr =
+      (uint8_t *)(*env)->GetPrimitiveArrayCritical(env, dst_arr, NULL);
+  if (unlikely(!dst_ptr)) {
+    (*env)->ReleasePrimitiveArrayCritical(env, src_arr, (jbyte *)src_ptr,
+                                          JNI_ABORT);
+    if ((*env)->ExceptionCheck(env) == JNI_FALSE) {
+      (*env)->ThrowNew(env,
+                       (*env)->FindClass(env, "java/lang/OutOfMemoryError"),
+                       "Failed to access destination array");
+    }
+    return -1;
+  }
+
+  jint *sizes_ptr =
+      (jint *)(*env)->GetPrimitiveArrayCritical(env, sizes_arr, NULL);
+  if (unlikely(!sizes_ptr)) {
+    (*env)->ReleasePrimitiveArrayCritical(env, dst_arr, (jbyte *)dst_ptr,
+                                          JNI_ABORT);
+    (*env)->ReleasePrimitiveArrayCritical(env, src_arr, (jbyte *)src_ptr,
+                                          JNI_ABORT);
+    if ((*env)->ExceptionCheck(env) == JNI_FALSE) {
+      (*env)->ThrowNew(env,
+                       (*env)->FindClass(env, "java/lang/OutOfMemoryError"),
+                       "Failed to access sizes array");
+    }
+    return -1;
+  }
+
+  /* Skip past already-compressed blocks */
+  uint8_t *sp = src_ptr + src_off + (unsigned int)start_block * (unsigned int)block_length;
+  uint8_t *dp = dst_ptr + dst_off;
+  unsigned int src_remaining = (unsigned int)src_len - (unsigned int)start_block * (unsigned int)block_length;
+  unsigned int dst_remaining = (unsigned int)dst_len;
+  int total_written = 0;
+  int blocks_completed = 0;
+  int rc = QZ_OK;
+
+  while (src_remaining > 0 && dst_remaining > 0) {
+    unsigned int chunk = (src_remaining < (unsigned int)block_length)
+                             ? src_remaining
+                             : (unsigned int)block_length;
+    unsigned int produced = dst_remaining;
+
+    rc = qzCompress(sess, sp, &chunk, dp, &produced, 1);
+
+    if (unlikely(rc != QZ_OK)) {
+      if (rc == QZ_BUF_ERROR || rc == QZ_FAIL) {
+        /* Destination full — stop gracefully with partial progress.
+           QAT returns QZ_FAIL (not QZ_BUF_ERROR) when the buffer is
+           below the minimum viable size for its framing headers. */
+        break;
+      }
+      /* Retry on transient attach errors */
+      int retries = retry_count;
+      while (rc == QZ_NOSW_NO_INST_ATTACH && retries > 0) {
+        chunk = (src_remaining < (unsigned int)block_length)
+                    ? src_remaining
+                    : (unsigned int)block_length;
+        produced = dst_remaining;
+        rc = qzCompress(sess, sp, &chunk, dp, &produced, 1);
+        retries--;
+      }
+      if (unlikely(rc != QZ_OK)) break;
+    }
+
+    sizes_ptr[start_block + blocks_completed] = (jint)produced;
+    blocks_completed++;
+    sp += chunk;
+    dp += produced;
+    src_remaining -= chunk;
+    dst_remaining -= produced;
+    total_written += (int)produced;
+  }
+
+  /* Always commit sizes and dst for completed blocks (even partial). */
+  (*env)->ReleasePrimitiveArrayCritical(env, sizes_arr, (jbyte *)sizes_ptr, 0);
+  (*env)->ReleasePrimitiveArrayCritical(env, dst_arr, (jbyte *)dst_ptr, 0);
+  (*env)->ReleasePrimitiveArrayCritical(env, src_arr, (jbyte *)src_ptr,
+                                        JNI_ABORT);
+
+  if (unlikely(rc == QZ_BUF_ERROR || rc == QZ_FAIL)) {
+    /* Return -(blocks_completed + 1) to signal partial progress.
+       Caller uses this to know how many blocks succeeded.
+       QAT returns QZ_FAIL when the buffer is below its minimum
+       framing size, and QZ_BUF_ERROR for general overflow. */
+    return (jint)(-(blocks_completed + 1));
+  }
+
+  if (unlikely(rc != QZ_OK)) {
+    (*env)->ThrowNew(env,
+                     (*env)->FindClass(env, "java/lang/IllegalStateException"),
+                     get_err_str(rc));
+    return (jint)rc;
+  }
+
+  return (jint)total_written;
+}
+
 /* ---------------- decompressFull (native loop) ---------------- */
 
 /**

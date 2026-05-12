@@ -97,6 +97,21 @@ enum InternalJNI {
   static native long decompressBufferBuffer(
       int qzKey, long srcAddr, int srcLen, long dstAddr, int dstLen, int retryCount);
 
+  // ---- compressFull (native loop over sub-blocks) ----
+
+  static native int compressFullBytesBytes(
+      int qzKey,
+      byte[] src,
+      int srcOff,
+      int srcLen,
+      int blockLength,
+      byte[] dst,
+      int dstOff,
+      int dstLen,
+      int[] sizes,
+      int startBlock,
+      int retryCount);
+
   // ---- decompressFull (native loop over concatenated frames) ----
 
   static native int decompressFullBytesBytes(
