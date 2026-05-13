@@ -648,12 +648,11 @@ static inline __attribute__((always_inline)) int decompress(
  *
  *   - "Bytes" args are jbyteArray + jint off + jint len.
  *
- *   - "Buffer" args are jlong (the absolute direct-buffer address, already
- *     offset on the Java side) + jint len. The Java side extracts the
- *     address via ((DirectBuffer)buf).address() + position(), which is a
- *     HotSpot intrinsic and far cheaper than a JNI GetDirectBufferAddress
- *     call on the C side. The Java side is also responsible for wrapping
- *     the call in try { ... } finally { Reference.reachabilityFence(buf); }
+ *   - "Buffer" args are a direct ByteBuffer jobject + jint position + jint
+ *     len. The C side extracts the native address via
+ *     GetDirectBufferAddress(env, buf) + position. The Java side is
+ *     responsible for wrapping the call in
+ *     try { ... } finally { Reference.reachabilityFence(buf); }
  *     to prevent the Cleaner from freeing the buffer mid-call.
  *
  *   - Returns a packed jlong: (bytes_written << 31) | bytes_read, or a
@@ -826,7 +825,8 @@ Java_com_intel_qat_InternalJNI_compressBytesBuffer(JNIEnv *env,
                                                    jbyteArray src_arr,
                                                    jint src_off,
                                                    jint src_len,
-                                                   jlong dst_addr,
+                                                   jobject dst_buf,
+                                                   jint dst_pos,
                                                    jint dst_len,
                                                    jint retry_count) {
   (void)clz;
@@ -847,7 +847,8 @@ Java_com_intel_qat_InternalJNI_compressBytesBuffer(JNIEnv *env,
 
   int bytes_read = 0, bytes_written = 0;
   int rc = compress(env, sess, src_ptr + src_off, (unsigned int)src_len,
-                    (uint8_t *)(uintptr_t)dst_addr, (unsigned int)dst_len,
+                    (uint8_t *)(*env)->GetDirectBufferAddress(env, dst_buf) + dst_pos,
+                    (unsigned int)dst_len,
                     &bytes_read, &bytes_written, retry_count);
 
   (*env)->ReleasePrimitiveArrayCritical(env, src_arr, (jbyte *)src_ptr,
@@ -861,7 +862,8 @@ JNIEXPORT jlong JNICALL
 Java_com_intel_qat_InternalJNI_compressBufferBytes(JNIEnv *env,
                                                    jclass clz,
                                                    jint qz_key,
-                                                   jlong src_addr,
+                                                   jobject src_buf,
+                                                   jint src_pos,
                                                    jint src_len,
                                                    jbyteArray dst_arr,
                                                    jint dst_off,
@@ -884,7 +886,8 @@ Java_com_intel_qat_InternalJNI_compressBufferBytes(JNIEnv *env,
   }
 
   int bytes_read = 0, bytes_written = 0;
-  int rc = compress(env, sess, (uint8_t *)(uintptr_t)src_addr,
+  int rc = compress(env, sess,
+                    (uint8_t *)(*env)->GetDirectBufferAddress(env, src_buf) + src_pos,
                     (unsigned int)src_len, dst_ptr + dst_off,
                     (unsigned int)dst_len, &bytes_read, &bytes_written,
                     retry_count);
@@ -899,9 +902,11 @@ JNIEXPORT jlong JNICALL
 Java_com_intel_qat_InternalJNI_compressBufferBuffer(JNIEnv *env,
                                                     jclass clz,
                                                     jint qz_key,
-                                                    jlong src_addr,
+                                                    jobject src_buf,
+                                                    jint src_pos,
                                                     jint src_len,
-                                                    jlong dst_addr,
+                                                    jobject dst_buf,
+                                                    jint dst_pos,
                                                     jint dst_len,
                                                     jint retry_count) {
   (void)clz;
@@ -910,8 +915,10 @@ Java_com_intel_qat_InternalJNI_compressBufferBuffer(JNIEnv *env,
   if (unlikely(sess == NULL)) return -1L;
 
   int bytes_read = 0, bytes_written = 0;
-  int rc = compress(env, sess, (uint8_t *)(uintptr_t)src_addr,
-                    (unsigned int)src_len, (uint8_t *)(uintptr_t)dst_addr,
+  int rc = compress(env, sess,
+                    (uint8_t *)(*env)->GetDirectBufferAddress(env, src_buf) + src_pos,
+                    (unsigned int)src_len,
+                    (uint8_t *)(*env)->GetDirectBufferAddress(env, dst_buf) + dst_pos,
                     (unsigned int)dst_len, &bytes_read, &bytes_written,
                     retry_count);
 
@@ -981,7 +988,8 @@ Java_com_intel_qat_InternalJNI_decompressBytesBuffer(JNIEnv *env,
                                                      jbyteArray src_arr,
                                                      jint src_off,
                                                      jint src_len,
-                                                     jlong dst_addr,
+                                                     jobject dst_buf,
+                                                     jint dst_pos,
                                                      jint dst_len,
                                                      jint retry_count) {
   (void)clz;
@@ -1002,7 +1010,8 @@ Java_com_intel_qat_InternalJNI_decompressBytesBuffer(JNIEnv *env,
 
   int bytes_read = 0, bytes_written = 0;
   int rc = decompress(env, sess, src_ptr + src_off, (unsigned int)src_len,
-                      (uint8_t *)(uintptr_t)dst_addr, (unsigned int)dst_len,
+                      (uint8_t *)(*env)->GetDirectBufferAddress(env, dst_buf) + dst_pos,
+                      (unsigned int)dst_len,
                       &bytes_read, &bytes_written, retry_count);
 
   (*env)->ReleasePrimitiveArrayCritical(env, src_arr, (jbyte *)src_ptr,
@@ -1016,7 +1025,8 @@ JNIEXPORT jlong JNICALL
 Java_com_intel_qat_InternalJNI_decompressBufferBytes(JNIEnv *env,
                                                      jclass clz,
                                                      jint qz_key,
-                                                     jlong src_addr,
+                                                     jobject src_buf,
+                                                     jint src_pos,
                                                      jint src_len,
                                                      jbyteArray dst_arr,
                                                      jint dst_off,
@@ -1039,7 +1049,8 @@ Java_com_intel_qat_InternalJNI_decompressBufferBytes(JNIEnv *env,
   }
 
   int bytes_read = 0, bytes_written = 0;
-  int rc = decompress(env, sess, (uint8_t *)(uintptr_t)src_addr,
+  int rc = decompress(env, sess,
+                      (uint8_t *)(*env)->GetDirectBufferAddress(env, src_buf) + src_pos,
                       (unsigned int)src_len, dst_ptr + dst_off,
                       (unsigned int)dst_len, &bytes_read, &bytes_written,
                       retry_count);
@@ -1054,9 +1065,11 @@ JNIEXPORT jlong JNICALL
 Java_com_intel_qat_InternalJNI_decompressBufferBuffer(JNIEnv *env,
                                                       jclass clz,
                                                       jint qz_key,
-                                                      jlong src_addr,
+                                                      jobject src_buf,
+                                                      jint src_pos,
                                                       jint src_len,
-                                                      jlong dst_addr,
+                                                      jobject dst_buf,
+                                                      jint dst_pos,
                                                       jint dst_len,
                                                       jint retry_count) {
   (void)clz;
@@ -1065,16 +1078,16 @@ Java_com_intel_qat_InternalJNI_decompressBufferBuffer(JNIEnv *env,
   if (unlikely(sess == NULL)) return -1L;
 
   int bytes_read = 0, bytes_written = 0;
-  int rc = decompress(env, sess, (uint8_t *)(uintptr_t)src_addr,
-                      (unsigned int)src_len, (uint8_t *)(uintptr_t)dst_addr,
+  int rc = decompress(env, sess,
+                      (uint8_t *)(*env)->GetDirectBufferAddress(env, src_buf) + src_pos,
+                      (unsigned int)src_len,
+                      (uint8_t *)(*env)->GetDirectBufferAddress(env, dst_buf) + dst_pos,
                       (unsigned int)dst_len, &bytes_read, &bytes_written,
                       retry_count);
 
   if (unlikely(rc != QZ_OK)) return (jlong)rc;
   return PACK_RESULT(bytes_read, bytes_written);
 }
-
-/* ---------------- compressFull (native loop over sub-blocks) ----------- */
 
 /**
  * Compresses a source byte[] split into fixed-size sub-blocks into a
@@ -1221,8 +1234,6 @@ Java_com_intel_qat_InternalJNI_compressFullBytesBytes(JNIEnv *env,
 
   return (jint)total_written;
 }
-
-/* ---------------- decompressFull (native loop) ---------------- */
 
 /**
  * Decompresses a source byte[] containing multiple concatenated compressed

@@ -13,7 +13,6 @@ import java.lang.ref.Reference;
 import java.nio.ByteBuffer;
 import java.nio.ReadOnlyBufferException;
 import java.util.Objects;
-import sun.nio.ch.DirectBuffer;
 
 /**
  * QatZipper provides high-performance compression and decompression using Intel QAT hardware
@@ -644,11 +643,9 @@ public class QatZipper {
    * <p>The structure mirrors {@code java.util.zip.Deflater.deflate(ByteBuffer, int)} in OpenJDK:
    *
    * <ul>
-   *   <li>For a direct buffer, extract its absolute address via {@code ((DirectBuffer)
-   *       buf).address() + position()} and pass it as a {@code long} to the {@code ...Buffer...}
-   *       JNI variant. This avoids the JNI {@code GetDirectBufferAddress} round-trip on every call;
-   *       the Java-side {@code DirectBuffer.address()} is a HotSpot intrinsic that compiles to a
-   *       single field read.
+   *   <li>For a direct buffer, pass the {@code ByteBuffer} reference along with its position to the
+   *       {@code ...Buffer...} JNI variant. The JNI layer obtains the native address via {@code
+   *       GetDirectBufferAddress}.
    *   <li>For a heap buffer, prefer {@link ByteBuffer#array()} when {@link ByteBuffer#hasArray()}
    *       is true (which excludes read-only buffers); add {@link ByteBuffer#arrayOffset()} to the
    *       position to get the true backing-array index.
@@ -737,10 +734,9 @@ public class QatZipper {
   /** Bytes -> direct buffer, with a reachabilityFence around the JNI call. */
   private long compressBytesBuffer(
       byte[] srcArr, int srcOff, int srcLen, ByteBuffer dst, int dstPos, int dstLen) {
-    long dstAddr = ((DirectBuffer) dst).address() + dstPos;
     try {
       return InternalJNI.compressBytesBuffer(
-          qzKey, srcArr, srcOff, srcLen, dstAddr, dstLen, retryCount);
+          qzKey, srcArr, srcOff, srcLen, dst, dstPos, dstLen, retryCount);
     } finally {
       Reference.reachabilityFence(dst);
     }
@@ -749,10 +745,9 @@ public class QatZipper {
   /** Direct buffer -> bytes, with a reachabilityFence around the JNI call. */
   private long compressBufferBytes(
       ByteBuffer src, int srcPos, int srcLen, byte[] dstArr, int dstOff, int dstLen) {
-    long srcAddr = ((DirectBuffer) src).address() + srcPos;
     try {
       return InternalJNI.compressBufferBytes(
-          qzKey, srcAddr, srcLen, dstArr, dstOff, dstLen, retryCount);
+          qzKey, src, srcPos, srcLen, dstArr, dstOff, dstLen, retryCount);
     } finally {
       Reference.reachabilityFence(src);
     }
@@ -761,10 +756,9 @@ public class QatZipper {
   /** Direct -> direct, with reachabilityFences around the JNI call. */
   private long compressBufferBuffer(
       ByteBuffer src, int srcPos, int srcLen, ByteBuffer dst, int dstPos, int dstLen) {
-    long srcAddr = ((DirectBuffer) src).address() + srcPos;
-    long dstAddr = ((DirectBuffer) dst).address() + dstPos;
     try {
-      return InternalJNI.compressBufferBuffer(qzKey, srcAddr, srcLen, dstAddr, dstLen, retryCount);
+      return InternalJNI.compressBufferBuffer(
+          qzKey, src, srcPos, srcLen, dst, dstPos, dstLen, retryCount);
     } finally {
       Reference.reachabilityFence(src);
       Reference.reachabilityFence(dst);
@@ -1352,10 +1346,9 @@ public class QatZipper {
 
   private long decompressBytesBuffer(
       byte[] srcArr, int srcOff, int srcLen, ByteBuffer dst, int dstPos, int dstLen) {
-    long dstAddr = ((DirectBuffer) dst).address() + dstPos;
     try {
       return InternalJNI.decompressBytesBuffer(
-          qzKey, srcArr, srcOff, srcLen, dstAddr, dstLen, retryCount);
+          qzKey, srcArr, srcOff, srcLen, dst, dstPos, dstLen, retryCount);
     } finally {
       Reference.reachabilityFence(dst);
     }
@@ -1363,10 +1356,9 @@ public class QatZipper {
 
   private long decompressBufferBytes(
       ByteBuffer src, int srcPos, int srcLen, byte[] dstArr, int dstOff, int dstLen) {
-    long srcAddr = ((DirectBuffer) src).address() + srcPos;
     try {
       return InternalJNI.decompressBufferBytes(
-          qzKey, srcAddr, srcLen, dstArr, dstOff, dstLen, retryCount);
+          qzKey, src, srcPos, srcLen, dstArr, dstOff, dstLen, retryCount);
     } finally {
       Reference.reachabilityFence(src);
     }
@@ -1374,11 +1366,9 @@ public class QatZipper {
 
   private long decompressBufferBuffer(
       ByteBuffer src, int srcPos, int srcLen, ByteBuffer dst, int dstPos, int dstLen) {
-    long srcAddr = ((DirectBuffer) src).address() + srcPos;
-    long dstAddr = ((DirectBuffer) dst).address() + dstPos;
     try {
       return InternalJNI.decompressBufferBuffer(
-          qzKey, srcAddr, srcLen, dstAddr, dstLen, retryCount);
+          qzKey, src, srcPos, srcLen, dst, dstPos, dstLen, retryCount);
     } finally {
       Reference.reachabilityFence(src);
       Reference.reachabilityFence(dst);

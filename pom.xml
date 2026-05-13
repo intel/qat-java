@@ -95,20 +95,7 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>${maven-compiler-plugin.version}</version>
                 <configuration>
-                    <!--
-                      Using source/target rather than release because javac
-                      forbids combining the release option with add-exports
-                      of a system module (see JDK-8178152). We need to
-                      add-export sun.nio.ch to extract DirectBuffer
-                      addresses in pure Java (the same trick
-                      java.util.zip.Deflater uses internally).
-                    -->
-                    <source>${java.release}</source>
-                    <target>${java.release}</target>
-                    <compilerArgs>
-                        <arg>--add-exports</arg>
-                        <arg>java.base/sun.nio.ch=com.intel.qat</arg>
-                    </compilerArgs>
+                    <release>${java.release}</release>
                 </configuration>
             </plugin>
 
@@ -161,7 +148,7 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>${maven-surefire-plugin.version}</version>
                 <configuration>
-                    <argLine>@{argLine} -Djava.library.path=${project.build.directory}/cbuild --add-exports java.base/sun.nio.ch=com.intel.qat</argLine>
+                    <argLine>@{argLine} -Djava.library.path=${project.build.directory}/cbuild</argLine>
                 </configuration>
             </plugin>
 
@@ -203,15 +190,6 @@
                     <source>${java.release}</source>
                     <detectJavaApiLink>false</detectJavaApiLink>
                     <excludePackageNames>com.intel.qat.examples</excludePackageNames>
-                    <!--
-                      javadoc parses sources just like javac, so it needs
-                      the same add-exports flag to see sun.nio.ch.DirectBuffer
-                      referenced from QatZipper.java.
-                    -->
-                    <additionalOptions>
-                        <additionalOption>--add-exports</additionalOption>
-                        <additionalOption>java.base/sun.nio.ch=com.intel.qat</additionalOption>
-                    </additionalOptions>
                 </configuration>
                 <executions>
                     <execution>
@@ -477,3 +455,4 @@
         </profile>
     </profiles>
 </project>
+

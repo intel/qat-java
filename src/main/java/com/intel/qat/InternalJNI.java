@@ -5,6 +5,8 @@
  ******************************************************************************/
 package com.intel.qat;
 
+import java.nio.ByteBuffer;
+
 /**
  * JNI wrapper, for internal use.
  *
@@ -14,9 +16,7 @@ package com.intel.qat;
  *
  * <ul>
  *   <li>{@code Bytes...}: a {@code byte[]} + offset + length on that side
- *   <li>{@code ...Buffer}: a {@code long} absolute direct-buffer address (extracted in Java via
- *       {@code ((DirectBuffer)buf).address() + buf.position()}, which is a HotSpot intrinsic) +
- *       length
+ *   <li>{@code ...Buffer}: a direct {@code ByteBuffer} + position + length on that side
  * </ul>
  *
  * <p>Every op returns a packed {@code long}:
@@ -29,9 +29,10 @@ package com.intel.qat;
  * <p>or a negative value on error (matching the qatzip {@code QZ_*} error codes). Callers should
  * check {@code result < 0} before unpacking.
  *
- * <p>Note that direct-buffer entry points take an absolute address, so callers
- * <strong>must</strong> wrap calls in {@code try { ... } finally {
- * Reference.reachabilityFence(buf); }} to keep the Cleaner from freeing the buffer mid-call.
+ * <p>Note that direct-buffer entry points receive a {@code ByteBuffer} reference; the JNI layer
+ * obtains the native address via {@code GetDirectBufferAddress}. Callers should still wrap calls in
+ * {@code try { ... } finally { Reference.reachabilityFence(buf); }} to keep the Cleaner from
+ * freeing the buffer mid-call.
  */
 enum InternalJNI {
   ;
@@ -68,13 +69,34 @@ enum InternalJNI {
       int retryCount);
 
   static native long compressBytesBuffer(
-      int qzKey, byte[] src, int srcOff, int srcLen, long dstAddr, int dstLen, int retryCount);
+      int qzKey,
+      byte[] src,
+      int srcOff,
+      int srcLen,
+      ByteBuffer dst,
+      int dstPos,
+      int dstLen,
+      int retryCount);
 
   static native long compressBufferBytes(
-      int qzKey, long srcAddr, int srcLen, byte[] dst, int dstOff, int dstLen, int retryCount);
+      int qzKey,
+      ByteBuffer src,
+      int srcPos,
+      int srcLen,
+      byte[] dst,
+      int dstOff,
+      int dstLen,
+      int retryCount);
 
   static native long compressBufferBuffer(
-      int qzKey, long srcAddr, int srcLen, long dstAddr, int dstLen, int retryCount);
+      int qzKey,
+      ByteBuffer src,
+      int srcPos,
+      int srcLen,
+      ByteBuffer dst,
+      int dstPos,
+      int dstLen,
+      int retryCount);
 
   // ---- decompress ----
 
@@ -89,13 +111,34 @@ enum InternalJNI {
       int retryCount);
 
   static native long decompressBytesBuffer(
-      int qzKey, byte[] src, int srcOff, int srcLen, long dstAddr, int dstLen, int retryCount);
+      int qzKey,
+      byte[] src,
+      int srcOff,
+      int srcLen,
+      ByteBuffer dst,
+      int dstPos,
+      int dstLen,
+      int retryCount);
 
   static native long decompressBufferBytes(
-      int qzKey, long srcAddr, int srcLen, byte[] dst, int dstOff, int dstLen, int retryCount);
+      int qzKey,
+      ByteBuffer src,
+      int srcPos,
+      int srcLen,
+      byte[] dst,
+      int dstOff,
+      int dstLen,
+      int retryCount);
 
   static native long decompressBufferBuffer(
-      int qzKey, long srcAddr, int srcLen, long dstAddr, int dstLen, int retryCount);
+      int qzKey,
+      ByteBuffer src,
+      int srcPos,
+      int srcLen,
+      ByteBuffer dst,
+      int dstPos,
+      int dstLen,
+      int retryCount);
 
   // ---- compressFull (native loop over sub-blocks) ----
 
