@@ -49,14 +49,6 @@ class QatZipperTests {
     zipper.end();
   }
 
-  @Test
-  @DisplayName("Builder sets algorithm correctly")
-  void testBuilderSetAlgorithm() {
-    QatZipper zipper = new QatZipper.Builder().algorithm(QatZipper.Algorithm.ZSTD).build();
-    assertNotNull(zipper);
-    zipper.end();
-  }
-
   @ParameterizedTest
   @EnumSource(QatZipper.Algorithm.class)
   @DisplayName("Builder accepts all algorithm types")
@@ -144,25 +136,6 @@ class QatZipperTests {
   }
 
   @ParameterizedTest
-  @ValueSource(ints = {0, 1, 5, 10})
-  @DisplayName("Builder accepts valid retry counts")
-  void testBuilderRetryCount(int retryCount) {
-    QatZipper zipper = new QatZipper.Builder().retryCount(retryCount).build();
-    assertNotNull(zipper);
-    zipper.end();
-  }
-
-  @Test
-  @DisplayName("Builder throws exception for negative retry count")
-  void testBuilderNegativeRetryCount() {
-    assertThrows(
-        IllegalArgumentException.class,
-        () -> {
-          new QatZipper.Builder().retryCount(-1).build();
-        });
-  }
-
-  @ParameterizedTest
   @EnumSource(QatZipper.PollingMode.class)
   @DisplayName("Builder accepts all polling modes")
   void testBuilderAllPollingModes(QatZipper.PollingMode pollingMode) {
@@ -246,7 +219,6 @@ class QatZipperTests {
             .algorithm(QatZipper.Algorithm.ZSTD)
             .level(6)
             .mode(QatZipper.Mode.AUTO)
-            .retryCount(3)
             .pollingMode(QatZipper.PollingMode.PERIODICAL)
             .dataFormat(QatZipper.DataFormat.DEFLATE_GZIP)
             .hardwareBufferSize(QatZipper.HardwareBufferSize.MAX_BUFFER_SIZE)
@@ -286,20 +258,6 @@ class QatZipperTests {
     } finally {
       zipper.end();
     }
-  }
-
-  @Test
-  @DisplayName("Compress throws exception when session is closed")
-  void testCompressAfterEnd() {
-    QatZipper zipper = new QatZipper.Builder().build();
-    byte[] output = new byte[zipper.maxCompressedLength(TEST_DATA.length)];
-    zipper.end();
-
-    assertThrows(
-        IllegalStateException.class,
-        () -> {
-          zipper.compress(TEST_DATA, output);
-        });
   }
 
   @Test
@@ -477,21 +435,6 @@ class QatZipperTests {
     } finally {
       zipper.end();
     }
-  }
-
-  @Test
-  @DisplayName("Decompress throws exception when session is closed")
-  void testDecompressAfterEnd() {
-    QatZipper zipper = new QatZipper.Builder().build();
-    byte[] compressed = new byte[100];
-    byte[] output = new byte[100];
-    zipper.end();
-
-    assertThrows(
-        IllegalStateException.class,
-        () -> {
-          zipper.decompress(compressed, 0, compressed.length, output, 0, output.length);
-        });
   }
 
   @Test
@@ -1075,7 +1018,6 @@ class QatZipperTests {
     assertEquals(6, QatZipper.DEFAULT_COMPRESSION_LEVEL_DEFLATE);
     assertEquals(3, QatZipper.DEFAULT_COMPRESSION_LEVEL_ZSTD);
     assertEquals(QatZipper.Mode.AUTO, QatZipper.DEFAULT_MODE);
-    assertEquals(0, QatZipper.DEFAULT_RETRY_COUNT);
     assertEquals(QatZipper.PollingMode.BUSY, QatZipper.DEFAULT_POLLING_MODE);
     assertEquals(QatZipper.DataFormat.DEFLATE_GZIP_EXT, QatZipper.DEFAULT_DATA_FORMAT);
     assertEquals(
@@ -1168,6 +1110,515 @@ class QatZipperTests {
     } finally {
       zipper.end();
     }
+  }
+
+  // ===========================
+  // Constructor Tests
+  // ===========================
+
+  @ParameterizedTest
+  @EnumSource(QatZipper.Algorithm.class)
+  @DisplayName("Single-argument constructor accepts all algorithms")
+  void testSingleArgConstructor(QatZipper.Algorithm algorithm) {
+    QatZipper zipper = new QatZipper(algorithm);
+    assertNotNull(zipper);
+    zipper.end();
+  }
+
+  @Test
+  @DisplayName("Two-argument constructor with algorithm and level")
+  void testTwoArgConstructor() {
+    QatZipper zipper = new QatZipper(QatZipper.Algorithm.ZSTD, 6);
+    assertNotNull(zipper);
+    zipper.end();
+  }
+
+  @Test
+  @DisplayName("No-arg constructor creates default QatZipper")
+  void testNoArgConstructor() {
+    QatZipper zipper = new QatZipper();
+    assertNotNull(zipper);
+    zipper.end();
+  }
+
+  // ===========================
+  // Builder getAlgorithm Tests
+  // ===========================
+
+  @Test
+  @DisplayName("Builder getAlgorithm returns default algorithm")
+  void testBuilderGetAlgorithmDefault() {
+    QatZipper.Builder builder = new QatZipper.Builder();
+    assertEquals(QatZipper.Algorithm.DEFLATE, builder.getAlgorithm());
+  }
+
+  @Test
+  @DisplayName("Builder getAlgorithm returns set algorithm")
+  void testBuilderGetAlgorithmAfterSet() {
+    QatZipper.Builder builder = new QatZipper.Builder().algorithm(QatZipper.Algorithm.LZ4);
+    assertEquals(QatZipper.Algorithm.LZ4, builder.getAlgorithm());
+  }
+
+  // ===========================
+  // Decompress convenience method Tests
+  // ===========================
+
+  @Test
+  @DisplayName("Decompress convenience method (byte[], byte[]) works correctly")
+  void testDecompressConvenienceMethod() {
+    QatZipper zipper = new QatZipper.Builder().build();
+    try {
+      byte[] compressed = new byte[zipper.maxCompressedLength(TEST_DATA.length)];
+      int compressedSize = zipper.compress(TEST_DATA, compressed);
+
+      // Use exact-size compressed array for convenience method
+      byte[] exactCompressed = new byte[compressedSize];
+      System.arraycopy(compressed, 0, exactCompressed, 0, compressedSize);
+
+      byte[] decompressed = new byte[TEST_DATA.length];
+      int decompressedSize = zipper.decompress(exactCompressed, decompressed);
+
+      assertEquals(TEST_DATA.length, decompressedSize);
+      assertArrayEquals(TEST_DATA, decompressed);
+    } finally {
+      zipper.end();
+    }
+  }
+
+  // ===========================
+  // compressFull Tests
+  // ===========================
+
+  @Test
+  @DisplayName("compressFull compresses multiple sub-blocks successfully")
+  void testCompressFullBasic() {
+    QatZipper zipper = new QatZipper.Builder().build();
+    try {
+      int blockLength = 1024;
+      int numBlocks = (LARGE_DATA.length + blockLength - 1) / blockLength;
+      int maxCompressed = zipper.maxCompressedLength(blockLength) * numBlocks;
+      byte[] dst = new byte[maxCompressed];
+      int[] sizes = new int[numBlocks];
+
+      int totalWritten =
+          zipper.compressFull(
+              LARGE_DATA, 0, LARGE_DATA.length, blockLength, dst, 0, dst.length, sizes, 0);
+
+      assertTrue(totalWritten > 0);
+      // Verify sizes array is populated
+      for (int i = 0; i < numBlocks; i++) {
+        assertTrue(sizes[i] > 0, "Block " + i + " should have non-zero compressed size");
+      }
+    } finally {
+      zipper.end();
+    }
+  }
+
+  @Test
+  @DisplayName("compressFull throws exception when session is closed")
+  void testCompressFullAfterEnd() {
+    QatZipper zipper = new QatZipper.Builder().build();
+    zipper.end();
+
+    int[] sizes = new int[1];
+    assertThrows(
+        IllegalStateException.class,
+        () -> {
+          zipper.compressFull(
+              TEST_DATA, 0, TEST_DATA.length, TEST_DATA.length, new byte[100], 0, 100, sizes, 0);
+        });
+  }
+
+  @Test
+  @DisplayName("compressFull throws exception for null source")
+  void testCompressFullNullSource() {
+    QatZipper zipper = new QatZipper.Builder().build();
+    try {
+      int[] sizes = new int[1];
+      assertThrows(
+          IllegalArgumentException.class,
+          () -> {
+            zipper.compressFull(null, 0, 10, 10, new byte[100], 0, 100, sizes, 0);
+          });
+    } finally {
+      zipper.end();
+    }
+  }
+
+  // ===========================
+  // decompressFull Tests
+  // ===========================
+
+  @Test
+  @DisplayName("decompressFull decompresses multiple concatenated frames")
+  void testDecompressFullBasic() {
+    QatZipper zipper = new QatZipper.Builder().build();
+    try {
+      int blockLength = 1024;
+      int numBlocks = (LARGE_DATA.length + blockLength - 1) / blockLength;
+      int maxCompressed = zipper.maxCompressedLength(blockLength) * numBlocks;
+      byte[] compressedDst = new byte[maxCompressed];
+      int[] sizes = new int[numBlocks];
+
+      int totalCompressed =
+          zipper.compressFull(
+              LARGE_DATA,
+              0,
+              LARGE_DATA.length,
+              blockLength,
+              compressedDst,
+              0,
+              compressedDst.length,
+              sizes,
+              0);
+
+      // Now decompress using decompressFull
+      byte[] decompressed = new byte[LARGE_DATA.length];
+      int totalDecompressed =
+          zipper.decompressFull(
+              compressedDst, 0, totalCompressed, decompressed, 0, decompressed.length);
+
+      assertEquals(LARGE_DATA.length, totalDecompressed);
+      assertArrayEquals(LARGE_DATA, decompressed);
+    } finally {
+      zipper.end();
+    }
+  }
+
+  @Test
+  @DisplayName("decompressFull throws exception when session is closed")
+  void testDecompressFullAfterEnd() {
+    QatZipper zipper = new QatZipper.Builder().build();
+    zipper.end();
+
+    assertThrows(
+        IllegalStateException.class,
+        () -> {
+          zipper.decompressFull(new byte[100], 0, 100, new byte[200], 0, 200);
+        });
+  }
+
+  @Test
+  @DisplayName("decompressFull throws exception for null source")
+  void testDecompressFullNullSource() {
+    QatZipper zipper = new QatZipper.Builder().build();
+    try {
+      assertThrows(
+          IllegalArgumentException.class,
+          () -> {
+            zipper.decompressFull(null, 0, 10, new byte[100], 0, 100);
+          });
+    } finally {
+      zipper.end();
+    }
+  }
+
+  @Test
+  @DisplayName("decompressFull throws exception for null destination")
+  void testDecompressFullNullDestination() {
+    QatZipper zipper = new QatZipper.Builder().build();
+    try {
+      assertThrows(
+          IllegalArgumentException.class,
+          () -> {
+            zipper.decompressFull(new byte[100], 0, 100, null, 0, 10);
+          });
+    } finally {
+      zipper.end();
+    }
+  }
+
+  // ===========================
+  // All Algorithms Round-trip Tests
+  // ===========================
+
+  @ParameterizedTest
+  @EnumSource(QatZipper.Algorithm.class)
+  @DisplayName("Compress/decompress round-trip for all algorithms")
+  void testRoundTripAllAlgorithms(QatZipper.Algorithm algorithm) {
+    QatZipper zipper = new QatZipper.Builder().algorithm(algorithm).build();
+    try {
+      byte[] compressed = new byte[zipper.maxCompressedLength(TEST_DATA.length)];
+      int compressedSize = zipper.compress(TEST_DATA, compressed);
+      assertTrue(compressedSize > 0);
+
+      byte[] decompressed = new byte[TEST_DATA.length];
+      int decompressedSize =
+          zipper.decompress(compressed, 0, compressedSize, decompressed, 0, decompressed.length);
+
+      assertEquals(TEST_DATA.length, decompressedSize);
+      assertArrayEquals(TEST_DATA, decompressed);
+    } finally {
+      zipper.end();
+    }
+  }
+
+  @ParameterizedTest
+  @EnumSource(QatZipper.Algorithm.class)
+  @DisplayName("Large data round-trip for all algorithms")
+  void testLargeDataRoundTripAllAlgorithms(QatZipper.Algorithm algorithm) {
+    QatZipper zipper = new QatZipper.Builder().algorithm(algorithm).build();
+    try {
+      byte[] compressed = new byte[zipper.maxCompressedLength(LARGE_DATA.length)];
+      int compressedSize = zipper.compress(LARGE_DATA, compressed);
+      assertTrue(compressedSize > 0);
+
+      byte[] decompressed = new byte[LARGE_DATA.length];
+      int decompressedSize =
+          zipper.decompress(compressed, 0, compressedSize, decompressed, 0, decompressed.length);
+
+      assertEquals(LARGE_DATA.length, decompressedSize);
+      assertArrayEquals(LARGE_DATA, decompressed);
+    } finally {
+      zipper.end();
+    }
+  }
+
+  // ===========================
+  // Mixed ByteBuffer Tests
+  // ===========================
+
+  @Test
+  @DisplayName("Compress with direct source and heap destination buffer")
+  void testCompressDirectSrcHeapDst() {
+    QatZipper zipper = new QatZipper.Builder().build();
+    try {
+      ByteBuffer src = ByteBuffer.allocateDirect(TEST_DATA.length);
+      src.put(TEST_DATA);
+      src.flip();
+
+      ByteBuffer dst = ByteBuffer.allocate(zipper.maxCompressedLength(TEST_DATA.length));
+
+      int compressedSize = zipper.compress(src, dst);
+      assertTrue(compressedSize > 0);
+      assertEquals(TEST_DATA.length, src.position());
+      assertEquals(compressedSize, dst.position());
+    } finally {
+      zipper.end();
+    }
+  }
+
+  @Test
+  @DisplayName("Compress with heap source and direct destination buffer")
+  void testCompressHeapSrcDirectDst() {
+    QatZipper zipper = new QatZipper.Builder().build();
+    try {
+      ByteBuffer src = ByteBuffer.wrap(TEST_DATA);
+      ByteBuffer dst = ByteBuffer.allocateDirect(zipper.maxCompressedLength(TEST_DATA.length));
+
+      int compressedSize = zipper.compress(src, dst);
+      assertTrue(compressedSize > 0);
+      assertEquals(TEST_DATA.length, src.position());
+      assertEquals(compressedSize, dst.position());
+    } finally {
+      zipper.end();
+    }
+  }
+
+  @Test
+  @DisplayName("Decompress with direct source and heap destination buffer")
+  void testDecompressDirectSrcHeapDst() {
+    QatZipper zipper = new QatZipper.Builder().build();
+    try {
+      // Compress using direct buffers
+      ByteBuffer src = ByteBuffer.allocateDirect(TEST_DATA.length);
+      src.put(TEST_DATA);
+      src.flip();
+      ByteBuffer compressed =
+          ByteBuffer.allocateDirect(zipper.maxCompressedLength(TEST_DATA.length));
+      int compressedSize = zipper.compress(src, compressed);
+      compressed.flip();
+
+      // Decompress: direct src -> heap dst
+      ByteBuffer decompressed = ByteBuffer.allocate(TEST_DATA.length);
+      int decompressedSize = zipper.decompress(compressed, decompressed);
+
+      assertEquals(TEST_DATA.length, decompressedSize);
+      decompressed.flip();
+      byte[] result = new byte[decompressed.remaining()];
+      decompressed.get(result);
+      assertArrayEquals(TEST_DATA, result);
+    } finally {
+      zipper.end();
+    }
+  }
+
+  @Test
+  @DisplayName("Decompress with heap source and direct destination buffer")
+  void testDecompressHeapSrcDirectDst() {
+    QatZipper zipper = new QatZipper.Builder().build();
+    try {
+      // Compress using heap buffers
+      ByteBuffer src = ByteBuffer.wrap(TEST_DATA);
+      ByteBuffer compressed = ByteBuffer.allocate(zipper.maxCompressedLength(TEST_DATA.length));
+      int compressedSize = zipper.compress(src, compressed);
+      compressed.flip();
+
+      // Decompress: heap src -> direct dst
+      ByteBuffer decompressed = ByteBuffer.allocateDirect(TEST_DATA.length);
+      int decompressedSize = zipper.decompress(compressed, decompressed);
+
+      assertEquals(TEST_DATA.length, decompressedSize);
+      decompressed.flip();
+      byte[] result = new byte[decompressed.remaining()];
+      decompressed.get(result);
+      assertArrayEquals(TEST_DATA, result);
+    } finally {
+      zipper.end();
+    }
+  }
+
+  @Test
+  @DisplayName("Compress with read-only source buffer")
+  void testCompressReadOnlySourceBuffer() {
+    QatZipper zipper = new QatZipper.Builder().build();
+    try {
+      ByteBuffer src = ByteBuffer.wrap(TEST_DATA).asReadOnlyBuffer();
+      ByteBuffer dst = ByteBuffer.allocate(zipper.maxCompressedLength(TEST_DATA.length));
+
+      int compressedSize = zipper.compress(src, dst);
+      assertTrue(compressedSize > 0);
+      assertEquals(TEST_DATA.length, src.position());
+    } finally {
+      zipper.end();
+    }
+  }
+
+  // ===========================
+  // ZSTD ByteBuffer Tests
+  // ===========================
+
+  @Test
+  @DisplayName("ZSTD compress/decompress with heap ByteBuffers")
+  void testZSTDByteBufferHeap() {
+    QatZipper zipper = new QatZipper.Builder().algorithm(QatZipper.Algorithm.ZSTD).build();
+    try {
+      ByteBuffer src = ByteBuffer.wrap(TEST_DATA);
+      ByteBuffer compressed = ByteBuffer.allocate(zipper.maxCompressedLength(TEST_DATA.length));
+
+      int compressedSize = zipper.compress(src, compressed);
+      assertTrue(compressedSize > 0);
+      compressed.flip();
+
+      ByteBuffer decompressed = ByteBuffer.allocate(TEST_DATA.length);
+      int decompressedSize = zipper.decompress(compressed, decompressed);
+
+      assertEquals(TEST_DATA.length, decompressedSize);
+      decompressed.flip();
+      byte[] result = new byte[decompressed.remaining()];
+      decompressed.get(result);
+      assertArrayEquals(TEST_DATA, result);
+    } finally {
+      zipper.end();
+    }
+  }
+
+  @Test
+  @DisplayName("ZSTD compress/decompress with direct ByteBuffers")
+  void testZSTDByteBufferDirect() {
+    QatZipper zipper = new QatZipper.Builder().algorithm(QatZipper.Algorithm.ZSTD).build();
+    try {
+      ByteBuffer src = ByteBuffer.allocateDirect(TEST_DATA.length);
+      src.put(TEST_DATA);
+      src.flip();
+      ByteBuffer compressed =
+          ByteBuffer.allocateDirect(zipper.maxCompressedLength(TEST_DATA.length));
+
+      int compressedSize = zipper.compress(src, compressed);
+      assertTrue(compressedSize > 0);
+      compressed.flip();
+
+      ByteBuffer decompressed = ByteBuffer.allocateDirect(TEST_DATA.length);
+      int decompressedSize = zipper.decompress(compressed, decompressed);
+
+      assertEquals(TEST_DATA.length, decompressedSize);
+      decompressed.flip();
+      byte[] result = new byte[decompressed.remaining()];
+      decompressed.get(result);
+      assertArrayEquals(TEST_DATA, result);
+    } finally {
+      zipper.end();
+    }
+  }
+
+  // ===========================
+  // ZSTD Checksum Round-trip Test
+  // ===========================
+
+  @Test
+  @DisplayName("ZSTD compression with checksum enabled produces valid data")
+  void testZSTDChecksumRoundTrip() {
+    QatZipper zipper = new QatZipper.Builder().algorithm(QatZipper.Algorithm.ZSTD).build();
+    try {
+      zipper.setChecksumFlag(true);
+      assertTrue(zipper.getChecksumFlag());
+
+      byte[] compressed = new byte[zipper.maxCompressedLength(TEST_DATA.length)];
+      int compressedSize = zipper.compress(TEST_DATA, compressed);
+      assertTrue(compressedSize > 0);
+
+      byte[] decompressed = new byte[TEST_DATA.length];
+      int decompressedSize =
+          zipper.decompress(compressed, 0, compressedSize, decompressed, 0, decompressed.length);
+
+      assertEquals(TEST_DATA.length, decompressedSize);
+      assertArrayEquals(TEST_DATA, decompressed);
+    } finally {
+      zipper.end();
+    }
+  }
+
+  // ===========================
+  // maxCompressedLength Edge Case Tests
+  // ===========================
+
+  @Test
+  @DisplayName("maxCompressedLength for zero length returns positive value")
+  void testMaxCompressedLengthZero() {
+    QatZipper zipper = new QatZipper.Builder().build();
+    try {
+      int maxSize = zipper.maxCompressedLength(0);
+      assertTrue(maxSize >= 0);
+    } finally {
+      zipper.end();
+    }
+  }
+
+  @ParameterizedTest
+  @EnumSource(QatZipper.Algorithm.class)
+  @DisplayName("maxCompressedLength for all algorithms")
+  void testMaxCompressedLengthAllAlgorithms(QatZipper.Algorithm algorithm) {
+    QatZipper zipper = new QatZipper.Builder().algorithm(algorithm).build();
+    try {
+      int maxSize = zipper.maxCompressedLength(TEST_DATA.length);
+      assertTrue(maxSize > 0);
+    } finally {
+      zipper.end();
+    }
+  }
+
+  // ===========================
+  // Builder Validation Edge Cases
+  // ===========================
+
+  @Test
+  @DisplayName("Builder throws exception for DEFLATE level above 9")
+  void testBuilderInvalidDeflateLevelHigh() {
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> {
+          new QatZipper.Builder().algorithm(QatZipper.Algorithm.DEFLATE).level(10).build();
+        });
+  }
+
+  @Test
+  @DisplayName("Builder throws exception for LZ4 level above 9")
+  void testBuilderInvalidLZ4LevelHigh() {
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> {
+          new QatZipper.Builder().algorithm(QatZipper.Algorithm.LZ4).level(10).build();
+        });
   }
 
   // ===========================

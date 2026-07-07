@@ -41,14 +41,51 @@
 #define ZLIB_DATA_FORMAT 4
 
 /**
+ * Result packing for the compress/decompress JNI entry points.
+ *
+ * Mirroring OpenJDK's libzip Deflater/Inflater convention, every JNI op
+ * returns a jlong containing two non-negative 31-bit fields:
+ *
+ *   bits  0..30  bytes_read    (uncompressed bytes consumed from src)
+ *   bits 31..61  bytes_written (compressed bytes produced into dst)
+ *
+ * This avoids a separate SetIntField(env, qz_obj, bytes_read_id, ...) JNI
+ * call on every operation, which is measurable on small-buffer workloads
+ * where the JNI dispatch overhead dominates. The Java side does the
+ * unpack with one shift+mask each.
+ *
+ * Errors are signalled by returning a *negative* value: specifically,
+ * -1 for "JNI threw an exception" (the qzCompress rc is reported via
+ * the thrown IllegalStateException), or the qzCompress rc itself (which
+ * is always negative on error). Java checks `result < 0`.
+ */
+#define PACK_RESULT(bytes_read, bytes_written)     \
+  (((jlong)((bytes_written) & 0x7FFFFFFF) << 31) | \
+   ((jlong)((bytes_read) & 0x7FFFFFFF)))
+
+/**
+ * Log macro that avoids evaluating arguments (and even calling logMessage)
+ * unless logging is actually enabled. The unlikely() hint lets the compiler
+ * keep the common path free of the call entirely.
+ */
+#define LOG(...)                         \
+  do {                                   \
+    if (unlikely(g_log_level > 0)) {     \
+      logMessage(__LINE__, __VA_ARGS__); \
+    }                                    \
+  } while (0)
+
+/**
  * This file name, for logMessage.
  */
 #define THIS_FILE "com_intel_qat_InternalJNI.c"
 
 /**
- * Stores the JNI field ID for the 'bytesRead' field of com.intel.qat.QatZipper.
+ * Stores the JNI field ID for the 'qzKey' field of com.intel.qat.QatZipper.
+ * Cached once at library load via initFieldIDs() so setupSession does not need
+ * to call FindClass + GetFieldID on every invocation.
  */
-static jfieldID g_qzip_bytes_read_id;
+static jfieldID g_qzip_qz_key_id;
 
 /**
  * Thread-local flag indicating whether the Zstandard (ZSTD) compression
@@ -64,7 +101,7 @@ static _Thread_local int g_algorithm_is_zstd;
  * session. Allocated during ZSTD initialization and freed during cleanup (e.g.,
  * JNI_OnUnload). NULL when ZSTD is not active or state is uninitialized.
  */
-static _Thread_local void *g_zstd_seqprod_state;
+static _Thread_local void* g_zstd_seqprod_state;
 
 /**
  * Thread-local variable that stores the current logging level.
@@ -89,7 +126,7 @@ static _Thread_local int g_log_level;
  * level
  * @note Output is flushed immediately to ensure messages appear promptly
  */
-static inline void logMessage(int line, const char *format, ...) {
+static inline void logMessage(int line, const char* format, ...) {
   // We log only if log_level is greater than LogLevel.NONE (0)
   if (g_log_level < 1) return;
 
@@ -131,7 +168,7 @@ static void call_qzstd_once(void) {
 typedef struct QzSessionHandle_T {
   int32_t qz_key;          /**< Unique identifier for session parameters */
   int32_t reference_count; /**< Number of active references to this session */
-  QzSession_T *qz_session; /**< Pointer to the QAT session object */
+  QzSession_T* qz_session; /**< Pointer to the QAT session object */
 } QzSessionHandle_T;
 
 /**
@@ -206,7 +243,7 @@ static int32_t gen_session_key(int32_t algorithm,
  * @param hw_buff_sz    Hardware buffer size
  * @return              QZ_OK on success, error code on failure
  */
-static int setup_deflate_session(QzSession_T *qz_session,
+static int setup_deflate_session(QzSession_T* qz_session,
                                  int level,
                                  uint8_t sw_backup,
                                  int polling_mode,
@@ -239,7 +276,7 @@ static int setup_deflate_session(QzSession_T *qz_session,
  * @param polling_mode  Polling mode (0 for busy, non-zero for periodical)
  * @return              QZ_OK on success, error code on failure
  */
-static int setup_deflate_zlib_session(QzSession_T *qz_session,
+static int setup_deflate_zlib_session(QzSession_T* qz_session,
                                       int level,
                                       uint8_t sw_backup,
                                       int polling_mode) {
@@ -272,7 +309,7 @@ static int setup_deflate_zlib_session(QzSession_T *qz_session,
  * @param polling_mode  Polling mode (0 for busy, non-zero for periodical)
  * @return              QZ_OK on success, error code on failure
  */
-static int setup_lz4_session(QzSession_T *qz_session,
+static int setup_lz4_session(QzSession_T* qz_session,
                              int level,
                              uint8_t sw_backup,
                              int polling_mode) {
@@ -319,7 +356,7 @@ static int setup_lz4_session(QzSession_T *qz_session,
  *   - java.lang.IllegalStateException: If QAT initialization or session setup
  * fails.
  */
-static QzSessionHandle_T *create_session(JNIEnv *env, int32_t qz_key) {
+static QzSessionHandle_T* create_session(JNIEnv* env, int32_t qz_key) {
   if (g_session_counter == MAX_SESSIONS_PER_THREAD) {
     (*env)->ThrowNew(env, (*env)->FindClass(env, "java/lang/RuntimeException"),
                      "Number of sessions exceeded the limit for this thread");
@@ -333,9 +370,9 @@ static QzSessionHandle_T *create_session(JNIEnv *env, int32_t qz_key) {
   int data_format = (qz_key >> 13) & 0xF;
   int hw_buff_sz = ((qz_key >> 17) & 0xFFF) << 10;
 
-  QzSessionHandle_T *sess_ptr = &g_session_cache[g_session_counter++];
+  QzSessionHandle_T* sess_ptr = &g_session_cache[g_session_counter++];
   sess_ptr->qz_key = qz_key;
-  sess_ptr->qz_session = (QzSession_T *)calloc(1, sizeof(QzSession_T));
+  sess_ptr->qz_session = (QzSession_T*)calloc(1, sizeof(QzSession_T));
 
   if (sess_ptr->qz_session == NULL) {
     (*env)->ThrowNew(env, (*env)->FindClass(env, "java/lang/OutOfMemoryError"),
@@ -392,7 +429,7 @@ static QzSessionHandle_T *create_session(JNIEnv *env, int32_t qz_key) {
  * @return        A pointer to the matching QzSessionHandle_T in
  * g_session_cache, or NULL if no session matches.
  */
-static QzSessionHandle_T *get_session(int32_t qz_key) {
+static QzSessionHandle_T* get_session(int32_t qz_key) {
   for (int i = 0; i < g_session_counter; ++i) {
     if (g_session_cache[i].qz_session && g_session_cache[i].qz_key == qz_key) {
       return &g_session_cache[i];
@@ -409,8 +446,8 @@ static QzSessionHandle_T *get_session(int32_t qz_key) {
  *
  * Returns a pointer to the session or NULL on failure.
  */
-static QzSessionHandle_T *get_or_create_session(JNIEnv *env, int32_t qz_key) {
-  QzSessionHandle_T *sess_ptr = get_session(qz_key);
+static QzSessionHandle_T* get_or_create_session(JNIEnv* env, int32_t qz_key) {
+  QzSessionHandle_T* sess_ptr = get_session(qz_key);
   if (sess_ptr) {
     return sess_ptr;
   }
@@ -443,67 +480,16 @@ static QzSessionHandle_T *get_or_create_session(JNIEnv *env, int32_t qz_key) {
  * source buffer.
  * @param bytes_written  An out parameter that stores the bytes written to the
  * destination buffer.
- * @param retry_count    The number of compression retries before we give up.
  * @return               QZ_OK (0) if successful, non-zero otherwise.
  */
-static int compress_slowpath(JNIEnv *env,
-                             QzSession_T *sess,
-                             uint8_t *src_ptr,
-                             unsigned int src_len,
-                             uint8_t *dst_ptr,
-                             unsigned int dst_len,
-                             int *bytes_read,
-                             int *bytes_written,
-                             int retry_count) {
-  int rc = QZ_OK;
-
-  // Retry on specific error if retries remain
-  while (rc == QZ_NOSW_NO_INST_ATTACH && retry_count > 0) {
-    rc = qzCompress(sess, src_ptr, &src_len, dst_ptr, &dst_len, 1);
-    retry_count--;
-  }
-
-  if (rc != QZ_OK) {
-    (*env)->ThrowNew(env,
-                     (*env)->FindClass(env, "java/lang/IllegalStateException"),
-                     get_err_str(rc));
-    return rc;
-  }
-
-  *bytes_read = src_len;
-  *bytes_written = dst_len;
-
-  return QZ_OK;
-}
-
-/**
- * Compresses a buffer pointed to by the given source pointer and writes it to
- * the destination buffer pointed to by the destination pointer. The read and
- * write of the source and destination buffers is bounded by the source and
- * destination lengths respectively.
- *
- * @param env            A pointer to the JNI environment.
- * @param qz_key         Value representing unique compression params.
- * @param src_ptr        The source buffer.
- * @param src_len        The size of the source buffer.
- * @param dst_ptr        The destination buffer.
- * @param dst_len        The size of the destination buffer.
- * @param bytes_read     An out parameter that stores the bytes read from the
- * source buffer.
- * @param bytes_written  An out parameter that stores the bytes written to the
- * destination buffer.
- * @param retry_count    The number of compression retries before we give up.
- * @return               QZ_OK (0) if successful, non-zero otherwise.
- */
-static inline __attribute__((always_inline)) int compress(JNIEnv *env,
-                                                          QzSession_T *sess,
-                                                          uint8_t *src_ptr,
+static inline __attribute__((always_inline)) int compress(JNIEnv* env,
+                                                          QzSession_T* sess,
+                                                          uint8_t* src_ptr,
                                                           unsigned int src_len,
-                                                          uint8_t *dst_ptr,
+                                                          uint8_t* dst_ptr,
                                                           unsigned int dst_len,
-                                                          int *bytes_read,
-                                                          int *bytes_written,
-                                                          int retry_count) {
+                                                          int* bytes_read,
+                                                          int* bytes_written) {
   int rc = qzCompress(sess, src_ptr, &src_len, dst_ptr, &dst_len, 1);
 
   if (likely(rc == QZ_OK)) {
@@ -512,80 +498,36 @@ static inline __attribute__((always_inline)) int compress(JNIEnv *env,
     return QZ_OK;
   }
 
-  return compress_slowpath(env, sess, src_ptr, src_len, dst_ptr, dst_len,
-                           bytes_read, bytes_written, retry_count);
+  *bytes_read = 0;
+  *bytes_written = 0;
+  (*env)->ThrowNew(env,
+                   (*env)->FindClass(env, "java/lang/IllegalStateException"),
+                   get_err_str(rc));
+  return rc;
 }
 
 /**
- * Compresses data using a QzSession_T session.
+ * Decompresses data using a QzSession_T session.
  *
  * @param env           JNI environment pointer
- * @param qz_key        Value representing unique compression params
+ * @param sess          Pointer to the QAT session
  * @param src_ptr       Pointer to source data buffer
  * @param src_len       Length of source data
  * @param dst_ptr       Pointer to destination buffer
  * @param dst_len       Length of destination buffer
  * @param bytes_read    Pointer to store number of bytes read from source
  * @param bytes_written Pointer to store number of bytes written to destination
- * @param retry_count   Number of retry attempts for specific errors
- * @return              QZ_OK on success, error code on failure
- */
-static int decompress_slowpath(JNIEnv *env,
-                               QzSession_T *sess,
-                               uint8_t *src_ptr,
-                               unsigned int src_len,
-                               uint8_t *dst_ptr,
-                               unsigned int dst_len,
-                               int *bytes_read,
-                               int *bytes_written,
-                               int retry_count) {
-  int rc = QZ_OK;
-
-  // Retry on specific error if retries remain
-  while (rc == QZ_NOSW_NO_INST_ATTACH && retry_count > 0) {
-    rc = qzDecompress(sess, src_ptr, &src_len, dst_ptr, &dst_len);
-    retry_count--;
-  }
-
-  if (rc == QZ_OK || rc == QZ_BUF_ERROR || rc == QZ_DATA_ERROR) {
-    // TODO: implement a better solution!
-    // The streaming API requires that we allow BUF_ERROR and DATA_ERROR to
-    // proceed. Caller needs to check bytes_read and bytes_written.
-    *bytes_read = src_len;
-    *bytes_written = dst_len;
-    return QZ_OK;
-  } else {
-    (*env)->ThrowNew(env,
-                     (*env)->FindClass(env, "java/lang/IllegalStateException"),
-                     get_err_str(rc));
-    return rc;
-  }
-}
-
-/**
- * Compresses data using a QzSession_T session.
- *
- * @param env           JNI environment pointer
- * @param qz_key        Value representing unique compression params
- * @param src_ptr       Pointer to source data buffer
- * @param src_len       Length of source data
- * @param dst_ptr       Pointer to destination buffer
- * @param dst_len       Length of destination buffer
- * @param bytes_read    Pointer to store number of bytes read from source
- * @param bytes_written Pointer to store number of bytes written to destination
- * @param retry_count   Number of retry attempts for specific errors
  * @return              QZ_OK on success, error code on failure
  */
 static inline __attribute__((always_inline)) int decompress(
-    JNIEnv *env,
-    QzSession_T *sess,
-    uint8_t *src_ptr,
+    JNIEnv* env,
+    QzSession_T* sess,
+    uint8_t* src_ptr,
     unsigned int src_len,
-    uint8_t *dst_ptr,
+    uint8_t* dst_ptr,
     unsigned int dst_len,
-    int *bytes_read,
-    int *bytes_written,
-    int retry_count) {
+    int* bytes_read,
+    int* bytes_written) {
   int rc = qzDecompress(sess, src_ptr, &src_len, dst_ptr, &dst_len);
 
   if (likely(rc == QZ_OK)) {
@@ -594,45 +536,66 @@ static inline __attribute__((always_inline)) int decompress(
     return QZ_OK;
   }
 
-  return decompress_slowpath(env, sess, src_ptr, src_len, dst_ptr, dst_len,
-                             bytes_read, bytes_written, retry_count);
+  *bytes_read = 0;
+  *bytes_written = 0;
+  (*env)->ThrowNew(env,
+                   (*env)->FindClass(env, "java/lang/IllegalStateException"),
+                   get_err_str(rc));
+  return rc;
 }
 
-/**
- * Initializes JNI field IDs for accessing Java class fields.
+/* ===========================================================================
+ * Compress/decompress JNI entry points.
  *
- * @param env  JNI environment pointer
- * @param clz  Java class object (unused)
+ * The design mirrors OpenJDK's libzip Deflater.c / Inflater.c convention:
+ *
+ *   - Four entry points per op, naming each (src_kind)(dst_kind):
+ *       Java_..._{compress,decompress}BytesBytes    array  -> array
+ *       Java_..._{compress,decompress}BytesBuffer   array  -> direct
+ *       Java_..._{compress,decompress}BufferBytes   direct -> array
+ *       Java_..._{compress,decompress}BufferBuffer  direct -> direct
+ *
+ *   - "Bytes" args are jbyteArray + jint off + jint len.
+ *
+ *   - "Buffer" args are a direct ByteBuffer jobject + jint position + jint
+ *     len. The C side extracts the native address via
+ *     GetDirectBufferAddress(env, buf) + position. The Java side is
+ *     responsible for wrapping the call in
+ *     try { ... } finally { Reference.reachabilityFence(buf); }
+ *     to prevent the Cleaner from freeing the buffer mid-call.
+ *
+ *   - Returns a packed jlong: (bytes_written << 31) | bytes_read, or a
+ *     negative value on error. See the PACK_RESULT macro near the top of
+ *     this file.
+ *
+ * For heap byte arrays we use GetPrimitiveArrayCritical and run the QAT
+ * call between the two pins. This is the same pattern OpenJDK uses for
+ * zlib's deflate/inflate, and HotSpot's GCLocker is built to handle it
+ * (GC defers until the critical region exits; the call completes; GC
+ * runs). Users who can't tolerate GCLocker latency are expected to use
+ * direct buffers, and the direct-buffer paths here are zero-copy and
+ * zero-pin, just like OpenJDK's BufferBytes/BufferBuffer variants.
+ * ===========================================================================
  */
-JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_initFieldIDs(JNIEnv *env,
+
+/**
+ * Initializes JNI field IDs cached for the lifetime of the library.
+ */
+JNIEXPORT void JNICALL Java_com_intel_qat_InternalJNI_initFieldIDs(JNIEnv* env,
                                                                    jclass clz) {
   (void)clz;
 
   jclass qz_obj_class = (*env)->FindClass(env, "com/intel/qat/QatZipper");
-  g_qzip_bytes_read_id =
-      (*env)->GetFieldID(env, qz_obj_class, "bytesRead", "I");
+  g_qzip_qz_key_id = (*env)->GetFieldID(env, qz_obj_class, "qzKey", "I");
 }
 
 /**
- * JNI function to set up a QAT compression session.
- * Configures compression parameters, validates inputs, and initializes a
- * session for the specified algorithm.
- *
- * @param env             JNI environment pointer. Must not be NULL.
- * @param clz             Java class object (unused).
- * @param qz_obj          QatZipper Java object to store session key.
- * @param comp_algo       Compression algorithm identifier (e.g.,
- * ZSTD_ALGORITHM).
- * @param level           Compression level (1 to COMP_LVL_MAXIMUM).
- * @param sw_backup       Flag to enable (1) or disable (0) software fallback.
- * @param polling_mode    Polling mode for QAT hardware.
- * @param data_format     Data format for compression.
- * @param hw_buff_sz      Hardware buffer size.
- * @return                QZ_OK on success, QZ_FAIL on invalid input, QZ_NO_HW
- * if hardware is
+ * Set up a QAT compression session. Validates parameters, initializes the
+ * session, and writes the resulting session key back into the QatZipper
+ * Java object's qzKey field for use by subsequent compress/decompress calls.
  */
 JNIEXPORT jint JNICALL
-Java_com_intel_qat_InternalJNI_setupSession(JNIEnv *env,
+Java_com_intel_qat_InternalJNI_setupSession(JNIEnv* env,
                                             jclass clz,
                                             jobject qz_obj,
                                             jint comp_algo,
@@ -646,7 +609,6 @@ Java_com_intel_qat_InternalJNI_setupSession(JNIEnv *env,
 
   int max_level = comp_algo != ZSTD_ALGORITHM ? COMP_LVL_MAXIMUM : 12;
 
-  // Validate inputs
   if (level < 1 || level > max_level) {
     (*env)->ThrowNew(
         env, (*env)->FindClass(env, "java/lang/IllegalArgumentException"),
@@ -654,11 +616,9 @@ Java_com_intel_qat_InternalJNI_setupSession(JNIEnv *env,
     return QZ_FAIL;
   }
 
-  // Set Log level
   g_log_level = log_level;
   qzSetLogLevel(log_level);
 
-  // Handle ZSTD algorithm
   if (comp_algo == ZSTD_ALGORITHM) {
     call_qzstd_once();
     if (g_zstd_is_device_available != QZSTD_OK) {
@@ -677,12 +637,10 @@ Java_com_intel_qat_InternalJNI_setupSession(JNIEnv *env,
   int qz_key = gen_session_key(comp_algo, level, sw_backup, polling_mode,
                                data_format, hw_buff_sz);
 
-  QzSessionHandle_T *sess_ptr = get_session(qz_key);
-
-  logMessage(__LINE__,
-             sess_ptr ? "re-using a session, id is %#x\n"
-                      : "creating a new session, id is %#x\n",
-             qz_key);
+  QzSessionHandle_T* sess_ptr = get_session(qz_key);
+  LOG(sess_ptr ? "re-using a session, id is %#x\n"
+               : "creating a new session, id is %#x\n",
+      qz_key);
   if (!sess_ptr) {
     sess_ptr = create_session(env, qz_key);
   }
@@ -691,817 +649,574 @@ Java_com_intel_qat_InternalJNI_setupSession(JNIEnv *env,
     return QZ_FAIL;
   }
 
-  // Update the reference count
   sess_ptr->reference_count++;
 
-  jclass qz_clz = (*env)->FindClass(env, "com/intel/qat/QatZipper");
-  jfieldID qz_session_field = (*env)->GetFieldID(env, qz_clz, "qzKey", "I");
-  (*env)->SetLongField(env, qz_obj, qz_session_field, (jint)sess_ptr->qz_key);
+  // qzKey is declared as an int in QatZipper.java, so use SetIntField with
+  // the cached field ID rather than re-resolving the class and field on
+  // every setupSession call.
+  (*env)->SetIntField(env, qz_obj, g_qzip_qz_key_id, (jint)sess_ptr->qz_key);
 
   return QZ_OK;
 }
 
 /**
- * Compresses a byte array using a QAT session and updates the result in a
- * destination array.
- *
- * @param env         JNI environment pointer
- * @param clz         Java class object (unused)
- * @param qz_obj      QatZipper Java object for updating bytesRead
- * @param qz_key      Value representing unique compression params
- * @param src_arr     Source byte array
- * @param src_pos     Starting position in source array
- * @param src_len     Length of data to compress
- * @param dst_arr     Destination byte array
- * @param dst_pos     Starting position in destination array
- * @param dst_len     Available length in destination array
- * @param retry_count Number of retry attempts for compression
- * @return            Number of bytes written to destination, or -1 on error
+ * Resolve the session pointer or return -1L (with a pending exception) on
+ * failure. Shared by every entry point.
  */
-JNIEXPORT jint JNICALL
-Java_com_intel_qat_InternalJNI_compressByteArray(JNIEnv *env,
-                                                 jclass clz,
-                                                 jobject qz_obj,
-                                                 jint qz_key,
-                                                 jbyteArray src_arr,
-                                                 jint src_pos,
-                                                 jint src_len,
-                                                 jbyteArray dst_arr,
-                                                 jint dst_pos,
-                                                 jint dst_len,
-                                                 jint retry_count) {
-  (void)clz;
-
-  logMessage(
-      __LINE__,
-      "compressByteArray: src_pos = %d, src_len = %d, dst_pos = %d, dst_len = "
-      "%d\n",
-      src_pos, src_len, dst_pos, dst_len);
-
-  QzSessionHandle_T *sess_ptr = get_or_create_session(env, qz_key);
-  if ((*env)->ExceptionCheck(env)) {
-    return QZ_FAIL;
+static inline QzSession_T* get_qz_session(JNIEnv* env, jint qz_key) {
+  QzSessionHandle_T* sess_ptr = get_or_create_session(env, qz_key);
+  if (unlikely((*env)->ExceptionCheck(env))) {
+    return NULL;
   }
-  QzSession_T *qz_session = sess_ptr->qz_session;
-
-  // Access arrays with critical regions
-  uint8_t *src_ptr =
-      (uint8_t *)(*env)->GetPrimitiveArrayCritical(env, src_arr, NULL);
-  if (unlikely(!src_ptr)) {
-    (*env)->ThrowNew(env, (*env)->FindClass(env, "java/lang/OutOfMemoryError"),
-                     "Failed to access source array");
-    return -1;
-  }
-
-  uint8_t *dst_ptr =
-      (uint8_t *)(*env)->GetPrimitiveArrayCritical(env, dst_arr, NULL);
-  if (unlikely(!dst_ptr)) {
-    (*env)->ReleasePrimitiveArrayCritical(env, src_arr, (jbyte *)src_ptr,
-                                          JNI_ABORT);
-    (*env)->ThrowNew(env, (*env)->FindClass(env, "java/lang/OutOfMemoryError"),
-                     "Failed to access destination array");
-    return -1;
-  }
-
-  // Perform compression
-  int bytes_read = 0;
-  int bytes_written = 0;
-  int rc =
-      compress(env, qz_session, src_ptr + src_pos, src_len, dst_ptr + dst_pos,
-               dst_len, &bytes_read, &bytes_written, retry_count);
-
-  // Release arrays
-  (*env)->ReleasePrimitiveArrayCritical(env, dst_arr, (jbyte *)dst_ptr, 0);
-  (*env)->ReleasePrimitiveArrayCritical(env, src_arr, (jbyte *)src_ptr, 0);
-
-  // Check for compression error
-  if (rc != QZ_OK) {
-    return rc;
-  }
-
-  (*env)->SetIntField(env, qz_obj, g_qzip_bytes_read_id, (jint)bytes_read);
-
-  return (jint)bytes_written;
+  return sess_ptr->qz_session;
 }
 
-/**
- * Decompresses a byte array using a QAT session and stores the result in a
- * destination array.
- *
- * @param env         JNI environment pointer
- * @param clz         Java class object (unused)
- * @param qz_obj      QatZipper Java object for updating bytesRead
- * @param qz_key      Value representing unique compression params
- * @param src_arr     Source byte array (compressed data)
- * @param src_pos     Starting position in source array
- * @param src_len     Length of data to decompress
- * @param dst_arr     Destination byte array (decompressed data)
- * @param dst_pos     Starting position in destination array
- * @param dst_len     Available length in destination array
- * @param retry_count Number of retry attempts for decompression
- * @return            Number of bytes written to destination, or -1 on error
- */
-JNIEXPORT jint JNICALL
-Java_com_intel_qat_InternalJNI_decompressByteArray(JNIEnv *env,
+/* ---------------- compress ---------------- */
+
+JNIEXPORT jlong JNICALL
+Java_com_intel_qat_InternalJNI_compressBytesBytes(JNIEnv* env,
+                                                  jclass clz,
+                                                  jint qz_key,
+                                                  jbyteArray src_arr,
+                                                  jint src_off,
+                                                  jint src_len,
+                                                  jbyteArray dst_arr,
+                                                  jint dst_off,
+                                                  jint dst_len) {
+  (void)clz;
+
+  QzSession_T* sess = get_qz_session(env, qz_key);
+  if (unlikely(sess == NULL)) return -1L;
+
+  uint8_t* src_ptr =
+      (uint8_t*)(*env)->GetPrimitiveArrayCritical(env, src_arr, NULL);
+  if (unlikely(!src_ptr)) {
+    if ((*env)->ExceptionCheck(env) == JNI_FALSE) {
+      (*env)->ThrowNew(env,
+                       (*env)->FindClass(env, "java/lang/OutOfMemoryError"),
+                       "Failed to access source array");
+    }
+    return -1L;
+  }
+
+  uint8_t* dst_ptr =
+      (uint8_t*)(*env)->GetPrimitiveArrayCritical(env, dst_arr, NULL);
+  if (unlikely(!dst_ptr)) {
+    (*env)->ReleasePrimitiveArrayCritical(env, src_arr, (jbyte*)src_ptr,
+                                          JNI_ABORT);
+    if ((*env)->ExceptionCheck(env) == JNI_FALSE) {
+      (*env)->ThrowNew(env,
+                       (*env)->FindClass(env, "java/lang/OutOfMemoryError"),
+                       "Failed to access destination array");
+    }
+    return -1L;
+  }
+
+  int bytes_read = 0, bytes_written = 0;
+  int rc = compress(env, sess, src_ptr + src_off, (unsigned int)src_len,
+                    dst_ptr + dst_off, (unsigned int)dst_len, &bytes_read,
+                    &bytes_written);
+
+  (*env)->ReleasePrimitiveArrayCritical(env, dst_arr, (jbyte*)dst_ptr, 0);
+  (*env)->ReleasePrimitiveArrayCritical(env, src_arr, (jbyte*)src_ptr,
+                                        JNI_ABORT);
+
+  if (unlikely(rc != QZ_OK)) return (jlong)rc;
+  return PACK_RESULT(bytes_read, bytes_written);
+}
+
+JNIEXPORT jlong JNICALL
+Java_com_intel_qat_InternalJNI_compressBytesBuffer(JNIEnv* env,
                                                    jclass clz,
-                                                   jobject qz_obj,
                                                    jint qz_key,
                                                    jbyteArray src_arr,
+                                                   jint src_off,
+                                                   jint src_len,
+                                                   jobject dst_buf,
+                                                   jint dst_pos,
+                                                   jint dst_len) {
+  (void)clz;
+
+  QzSession_T* sess = get_qz_session(env, qz_key);
+  if (unlikely(sess == NULL)) return -1L;
+
+  uint8_t* src_ptr =
+      (uint8_t*)(*env)->GetPrimitiveArrayCritical(env, src_arr, NULL);
+  if (unlikely(!src_ptr)) {
+    if ((*env)->ExceptionCheck(env) == JNI_FALSE) {
+      (*env)->ThrowNew(env,
+                       (*env)->FindClass(env, "java/lang/OutOfMemoryError"),
+                       "Failed to access source array");
+    }
+    return -1L;
+  }
+
+  int bytes_read = 0, bytes_written = 0;
+  int rc =
+      compress(env, sess, src_ptr + src_off, (unsigned int)src_len,
+               (uint8_t*)(*env)->GetDirectBufferAddress(env, dst_buf) + dst_pos,
+               (unsigned int)dst_len, &bytes_read, &bytes_written);
+
+  (*env)->ReleasePrimitiveArrayCritical(env, src_arr, (jbyte*)src_ptr,
+                                        JNI_ABORT);
+
+  if (unlikely(rc != QZ_OK)) return (jlong)rc;
+  return PACK_RESULT(bytes_read, bytes_written);
+}
+
+JNIEXPORT jlong JNICALL
+Java_com_intel_qat_InternalJNI_compressBufferBytes(JNIEnv* env,
+                                                   jclass clz,
+                                                   jint qz_key,
+                                                   jobject src_buf,
                                                    jint src_pos,
                                                    jint src_len,
                                                    jbyteArray dst_arr,
-                                                   jint dst_pos,
-                                                   jint dst_len,
-                                                   jint retry_count) {
+                                                   jint dst_off,
+                                                   jint dst_len) {
   (void)clz;
 
-  logMessage(
-      __LINE__,
-      "decompressByteArray: src_pos = %d, src_len = %d, dst_pos = %d, dst_len "
-      "= %d\n",
-      src_pos, src_len, dst_pos, dst_len);
+  QzSession_T* sess = get_qz_session(env, qz_key);
+  if (unlikely(sess == NULL)) return -1L;
 
-  QzSessionHandle_T *sess_ptr = get_or_create_session(env, qz_key);
-  if ((*env)->ExceptionCheck(env)) {
-    return QZ_FAIL;
-  }
-  QzSession_T *qz_session = sess_ptr->qz_session;
-
-  // Access arrays with critical regions
-  uint8_t *src_ptr =
-      (uint8_t *)(*env)->GetPrimitiveArrayCritical(env, src_arr, NULL);
-  if (unlikely(!src_ptr)) {
-    (*env)->ThrowNew(env, (*env)->FindClass(env, "java/lang/OutOfMemoryError"),
-                     "Failed to access source array");
-    return -1;
-  }
-
-  uint8_t *dst_ptr =
-      (uint8_t *)(*env)->GetPrimitiveArrayCritical(env, dst_arr, NULL);
+  uint8_t* dst_ptr =
+      (uint8_t*)(*env)->GetPrimitiveArrayCritical(env, dst_arr, NULL);
   if (unlikely(!dst_ptr)) {
-    (*env)->ReleasePrimitiveArrayCritical(env, src_arr, (jbyte *)src_ptr,
-                                          JNI_ABORT);
-    (*env)->ThrowNew(env, (*env)->FindClass(env, "java/lang/OutOfMemoryError"),
-                     "Failed to access destination array");
-    return -1;
+    if ((*env)->ExceptionCheck(env) == JNI_FALSE) {
+      (*env)->ThrowNew(env,
+                       (*env)->FindClass(env, "java/lang/OutOfMemoryError"),
+                       "Failed to access destination array");
+    }
+    return -1L;
   }
 
-  // Perform decompression
-  int bytes_read = 0;
-  int bytes_written = 0;
+  int bytes_read = 0, bytes_written = 0;
   int rc =
-      decompress(env, qz_session, src_ptr + src_pos, src_len, dst_ptr + dst_pos,
-                 dst_len, &bytes_read, &bytes_written, retry_count);
+      compress(env, sess,
+               (uint8_t*)(*env)->GetDirectBufferAddress(env, src_buf) + src_pos,
+               (unsigned int)src_len, dst_ptr + dst_off, (unsigned int)dst_len,
+               &bytes_read, &bytes_written);
 
-  // Release arrays
-  (*env)->ReleasePrimitiveArrayCritical(env, dst_arr, (jbyte *)dst_ptr, 0);
-  (*env)->ReleasePrimitiveArrayCritical(env, src_arr, (jbyte *)src_ptr, 0);
+  (*env)->ReleasePrimitiveArrayCritical(env, dst_arr, (jbyte*)dst_ptr, 0);
 
-  // Check for decompression error
-  if (rc != QZ_OK) {
-    return rc;
-  }
-
-  (*env)->SetIntField(env, qz_obj, g_qzip_bytes_read_id, (jint)bytes_read);
-
-  return (jint)bytes_written;
+  if (unlikely(rc != QZ_OK)) return (jlong)rc;
+  return PACK_RESULT(bytes_read, bytes_written);
 }
 
-/**
- * Compresses data from a byte array and updates a ByteBuffer's position.
- *
- * @param env         JNI environment pointer
- * @param clz         Java class object (unused)
- * @param qz_obj      QatZipper Java object to store session key.
- * @param qz_key      Value representing unique compression params
- * @param src_arr     Source byte array (input data)
- * @param src_pos     Starting position in source array
- * @param src_len     Length of data to compress
- * @param dst_arr     Destination byte array (compressed data)
- * @param dst_pos     Starting position in destination array
- * @param dst_len     Available length in destination array
- * @param retry_count Number of retry attempts for compression
- * @return            Number of bytes written to destination, or -1 on error
- */
-JNIEXPORT jint JNICALL
-Java_com_intel_qat_InternalJNI_compressByteBuffer(JNIEnv *env,
-                                                  jclass clz,
-                                                  jobject qz_obj,
-                                                  jint qz_key,
-                                                  jbyteArray src_arr,
-                                                  jint src_pos,
-                                                  jint src_len,
-                                                  jbyteArray dst_arr,
-                                                  jint dst_pos,
-                                                  jint dst_len,
-                                                  jint retry_count) {
-  (void)clz;
-
-  logMessage(
-      __LINE__,
-      "compressByteBuffer: src_pos = %d, src_len = %d, dst_pos = %d, dst_len = "
-      "%d\n",
-      src_pos, src_len, dst_pos, dst_len);
-
-  QzSessionHandle_T *sess_ptr = get_or_create_session(env, qz_key);
-  if ((*env)->ExceptionCheck(env)) {
-    return QZ_FAIL;
-  }
-  QzSession_T *qz_session = sess_ptr->qz_session;
-
-  // Access arrays with critical regions
-  uint8_t *src_ptr =
-      (uint8_t *)(*env)->GetPrimitiveArrayCritical(env, src_arr, NULL);
-  if (unlikely(!src_ptr)) {
-    (*env)->ThrowNew(env, (*env)->FindClass(env, "java/lang/OutOfMemoryError"),
-                     "Failed to access source array");
-    return -1;
-  }
-
-  uint8_t *dst_ptr =
-      (uint8_t *)(*env)->GetPrimitiveArrayCritical(env, dst_arr, NULL);
-  if (unlikely(!dst_ptr)) {
-    (*env)->ReleasePrimitiveArrayCritical(env, src_arr, (jbyte *)src_ptr,
-                                          JNI_ABORT);
-    (*env)->ThrowNew(env, (*env)->FindClass(env, "java/lang/OutOfMemoryError"),
-                     "Failed to access destination array");
-    return -1;
-  }
-
-  // Perform compression
-  int bytes_read = 0;
-  int bytes_written = 0;
-  int rc =
-      compress(env, qz_session, src_ptr + src_pos, src_len, dst_ptr + dst_pos,
-               dst_len, &bytes_read, &bytes_written, retry_count);
-
-  // Release arrays
-  (*env)->ReleasePrimitiveArrayCritical(env, dst_arr, (jbyte *)dst_ptr, 0);
-  (*env)->ReleasePrimitiveArrayCritical(env, src_arr, (jbyte *)src_ptr, 0);
-
-  // Check for compression error
-  if (rc != QZ_OK) {
-    return rc;
-  }
-
-  (*env)->SetIntField(env, qz_obj, g_qzip_bytes_read_id, (jint)bytes_read);
-
-  return (jint)bytes_written;
-}
-
-/**
- * Decompresses data from a byte array and updates a ByteBuffer's position.
- *
- * @param env         JNI environment pointer
- * @param clz         Java class object (unused)
- * @param qz_obj      QatZipper Java object for updating bytesRead
- * @param qz_key      Value representing unique compression params
- * @param src_arr     Source byte array (compressed data)
- * @param src_pos     Starting position in source array
- * @param src_len     Length of data to decompress
- * @param dst_arr     Destination byte array (decompressed data)
- * @param dst_pos     Starting position in destination array
- * @param dst_len     Available length in destination array
- * @param retry_count Number of retry attempts for decompression
- * @return            Number of bytes written to destination, or -1 on error
- */
-JNIEXPORT jint JNICALL
-Java_com_intel_qat_InternalJNI_decompressByteBuffer(JNIEnv *env,
+JNIEXPORT jlong JNICALL
+Java_com_intel_qat_InternalJNI_compressBufferBuffer(JNIEnv* env,
                                                     jclass clz,
-                                                    jobject qz_obj,
                                                     jint qz_key,
-                                                    jbyteArray src_arr,
+                                                    jobject src_buf,
                                                     jint src_pos,
                                                     jint src_len,
-                                                    jbyteArray dst_arr,
+                                                    jobject dst_buf,
                                                     jint dst_pos,
-                                                    jint dst_len,
-                                                    jint retry_count) {
+                                                    jint dst_len) {
   (void)clz;
 
-  logMessage(
-      __LINE__,
-      "decompressByteBuffer: src_pos = %d, src_len = %d, dst_pos = %d, dst_len "
-      "= %d\n",
-      src_pos, src_len, dst_pos, dst_len);
+  QzSession_T* sess = get_qz_session(env, qz_key);
+  if (unlikely(sess == NULL)) return -1L;
 
-  QzSessionHandle_T *sess_ptr = get_or_create_session(env, qz_key);
-  if ((*env)->ExceptionCheck(env)) {
-    return QZ_FAIL;
-  }
-  QzSession_T *qz_session = sess_ptr->qz_session;
-
-  // Access arrays with critical regions
-  uint8_t *src_ptr =
-      (uint8_t *)(*env)->GetPrimitiveArrayCritical(env, src_arr, NULL);
-  if (unlikely(!src_ptr)) {
-    (*env)->ThrowNew(env, (*env)->FindClass(env, "java/lang/OutOfMemoryError"),
-                     "Failed to access source array");
-    return -1;
-  }
-
-  uint8_t *dst_ptr =
-      (uint8_t *)(*env)->GetPrimitiveArrayCritical(env, dst_arr, NULL);
-  if (unlikely(!dst_ptr)) {
-    (*env)->ReleasePrimitiveArrayCritical(env, src_arr, (jbyte *)src_ptr,
-                                          JNI_ABORT);
-    (*env)->ThrowNew(env, (*env)->FindClass(env, "java/lang/OutOfMemoryError"),
-                     "Failed to access destination array");
-    return -1;
-  }
-
-  // Perform decompression
-  int bytes_read = 0;
-  int bytes_written = 0;
+  int bytes_read = 0, bytes_written = 0;
   int rc =
-      decompress(env, qz_session, src_ptr + src_pos, src_len, dst_ptr + dst_pos,
-                 dst_len, &bytes_read, &bytes_written, retry_count);
+      compress(env, sess,
+               (uint8_t*)(*env)->GetDirectBufferAddress(env, src_buf) + src_pos,
+               (unsigned int)src_len,
+               (uint8_t*)(*env)->GetDirectBufferAddress(env, dst_buf) + dst_pos,
+               (unsigned int)dst_len, &bytes_read, &bytes_written);
 
-  // Release arrays
-  (*env)->ReleasePrimitiveArrayCritical(env, dst_arr, (jbyte *)dst_ptr, 0);
-  (*env)->ReleasePrimitiveArrayCritical(env, src_arr, (jbyte *)src_ptr, 0);
+  if (unlikely(rc != QZ_OK)) return (jlong)rc;
+  return PACK_RESULT(bytes_read, bytes_written);
+}
 
-  // Check for decompression error
-  if (rc != QZ_OK) {
-    return rc;
+/* ---------------- decompress ---------------- */
+
+JNIEXPORT jlong JNICALL
+Java_com_intel_qat_InternalJNI_decompressBytesBytes(JNIEnv* env,
+                                                    jclass clz,
+                                                    jint qz_key,
+                                                    jbyteArray src_arr,
+                                                    jint src_off,
+                                                    jint src_len,
+                                                    jbyteArray dst_arr,
+                                                    jint dst_off,
+                                                    jint dst_len) {
+  (void)clz;
+
+  QzSession_T* sess = get_qz_session(env, qz_key);
+  if (unlikely(sess == NULL)) return -1L;
+
+  uint8_t* src_ptr =
+      (uint8_t*)(*env)->GetPrimitiveArrayCritical(env, src_arr, NULL);
+  if (unlikely(!src_ptr)) {
+    if ((*env)->ExceptionCheck(env) == JNI_FALSE) {
+      (*env)->ThrowNew(env,
+                       (*env)->FindClass(env, "java/lang/OutOfMemoryError"),
+                       "Failed to access source array");
+    }
+    return -1L;
   }
 
-  (*env)->SetIntField(env, qz_obj, g_qzip_bytes_read_id, (jint)bytes_read);
+  uint8_t* dst_ptr =
+      (uint8_t*)(*env)->GetPrimitiveArrayCritical(env, dst_arr, NULL);
+  if (unlikely(!dst_ptr)) {
+    (*env)->ReleasePrimitiveArrayCritical(env, src_arr, (jbyte*)src_ptr,
+                                          JNI_ABORT);
+    if ((*env)->ExceptionCheck(env) == JNI_FALSE) {
+      (*env)->ThrowNew(env,
+                       (*env)->FindClass(env, "java/lang/OutOfMemoryError"),
+                       "Failed to access destination array");
+    }
+    return -1L;
+  }
 
-  return (jint)bytes_written;
+  int bytes_read = 0, bytes_written = 0;
+  int rc = decompress(env, sess, src_ptr + src_off, (unsigned int)src_len,
+                      dst_ptr + dst_off, (unsigned int)dst_len, &bytes_read,
+                      &bytes_written);
+
+  (*env)->ReleasePrimitiveArrayCritical(env, dst_arr, (jbyte*)dst_ptr, 0);
+  (*env)->ReleasePrimitiveArrayCritical(env, src_arr, (jbyte*)src_ptr,
+                                        JNI_ABORT);
+
+  if (unlikely(rc != QZ_OK)) return (jlong)rc;
+  return PACK_RESULT(bytes_read, bytes_written);
+}
+
+JNIEXPORT jlong JNICALL
+Java_com_intel_qat_InternalJNI_decompressBytesBuffer(JNIEnv* env,
+                                                     jclass clz,
+                                                     jint qz_key,
+                                                     jbyteArray src_arr,
+                                                     jint src_off,
+                                                     jint src_len,
+                                                     jobject dst_buf,
+                                                     jint dst_pos,
+                                                     jint dst_len) {
+  (void)clz;
+
+  QzSession_T* sess = get_qz_session(env, qz_key);
+  if (unlikely(sess == NULL)) return -1L;
+
+  uint8_t* src_ptr =
+      (uint8_t*)(*env)->GetPrimitiveArrayCritical(env, src_arr, NULL);
+  if (unlikely(!src_ptr)) {
+    if ((*env)->ExceptionCheck(env) == JNI_FALSE) {
+      (*env)->ThrowNew(env,
+                       (*env)->FindClass(env, "java/lang/OutOfMemoryError"),
+                       "Failed to access source array");
+    }
+    return -1L;
+  }
+
+  int bytes_read = 0, bytes_written = 0;
+  int rc = decompress(
+      env, sess, src_ptr + src_off, (unsigned int)src_len,
+      (uint8_t*)(*env)->GetDirectBufferAddress(env, dst_buf) + dst_pos,
+      (unsigned int)dst_len, &bytes_read, &bytes_written);
+
+  (*env)->ReleasePrimitiveArrayCritical(env, src_arr, (jbyte*)src_ptr,
+                                        JNI_ABORT);
+
+  if (unlikely(rc != QZ_OK)) return (jlong)rc;
+  return PACK_RESULT(bytes_read, bytes_written);
+}
+
+JNIEXPORT jlong JNICALL
+Java_com_intel_qat_InternalJNI_decompressBufferBytes(JNIEnv* env,
+                                                     jclass clz,
+                                                     jint qz_key,
+                                                     jobject src_buf,
+                                                     jint src_pos,
+                                                     jint src_len,
+                                                     jbyteArray dst_arr,
+                                                     jint dst_off,
+                                                     jint dst_len) {
+  (void)clz;
+
+  QzSession_T* sess = get_qz_session(env, qz_key);
+  if (unlikely(sess == NULL)) return -1L;
+
+  uint8_t* dst_ptr =
+      (uint8_t*)(*env)->GetPrimitiveArrayCritical(env, dst_arr, NULL);
+  if (unlikely(!dst_ptr)) {
+    if ((*env)->ExceptionCheck(env) == JNI_FALSE) {
+      (*env)->ThrowNew(env,
+                       (*env)->FindClass(env, "java/lang/OutOfMemoryError"),
+                       "Failed to access destination array");
+    }
+    return -1L;
+  }
+
+  int bytes_read = 0, bytes_written = 0;
+  int rc = decompress(
+      env, sess,
+      (uint8_t*)(*env)->GetDirectBufferAddress(env, src_buf) + src_pos,
+      (unsigned int)src_len, dst_ptr + dst_off, (unsigned int)dst_len,
+      &bytes_read, &bytes_written);
+
+  (*env)->ReleasePrimitiveArrayCritical(env, dst_arr, (jbyte*)dst_ptr, 0);
+
+  if (unlikely(rc != QZ_OK)) return (jlong)rc;
+  return PACK_RESULT(bytes_read, bytes_written);
+}
+
+JNIEXPORT jlong JNICALL
+Java_com_intel_qat_InternalJNI_decompressBufferBuffer(JNIEnv* env,
+                                                      jclass clz,
+                                                      jint qz_key,
+                                                      jobject src_buf,
+                                                      jint src_pos,
+                                                      jint src_len,
+                                                      jobject dst_buf,
+                                                      jint dst_pos,
+                                                      jint dst_len) {
+  (void)clz;
+
+  QzSession_T* sess = get_qz_session(env, qz_key);
+  if (unlikely(sess == NULL)) return -1L;
+
+  int bytes_read = 0, bytes_written = 0;
+  int rc = decompress(
+      env, sess,
+      (uint8_t*)(*env)->GetDirectBufferAddress(env, src_buf) + src_pos,
+      (unsigned int)src_len,
+      (uint8_t*)(*env)->GetDirectBufferAddress(env, dst_buf) + dst_pos,
+      (unsigned int)dst_len, &bytes_read, &bytes_written);
+
+  if (unlikely(rc != QZ_OK)) return (jlong)rc;
+  return PACK_RESULT(bytes_read, bytes_written);
 }
 
 /**
- * Compresses data from a direct ByteBuffer and updates source and destination
- * ByteBuffer positions.
+ * Compresses a source byte[] split into fixed-size sub-blocks into a
+ * destination byte[], storing each block's compressed size in an int[]
+ * array.  Pins all three arrays once, loops calling qzCompress for each
+ * sub-block starting from start_block, then unpins.  This reduces JNI
+ * overhead from N transitions (one per sub-block) to exactly 1.
  *
- * @param env         JNI environment pointer
- * @param clz         Java class object (unused)
- * @param qz_obj      QatZipper Java object for updating bytesRead
- * @param qz_key      Value representing unique compression params
- * @param src_buf     Source ByteBuffer object (direct buffer)
- * @param src_pos     Starting position in source buffer
- * @param src_len     Length of data to compress
- * @param dst_buf     Destination ByteBuffer object (direct buffer)
- * @param dst_pos     Starting position in destination buffer
- * @param dst_len     Available length in destination buffer
- * @param retry_count Number of retry attempts for compression
- * @return            Number of bytes written to destination, or -1 on error
+ * On success (all remaining blocks compressed): returns a packed jlong of
+ * (bytes_read, bytes_written) via PACK_RESULT.
+ *
+ * On QZ_BUF_ERROR (destination full mid-way): commits the blocks that DID
+ * fit (sizes[start_block..last] are written), and returns
+ * -(blocks_completed + 1) so the Java caller can distinguish partial
+ * progress from a real error.  blocks_completed counts only the blocks
+ * compressed in THIS call.
+ *
+ * On any other error: throws IllegalStateException.
  */
-jint JNICALL
-Java_com_intel_qat_InternalJNI_compressDirectByteBuffer(JNIEnv *env,
+JNIEXPORT jlong JNICALL
+Java_com_intel_qat_InternalJNI_compressFullBytesBytes(JNIEnv* env,
+                                                      jclass clz,
+                                                      jint qz_key,
+                                                      jbyteArray src_arr,
+                                                      jint src_off,
+                                                      jint src_len,
+                                                      jint block_length,
+                                                      jbyteArray dst_arr,
+                                                      jint dst_off,
+                                                      jint dst_len,
+                                                      jintArray sizes_arr,
+                                                      jint start_block) {
+  (void)clz;
+
+  QzSession_T* sess = get_qz_session(env, qz_key);
+  if (unlikely(sess == NULL)) return -1L;
+
+  uint8_t* src_ptr =
+      (uint8_t*)(*env)->GetPrimitiveArrayCritical(env, src_arr, NULL);
+  if (unlikely(!src_ptr)) {
+    if ((*env)->ExceptionCheck(env) == JNI_FALSE) {
+      (*env)->ThrowNew(env,
+                       (*env)->FindClass(env, "java/lang/OutOfMemoryError"),
+                       "Failed to access source array");
+    }
+    return -1L;
+  }
+
+  uint8_t* dst_ptr =
+      (uint8_t*)(*env)->GetPrimitiveArrayCritical(env, dst_arr, NULL);
+  if (unlikely(!dst_ptr)) {
+    (*env)->ReleasePrimitiveArrayCritical(env, src_arr, (jbyte*)src_ptr,
+                                          JNI_ABORT);
+    if ((*env)->ExceptionCheck(env) == JNI_FALSE) {
+      (*env)->ThrowNew(env,
+                       (*env)->FindClass(env, "java/lang/OutOfMemoryError"),
+                       "Failed to access destination array");
+    }
+    return -1L;
+  }
+
+  jint* sizes_ptr =
+      (jint*)(*env)->GetPrimitiveArrayCritical(env, sizes_arr, NULL);
+  if (unlikely(!sizes_ptr)) {
+    (*env)->ReleasePrimitiveArrayCritical(env, dst_arr, (jbyte*)dst_ptr,
+                                          JNI_ABORT);
+    (*env)->ReleasePrimitiveArrayCritical(env, src_arr, (jbyte*)src_ptr,
+                                          JNI_ABORT);
+    if ((*env)->ExceptionCheck(env) == JNI_FALSE) {
+      (*env)->ThrowNew(env,
+                       (*env)->FindClass(env, "java/lang/OutOfMemoryError"),
+                       "Failed to access sizes array");
+    }
+    return -1L;
+  }
+
+  /* Skip past already-compressed blocks */
+  uint8_t* sp = src_ptr + src_off +
+                (unsigned int)start_block * (unsigned int)block_length;
+  uint8_t* dp = dst_ptr + dst_off;
+  unsigned int src_remaining =
+      (unsigned int)src_len -
+      (unsigned int)start_block * (unsigned int)block_length;
+  unsigned int dst_remaining = (unsigned int)dst_len;
+  int total_read = 0;
+  int total_written = 0;
+  int blocks_completed = 0;
+  int rc = QZ_OK;
+
+  while (src_remaining > 0 && dst_remaining > 0) {
+    unsigned int chunk = (src_remaining < (unsigned int)block_length)
+                             ? src_remaining
+                             : (unsigned int)block_length;
+    unsigned int produced = dst_remaining;
+
+    rc = qzCompress(sess, sp, &chunk, dp, &produced, 1);
+
+    if (unlikely(rc != QZ_OK)) {
+      break;
+    }
+
+    sizes_ptr[start_block + blocks_completed] = (jint)produced;
+    blocks_completed++;
+    sp += chunk;
+    dp += produced;
+    src_remaining -= chunk;
+    dst_remaining -= produced;
+    total_read += (int)chunk;
+    total_written += (int)produced;
+  }
+
+  /* Always commit sizes and dst for completed blocks (even partial). */
+  (*env)->ReleasePrimitiveArrayCritical(env, sizes_arr, (jbyte*)sizes_ptr, 0);
+  (*env)->ReleasePrimitiveArrayCritical(env, dst_arr, (jbyte*)dst_ptr, 0);
+  (*env)->ReleasePrimitiveArrayCritical(env, src_arr, (jbyte*)src_ptr,
+                                        JNI_ABORT);
+
+  if (unlikely(rc == QZ_BUF_ERROR || rc == QZ_FAIL)) {
+    /* Return -(blocks_completed + 1) to signal partial progress.
+       Caller uses this to know how many blocks succeeded.
+       QAT returns QZ_FAIL when the buffer is below its minimum
+       framing size, and QZ_BUF_ERROR for general overflow. */
+    return (jlong)(-(blocks_completed + 1));
+  }
+
+  if (unlikely(rc != QZ_OK)) {
+    (*env)->ThrowNew(env,
+                     (*env)->FindClass(env, "java/lang/IllegalStateException"),
+                     get_err_str(rc));
+    return (jlong)rc;
+  }
+
+  return PACK_RESULT(total_read, total_written);
+}
+
+/**
+ * Decompresses a source byte[] containing multiple concatenated compressed
+ * frames into a destination byte[].  Pins both arrays once, loops calling
+ * qzDecompress until all input is consumed, then unpins.  This reduces JNI
+ * overhead from N transitions (one per frame) to exactly 1.
+ *
+ * Returns a packed jlong of (bytes_read, bytes_written) on success,
+ * or a negative value on failure.
+ */
+JNIEXPORT jlong JNICALL
+Java_com_intel_qat_InternalJNI_decompressFullBytesBytes(JNIEnv* env,
                                                         jclass clz,
-                                                        jobject qz_obj,
                                                         jint qz_key,
-                                                        jobject src_buf,
-                                                        jint src_pos,
+                                                        jbyteArray src_arr,
+                                                        jint src_off,
                                                         jint src_len,
-                                                        jobject dst_buf,
-                                                        jint dst_pos,
-                                                        jint dst_len,
-                                                        jint retry_count) {
+                                                        jbyteArray dst_arr,
+                                                        jint dst_off,
+                                                        jint dst_len) {
   (void)clz;
 
-  logMessage(
-      __LINE__,
-      "compressDirectByteBuffer: src_pos = %d, src_len = %d, dst_pos = %d, "
-      "dst_len = %d\n",
-      src_pos, src_len, dst_pos, dst_len);
+  QzSession_T* sess = get_qz_session(env, qz_key);
+  if (unlikely(sess == NULL)) return -1L;
 
-  QzSessionHandle_T *sess_ptr = get_or_create_session(env, qz_key);
-  if ((*env)->ExceptionCheck(env)) {
-    return QZ_FAIL;
-  }
-  QzSession_T *qz_session = sess_ptr->qz_session;
-
-  // Access direct buffers
-  uint8_t *src_ptr = (uint8_t *)(*env)->GetDirectBufferAddress(env, src_buf);
+  uint8_t* src_ptr =
+      (uint8_t*)(*env)->GetPrimitiveArrayCritical(env, src_arr, NULL);
   if (unlikely(!src_ptr)) {
-    (*env)->ThrowNew(env, (*env)->FindClass(env, "java/lang/OutOfMemoryError"),
-                     "Failed to access source buffer address");
-    return -1;
+    if ((*env)->ExceptionCheck(env) == JNI_FALSE) {
+      (*env)->ThrowNew(env,
+                       (*env)->FindClass(env, "java/lang/OutOfMemoryError"),
+                       "Failed to access source array");
+    }
+    return -1L;
   }
 
-  uint8_t *dst_ptr = (uint8_t *)(*env)->GetDirectBufferAddress(env, dst_buf);
+  uint8_t* dst_ptr =
+      (uint8_t*)(*env)->GetPrimitiveArrayCritical(env, dst_arr, NULL);
   if (unlikely(!dst_ptr)) {
-    (*env)->ThrowNew(env, (*env)->FindClass(env, "java/lang/OutOfMemoryError"),
-                     "Failed to access destination buffer address");
-    return -1;
-  }
-
-  // Perform compression
-  int bytes_read = 0;
-  int bytes_written = 0;
-  int rc =
-      compress(env, qz_session, src_ptr + src_pos, src_len, dst_ptr + dst_pos,
-               dst_len, &bytes_read, &bytes_written, retry_count);
-
-  // Check for compression error
-  if (rc != QZ_OK) {
-    return rc;
-  }
-
-  (*env)->SetIntField(env, qz_obj, g_qzip_bytes_read_id, (jint)bytes_read);
-
-  return (jint)bytes_written;
-}
-
-/**
- * Decompresses data from a direct ByteBuffer and updates source and destination
- * ByteBuffer positions.
- *
- * @param env         JNI environment pointer
- * @param clz         Java class object (unused)
- * @param qz_obj      QatZipper Java object for updating bytesRead
- * @param qz_key      Value representing unique compression params
- * @param src_buf     Source ByteBuffer object (direct buffer, compressed data)
- * @param src_pos     Starting position in source buffer
- * @param src_len     Length of data to decompress
- * @param dst_buf     Destination ByteBuffer object (direct buffer, decompressed
- * data)
- * @param dst_pos     Starting position in destination buffer
- * @param dst_len     Available length in destination buffer
- * @param retry_count Number of retry attempts for decompression
- * @return            Number of bytes written to destination, or -1 on error
- */
-JNIEXPORT jint JNICALL
-Java_com_intel_qat_InternalJNI_decompressDirectByteBuffer(JNIEnv *env,
-                                                          jclass clz,
-                                                          jobject qz_obj,
-                                                          jint qz_key,
-                                                          jobject src_buf,
-                                                          jint src_pos,
-                                                          jint src_len,
-                                                          jobject dst_buf,
-                                                          jint dst_pos,
-                                                          jint dst_len,
-                                                          jint retry_count) {
-  (void)clz;
-
-  logMessage(
-      __LINE__,
-      "decompressByteBuffer: src_pos = %d, src_len = %d, dst_pos = %d, dst_len "
-      "= %d\n",
-      src_pos, src_len, dst_pos, dst_len);
-
-  QzSessionHandle_T *sess_ptr = get_or_create_session(env, qz_key);
-  if ((*env)->ExceptionCheck(env)) {
-    return QZ_FAIL;
-  }
-  QzSession_T *qz_session = sess_ptr->qz_session;
-
-  // Access direct buffers
-  uint8_t *src_ptr = (uint8_t *)(*env)->GetDirectBufferAddress(env, src_buf);
-  if (unlikely(!src_ptr)) {
-    (*env)->ThrowNew(env, (*env)->FindClass(env, "java/lang/OutOfMemoryError"),
-                     "Failed to access source buffer address");
-    return -1;
-  }
-
-  uint8_t *dst_ptr = (uint8_t *)(*env)->GetDirectBufferAddress(env, dst_buf);
-  if (unlikely(!dst_ptr)) {
-    (*env)->ThrowNew(env, (*env)->FindClass(env, "java/lang/OutOfMemoryError"),
-                     "Failed to access destination buffer address");
-    return -1;
-  }
-
-  // Perform decompression
-  int bytes_read = 0;
-  int bytes_written = 0;
-  int rc =
-      decompress(env, qz_session, src_ptr + src_pos, src_len, dst_ptr + dst_pos,
-                 dst_len, &bytes_read, &bytes_written, retry_count);
-
-  // Check for decompression error
-  if (rc != QZ_OK) {
-    return rc;
-  }
-
-  (*env)->SetIntField(env, qz_obj, g_qzip_bytes_read_id, (jint)bytes_read);
-
-  return (jint)bytes_written;
-}
-
-/**
- * Compresses data from a direct ByteBuffer to a byte array and updates the
- * source ByteBuffer position.
- *
- * @param env         JNI environment pointer
- * @param clz         Java class object (unused)
- * @param qz_obj      QatZipper Java object to store session key.
- * @param qz_key      Value representing unique compression params
- * @param src_buf     Source ByteBuffer object (direct buffer)
- * @param src_pos     Starting position in source buffer
- * @param src_len     Length of data to compress
- * @param dst_arr     Destination byte array (compressed data)
- * @param dst_pos     Starting position in destination array
- * @param dst_len     Available length in destination array
- * @param retry_count Number of retry attempts for compression
- * @return            Number of bytes written to destination, or -1 on error
- */
-JNIEXPORT jint JNICALL
-Java_com_intel_qat_InternalJNI_compressDirectByteBufferSrc(JNIEnv *env,
-                                                           jclass clz,
-                                                           jobject qz_obj,
-                                                           jint qz_key,
-                                                           jobject src_buf,
-                                                           jint src_pos,
-                                                           jint src_len,
-                                                           jbyteArray dst_arr,
-                                                           jint dst_pos,
-                                                           jint dst_len,
-                                                           jint retry_count) {
-  (void)clz;
-
-  logMessage(
-      __LINE__,
-      "compressDirectByteBufferSrc: src_pos = %d, src_len = %d, dst_pos = %d, "
-      "dst_len = %d\n",
-      src_pos, src_len, dst_pos, dst_len);
-
-  QzSessionHandle_T *sess_ptr = get_or_create_session(env, qz_key);
-  if ((*env)->ExceptionCheck(env)) {
-    return QZ_FAIL;
-  }
-  QzSession_T *qz_session = sess_ptr->qz_session;
-
-  // Access source buffer and destination array
-  uint8_t *src_ptr = (uint8_t *)(*env)->GetDirectBufferAddress(env, src_buf);
-  if (unlikely(!src_ptr)) {
-    (*env)->ThrowNew(env, (*env)->FindClass(env, "java/lang/OutOfMemoryError"),
-                     "Failed to access source buffer address");
-    return -1;
-  }
-
-  uint8_t *dst_ptr =
-      (uint8_t *)(*env)->GetPrimitiveArrayCritical(env, dst_arr, NULL);
-  if (unlikely(!dst_ptr)) {
-    (*env)->ThrowNew(env, (*env)->FindClass(env, "java/lang/OutOfMemoryError"),
-                     "Failed to access destination array");
-    return -1;
-  }
-
-  // Perform compression
-  int bytes_read = 0;
-  int bytes_written = 0;
-  int rc =
-      compress(env, qz_session, src_ptr + src_pos, src_len, dst_ptr + dst_pos,
-               dst_len, &bytes_read, &bytes_written, retry_count);
-
-  // Release destination array
-  (*env)->ReleasePrimitiveArrayCritical(env, dst_arr, (jbyte *)dst_ptr, 0);
-
-  // Check for compression error
-  if (rc != QZ_OK) {
-    return rc;
-  }
-
-  (*env)->SetIntField(env, qz_obj, g_qzip_bytes_read_id, (jint)bytes_read);
-
-  return (jint)bytes_written;
-}
-
-/**
- * Decompresses data from a direct ByteBuffer to a byte array and updates the
- * source ByteBuffer position.
- *
- * @param env         JNI environment pointer
- * @param clz         Java class object (unused)
- * @param qz_key      Value representing unique compression params
- * @param src_buf     Source ByteBuffer object (direct buffer, compressed data)
- * @param src_pos     Starting position in source buffer
- * @param src_len     Length of data to decompress
- * @param dst_arr     Destination byte array (decompressed data)
- * @param dst_pos     Starting position in destination array
- * @param dst_len     Available length in destination array
- * @param retry_count Number of retry attempts for decompression
- * @return            Number of bytes written to destination, or -1 on error
- */
-JNIEXPORT jint JNICALL
-Java_com_intel_qat_InternalJNI_decompressDirectByteBufferSrc(JNIEnv *env,
-                                                             jclass clz,
-                                                             jobject qz_obj,
-                                                             jint qz_key,
-                                                             jobject src_buf,
-                                                             jint src_pos,
-                                                             jint src_len,
-                                                             jbyteArray dst_arr,
-                                                             jint dst_pos,
-                                                             jint dst_len,
-                                                             jint retry_count) {
-  (void)clz;
-
-  logMessage(
-      __LINE__,
-      "decompressDirectByteBufferSrc: src_pos = %d, src_len = %d, dst_pos = "
-      "%d, dst_len = %d\n",
-      src_pos, src_len, dst_pos, dst_len);
-
-  QzSessionHandle_T *sess_ptr = get_or_create_session(env, qz_key);
-  if ((*env)->ExceptionCheck(env)) {
-    return QZ_FAIL;
-  }
-  QzSession_T *qz_session = sess_ptr->qz_session;
-
-  // Access source buffer and destination array
-  uint8_t *src_ptr = (uint8_t *)(*env)->GetDirectBufferAddress(env, src_buf);
-  if (unlikely(!src_ptr)) {
-    (*env)->ThrowNew(env, (*env)->FindClass(env, "java/lang/OutOfMemoryError"),
-                     "Failed to access source buffer address");
-    return -1;
-  }
-
-  uint8_t *dst_ptr =
-      (uint8_t *)(*env)->GetPrimitiveArrayCritical(env, dst_arr, NULL);
-  if (unlikely(!dst_ptr)) {
-    (*env)->ThrowNew(env, (*env)->FindClass(env, "java/lang/OutOfMemoryError"),
-                     "Failed to access destination array");
-    return -1;
-  }
-
-  // Perform decompression
-  int bytes_read = 0;
-  int bytes_written = 0;
-  int rc =
-      decompress(env, qz_session, src_ptr + src_pos, src_len, dst_ptr + dst_pos,
-                 dst_len, &bytes_read, &bytes_written, retry_count);
-
-  // Release destination array
-  (*env)->ReleasePrimitiveArrayCritical(env, dst_arr, (jbyte *)dst_ptr, 0);
-
-  // Check for decompression error
-  if (rc != QZ_OK) {
-    return rc;
-  }
-
-  (*env)->SetIntField(env, qz_obj, g_qzip_bytes_read_id, (jint)bytes_read);
-
-  return (jint)bytes_written;
-}
-
-/**
- * Compresses data from a byte array to a direct ByteBuffer and updates source
- * and destination ByteBuffer positions.
- *
- * @param env         JNI environment pointer
- * @param clz         Java class object (unused)
- * @param qz_obj      QatZipper Java object to store session key.
- * @param qz_key      Value representing unique compression params
- * @param src_arr     Source byte array (input data)
- * @param src_pos     Starting position in source array
- * @param src_len     Length of data to compress
- * @param dst_buf     Destination ByteBuffer object (direct buffer, compressed
- * data)
- * @param dst_pos     Starting position in destination buffer
- * @param dst_len     Available length in destination buffer
- * @param retry_count Number of retry attempts for compression
- * @return            Number of bytes written to destination, or -1 on error
- */
-JNIEXPORT jint JNICALL
-Java_com_intel_qat_InternalJNI_compressDirectByteBufferDst(JNIEnv *env,
-                                                           jclass clz,
-                                                           jobject qz_obj,
-                                                           jint qz_key,
-                                                           jbyteArray src_arr,
-                                                           jint src_pos,
-                                                           jint src_len,
-                                                           jobject dst_buf,
-                                                           jint dst_pos,
-                                                           jint dst_len,
-                                                           jint retry_count) {
-  (void)clz;
-
-  logMessage(
-      __LINE__,
-      "compressDirectByteBufferDst: src_pos = %d, src_len = %d, dst_pos = %d, "
-      "dst_len = %d\n",
-      src_pos, src_len, dst_pos, dst_len);
-
-  QzSessionHandle_T *sess_ptr = get_or_create_session(env, qz_key);
-  if ((*env)->ExceptionCheck(env)) {
-    return QZ_FAIL;
-  }
-  QzSession_T *qz_session = sess_ptr->qz_session;
-
-  // Access source array and destination buffer
-  uint8_t *src_ptr =
-      (uint8_t *)(*env)->GetPrimitiveArrayCritical(env, src_arr, NULL);
-  if (unlikely(!src_ptr)) {
-    (*env)->ThrowNew(env, (*env)->FindClass(env, "java/lang/OutOfMemoryError"),
-                     "Failed to access source array");
-    return -1;
-  }
-
-  uint8_t *dst_ptr = (uint8_t *)(*env)->GetDirectBufferAddress(env, dst_buf);
-  if (unlikely(!dst_ptr)) {
-    (*env)->ReleasePrimitiveArrayCritical(env, src_arr, (jbyte *)src_ptr,
+    (*env)->ReleasePrimitiveArrayCritical(env, src_arr, (jbyte*)src_ptr,
                                           JNI_ABORT);
-    (*env)->ThrowNew(env, (*env)->FindClass(env, "java/lang/OutOfMemoryError"),
-                     "Failed to access destination buffer address");
-    return -1;
+    if ((*env)->ExceptionCheck(env) == JNI_FALSE) {
+      (*env)->ThrowNew(env,
+                       (*env)->FindClass(env, "java/lang/OutOfMemoryError"),
+                       "Failed to access destination array");
+    }
+    return -1L;
   }
 
-  // Perform compression
-  int bytes_read = 0;
-  int bytes_written = 0;
-  int rc =
-      compress(env, qz_session, src_ptr + src_pos, src_len, dst_ptr + dst_pos,
-               dst_len, &bytes_read, &bytes_written, retry_count);
+  uint8_t* sp = src_ptr + src_off;
+  uint8_t* dp = dst_ptr + dst_off;
+  unsigned int src_remaining = (unsigned int)src_len;
+  unsigned int dst_remaining = (unsigned int)dst_len;
+  int total_read = 0;
+  int total_written = 0;
+  int rc = QZ_OK;
 
-  // Release source array
-  (*env)->ReleasePrimitiveArrayCritical(env, src_arr, (jbyte *)src_ptr, 0);
+  while (src_remaining > 0 && dst_remaining > 0) {
+    unsigned int consumed = src_remaining;
+    unsigned int produced = dst_remaining;
 
-  // Check for compression error
-  if (rc != QZ_OK) {
-    return rc;
+    rc = qzDecompress(sess, sp, &consumed, dp, &produced);
+
+    if (unlikely(rc != QZ_OK && rc != QZ_BUF_ERROR && rc != QZ_DATA_ERROR)) {
+      break;
+    }
+
+    if (consumed == 0 && produced == 0) {
+      /* No progress — avoid infinite loop */
+      break;
+    }
+
+    sp += consumed;
+    dp += produced;
+    src_remaining -= consumed;
+    dst_remaining -= produced;
+    total_read += (int)consumed;
+    total_written += (int)produced;
+
+    /* Reset rc for the while-loop condition check */
+    rc = QZ_OK;
   }
 
-  (*env)->SetIntField(env, qz_obj, g_qzip_bytes_read_id, (jint)bytes_read);
+  (*env)->ReleasePrimitiveArrayCritical(env, dst_arr, (jbyte*)dst_ptr, 0);
+  (*env)->ReleasePrimitiveArrayCritical(env, src_arr, (jbyte*)src_ptr,
+                                        JNI_ABORT);
 
-  return (jint)bytes_written;
-}
-
-/**
- * Decompresses data from a byte array to a direct ByteBuffer and updates source
- * and destination ByteBuffer positions.
- *
- * @param env         JNI environment pointer
- * @param clz         Java class object (unused)
- * @param qz_obj      QatZipper Java object to store session key.
- * @param qz_key      Value representing unique compression params
- * @param src_buf     Source ByteBuffer object for updating position
- * @param src_arr     Source byte array (compressed data)
- * @param src_pos     Starting position in source array
- * @param src_len     Length of data to decompress
- * @param dst_buf     Destination ByteBuffer object (direct buffer, decompressed
- * data)
- * @param dst_pos     Starting position in destination buffer
- * @param dst_len     Available length in destination buffer
- * @param retry_count Number of retry attempts for decompression
- * @return            Number of bytes written to destination, or -1 on error
- */
-JNIEXPORT jint JNICALL
-Java_com_intel_qat_InternalJNI_decompressDirectByteBufferDst(JNIEnv *env,
-                                                             jclass clz,
-                                                             jobject qz_obj,
-                                                             jint qz_key,
-                                                             jbyteArray src_arr,
-                                                             jint src_pos,
-                                                             jint src_len,
-                                                             jobject dst_buf,
-                                                             jint dst_pos,
-                                                             jint dst_len,
-                                                             jint retry_count) {
-  (void)clz;
-
-  logMessage(
-      __LINE__,
-      "decompressDirectByteBufferDst: src_pos = %d, src_len = %d, dst_pos = "
-      "%d, dst_len = %d\n",
-      src_pos, src_len, dst_pos, dst_len);
-
-  QzSessionHandle_T *sess_ptr = get_or_create_session(env, qz_key);
-  if ((*env)->ExceptionCheck(env)) {
-    return QZ_FAIL;
-  }
-  QzSession_T *qz_session = sess_ptr->qz_session;
-
-  // Access source array and destination buffer
-  uint8_t *src_ptr =
-      (uint8_t *)(*env)->GetPrimitiveArrayCritical(env, src_arr, NULL);
-  if (unlikely(!src_ptr)) {
-    (*env)->ThrowNew(env, (*env)->FindClass(env, "java/lang/OutOfMemoryError"),
-                     "Failed to access source array");
-    return -1;
+  if (unlikely(rc != QZ_OK && rc != QZ_BUF_ERROR && rc != QZ_DATA_ERROR)) {
+    (*env)->ThrowNew(env,
+                     (*env)->FindClass(env, "java/lang/IllegalStateException"),
+                     get_err_str(rc));
+    return (jlong)rc;
   }
 
-  uint8_t *dst_ptr = (uint8_t *)(*env)->GetDirectBufferAddress(env, dst_buf);
-  if (unlikely(!dst_ptr)) {
-    (*env)->ReleasePrimitiveArrayCritical(env, src_arr, (jbyte *)src_ptr,
-                                          JNI_ABORT);
-    (*env)->ThrowNew(env, (*env)->FindClass(env, "java/lang/OutOfMemoryError"),
-                     "Failed to access destination buffer address");
-    return -1;
-  }
-
-  // Perform decompression
-  int bytes_read = 0;
-  int bytes_written = 0;
-  int rc =
-      decompress(env, qz_session, src_ptr + src_pos, src_len, dst_ptr + dst_pos,
-                 dst_len, &bytes_read, &bytes_written, retry_count);
-
-  // Release source array
-  (*env)->ReleasePrimitiveArrayCritical(env, src_arr, (jbyte *)src_ptr, 0);
-
-  // Check for decompression error
-  if (rc != QZ_OK) {
-    return rc;
-  }
-
-  (*env)->SetIntField(env, qz_obj, g_qzip_bytes_read_id, (jint)bytes_read);
-
-  return (jint)bytes_written;
+  return PACK_RESULT(total_read, total_written);
 }
 
 /**
@@ -1514,18 +1229,18 @@ Java_com_intel_qat_InternalJNI_decompressDirectByteBufferDst(JNIEnv *env,
  * @return          Maximum compressed size, or -1 on error
  */
 JNIEXPORT jint JNICALL
-Java_com_intel_qat_InternalJNI_maxCompressedLength(JNIEnv *env,
+Java_com_intel_qat_InternalJNI_maxCompressedLength(JNIEnv* env,
                                                    jclass clz,
                                                    jint qz_key,
                                                    jlong src_size) {
   (void)env;
   (void)clz;
 
-  QzSessionHandle_T *sess_ptr = get_or_create_session(env, qz_key);
+  QzSessionHandle_T* sess_ptr = get_or_create_session(env, qz_key);
   if ((*env)->ExceptionCheck(env)) {
     return QZ_FAIL;
   }
-  QzSession_T *qz_session = sess_ptr->qz_session;
+  QzSession_T* qz_session = sess_ptr->qz_session;
 
   return qzMaxCompressedLength(src_size, qz_session);
 }
@@ -1539,7 +1254,7 @@ Java_com_intel_qat_InternalJNI_maxCompressedLength(JNIEnv *env,
  * @return    Address of qatSequenceProducer as a jlong, or 0 on error
  */
 JNIEXPORT jlong JNICALL
-Java_com_intel_qat_InternalJNI_zstdGetSeqProdFunction(JNIEnv *env, jclass clz) {
+Java_com_intel_qat_InternalJNI_zstdGetSeqProdFunction(JNIEnv* env, jclass clz) {
   (void)env;
   (void)clz;
 
@@ -1555,7 +1270,7 @@ Java_com_intel_qat_InternalJNI_zstdGetSeqProdFunction(JNIEnv *env, jclass clz) {
  *             or 0 on error
  */
 JNIEXPORT jlong JNICALL
-Java_com_intel_qat_InternalJNI_zstdCreateSeqProdState(JNIEnv *env, jclass clz) {
+Java_com_intel_qat_InternalJNI_zstdCreateSeqProdState(JNIEnv* env, jclass clz) {
   (void)env;
   (void)clz;
 
@@ -1586,7 +1301,7 @@ Java_com_intel_qat_InternalJNI_zstdCreateSeqProdState(JNIEnv *env, jclass clz) {
  * @param seqprod_state Pointer to the QZSTD sequence producer state to free
  */
 JNIEXPORT void JNICALL
-Java_com_intel_qat_InternalJNI_zstdFreeSeqProdState(JNIEnv *env,
+Java_com_intel_qat_InternalJNI_zstdFreeSeqProdState(JNIEnv* env,
                                                     jclass clz,
                                                     jlong seqprod_state) {
   (void)env;
@@ -1607,10 +1322,10 @@ Java_com_intel_qat_InternalJNI_zstdFreeSeqProdState(JNIEnv *env,
   }
 
   // Free the sequence producer state
-  QZSTD_freeSeqProdState((void *)seqprod_state);
+  QZSTD_freeSeqProdState((void*)seqprod_state);
 
   // Reset global state if it matches the freed state
-  if ((void *)seqprod_state == g_zstd_seqprod_state) {
+  if ((void*)seqprod_state == g_zstd_seqprod_state) {
     g_zstd_seqprod_state = NULL;
   }
 }
@@ -1627,13 +1342,13 @@ Java_com_intel_qat_InternalJNI_zstdFreeSeqProdState(JNIEnv *env,
  * @return         QZ_OK on success, or 0 if an error occurs (with a Java
  * exception thrown).
  */
-JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_teardown(JNIEnv *env,
+JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_teardown(JNIEnv* env,
                                                                jclass clz,
                                                                jint qz_key) {
   (void)clz;
 
   // Validate session pointer
-  QzSessionHandle_T *sess_ptr = get_session(qz_key);
+  QzSessionHandle_T* sess_ptr = get_session(qz_key);
   if (!sess_ptr || !sess_ptr->qz_session) {
     return QZ_OK;
   }
@@ -1654,18 +1369,19 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_teardown(JNIEnv *env,
   }
 
   // Clean up session
-  if (sess_ptr->qz_session) {
-    qzTeardownSession(sess_ptr->qz_session);
-    free(sess_ptr->qz_session);
-    sess_ptr->qz_session = NULL;
-  }
-  sess_ptr->reference_count = 0;
-  sess_ptr->qz_key = 0;
+  free(sess_ptr->qz_session);
 
-  // Update session cache counter
-  if (g_session_counter > 0) {
-    g_session_counter--;
+  // Compact the cache: move the last entry into the hole left by this session
+  // to keep active sessions contiguous in g_session_cache[0..g_session_counter).
+  g_session_counter--;
+  int idx = (int)(sess_ptr - g_session_cache);
+  if (idx < g_session_counter) {
+    *sess_ptr = g_session_cache[g_session_counter];
   }
+  // Clear the (now-unused) last slot
+  g_session_cache[g_session_counter].qz_session = NULL;
+  g_session_cache[g_session_counter].reference_count = 0;
+  g_session_cache[g_session_counter].qz_key = 0;
 
   return QZ_OK;
 }
@@ -1679,7 +1395,7 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_teardown(JNIEnv *env,
  * (none|fatal|error|warning|info|debug1|debug2|debug3).
  */
 JNIEXPORT void JNICALL
-Java_com_intel_qat_InternalJNI_setLogLevel(JNIEnv *env,
+Java_com_intel_qat_InternalJNI_setLogLevel(JNIEnv* env,
                                            jclass clz,
                                            jint log_level) {
   (void)env;
@@ -1695,13 +1411,13 @@ Java_com_intel_qat_InternalJNI_setLogLevel(JNIEnv *env,
  * @param vm       JavaVM pointer (unused).
  * @param reserved Reserved parameter (unused).
  */
-JNIEXPORT void JNICALL JNI_OnUnload(JavaVM *vm, void *reserved) {
+JNIEXPORT void JNICALL JNI_OnUnload(JavaVM* vm, void* reserved) {
   (void)vm;
   (void)reserved;
 
-  JNIEnv *env = NULL;
+  JNIEnv* env = NULL;
 
-  if ((*vm)->GetEnv(vm, (void **)&env, JNI_VERSION_1_8) == JNI_OK &&
+  if ((*vm)->GetEnv(vm, (void**)&env, JNI_VERSION_1_8) == JNI_OK &&
       env != NULL) {
     if (g_zstd_is_device_available == QZSTD_OK) {
       QZSTD_freeSeqProdState(g_zstd_seqprod_state);

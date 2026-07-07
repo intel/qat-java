@@ -7,7 +7,33 @@ package com.intel.qat;
 
 import java.nio.ByteBuffer;
 
-/** JNI wrapper, for internal use. */
+/**
+ * JNI wrapper, for internal use.
+ *
+ * <p>The four compress entry points (and their decompress equivalents) are named by the kind of
+ * source and destination they take, matching the convention used by OpenJDK's {@code
+ * java.util.zip.Deflater}:
+ *
+ * <ul>
+ *   <li>{@code Bytes...}: a {@code byte[]} + offset + length on that side
+ *   <li>{@code ...Buffer}: a direct {@code ByteBuffer} + position + length on that side
+ * </ul>
+ *
+ * <p>Every op returns a packed {@code long}:
+ *
+ * <pre>{@code
+ * bits  0..30  bytes_read    (uncompressed bytes consumed from src)
+ * bits 31..61  bytes_written (bytes produced into dst)
+ * }</pre>
+ *
+ * <p>or a negative value on error (matching the qatzip {@code QZ_*} error codes). Callers should
+ * check {@code result < 0} before unpacking.
+ *
+ * <p>Note that direct-buffer entry points receive a {@code ByteBuffer} reference; the JNI layer
+ * obtains the native address via {@code GetDirectBufferAddress}. Callers should still wrap calls in
+ * {@code try { ... } finally { Reference.reachabilityFence(buf); }} to keep the Cleaner from
+ * freeing the buffer mid-call.
+ */
 enum InternalJNI {
   ;
 
@@ -30,115 +56,54 @@ enum InternalJNI {
 
   static native int maxCompressedLength(int qzKey, long sourceSize);
 
-  static native int compressByteArray(
-      QatZipper qzip,
+  // ---- compress ----
+
+  static native long compressBytesBytes(
+      int qzKey, byte[] src, int srcOff, int srcLen, byte[] dst, int dstOff, int dstLen);
+
+  static native long compressBytesBuffer(
+      int qzKey, byte[] src, int srcOff, int srcLen, ByteBuffer dst, int dstPos, int dstLen);
+
+  static native long compressBufferBytes(
+      int qzKey, ByteBuffer src, int srcPos, int srcLen, byte[] dst, int dstOff, int dstLen);
+
+  static native long compressBufferBuffer(
+      int qzKey, ByteBuffer src, int srcPos, int srcLen, ByteBuffer dst, int dstPos, int dstLen);
+
+  // ---- decompress ----
+
+  static native long decompressBytesBytes(
+      int qzKey, byte[] src, int srcOff, int srcLen, byte[] dst, int dstOff, int dstLen);
+
+  static native long decompressBytesBuffer(
+      int qzKey, byte[] src, int srcOff, int srcLen, ByteBuffer dst, int dstPos, int dstLen);
+
+  static native long decompressBufferBytes(
+      int qzKey, ByteBuffer src, int srcPos, int srcLen, byte[] dst, int dstOff, int dstLen);
+
+  static native long decompressBufferBuffer(
+      int qzKey, ByteBuffer src, int srcPos, int srcLen, ByteBuffer dst, int dstPos, int dstLen);
+
+  // ---- compressFull (native loop over sub-blocks) ----
+
+  static native long compressFullBytesBytes(
       int qzKey,
       byte[] src,
       int srcOff,
       int srcLen,
+      int blockLength,
       byte[] dst,
       int dstOff,
       int dstLen,
-      int retryCount);
+      int[] sizes,
+      int startBlock);
 
-  static native int decompressByteArray(
-      QatZipper qzip,
-      int qzKey,
-      byte[] src,
-      int srcOff,
-      int srcLen,
-      byte[] dst,
-      int dstOff,
-      int dstLen,
-      int retryCount);
+  // ---- decompressFull (native loop over concatenated frames) ----
 
-  static native int compressByteBuffer(
-      QatZipper qzip,
-      int qzKey,
-      byte[] src,
-      int srcOff,
-      int srcLen,
-      byte[] dst,
-      int dstOff,
-      int dstLen,
-      int retryCount);
+  static native long decompressFullBytesBytes(
+      int qzKey, byte[] src, int srcOff, int srcLen, byte[] dst, int dstOff, int dstLen);
 
-  static native int decompressByteBuffer(
-      QatZipper qzip,
-      int qzKey,
-      byte[] src,
-      int srcOff,
-      int srcLen,
-      byte[] dst,
-      int dstOff,
-      int dstLen,
-      int retryCount);
-
-  static native int compressDirectByteBuffer(
-      QatZipper qzip,
-      int qzKey,
-      ByteBuffer src,
-      int srcOff,
-      int srcLen,
-      ByteBuffer dst,
-      int dstOff,
-      int dstLen,
-      int retryCount);
-
-  static native int decompressDirectByteBuffer(
-      QatZipper qzip,
-      int qzKey,
-      ByteBuffer src,
-      int srcOff,
-      int srcLen,
-      ByteBuffer dst,
-      int dstOff,
-      int dstLen,
-      int retryCount);
-
-  static native int compressDirectByteBufferSrc(
-      QatZipper qzip,
-      int qzKey,
-      ByteBuffer src,
-      int srcOff,
-      int srcLen,
-      byte[] dstArr,
-      int dstOff,
-      int dstLen,
-      int retryCount);
-
-  static native int decompressDirectByteBufferSrc(
-      QatZipper qzip,
-      int qzKey,
-      ByteBuffer src,
-      int srcOff,
-      int srcLen,
-      byte[] dstArr,
-      int dstOff,
-      int dstLen,
-      int retryCount);
-
-  static native int compressDirectByteBufferDst(
-      QatZipper qzip,
-      int qzKey,
-      byte[] srcArr,
-      int srcOff,
-      int srcLen,
-      ByteBuffer dst,
-      int dstOff,
-      int dstLen,
-      int retryCount);
-
-  static native int decompressDirectByteBufferDst(
-      QatZipper qzip,
-      int qzKey,
-      byte[] srcArr,
-      int srcOff,
-      int srcLen,
-      ByteBuffer dst,
-      int dstOff,
-      int dstLen,
-      int retryCount);
+  // ---- other ----
 
   static native long zstdGetSeqProdFunction();
 

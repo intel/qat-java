@@ -10,6 +10,7 @@ import static com.intel.qat.QatZipper.Algorithm;
 import static com.intel.qat.QatZipper.Mode;
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -104,7 +105,21 @@ public class QatCompressorOutputStreamTests {
     byte[] compressedData = outputStream.toByteArray();
     byte[] decompressed = new byte[sourceData.length];
 
-    qzip.decompress(compressedData, 0, compressedData.length, decompressed, 0, decompressed.length);
+    // Use QatDecompressorInputStream to handle multi-frame compressed data
+    // (produced when flush() is called between writes)
+    ByteArrayInputStream inputStream = new ByteArrayInputStream(compressedData);
+    try (QatDecompressorInputStream decompressedStream =
+        new QatDecompressorInputStream(
+            inputStream, bufferSize, createQatBuilder(algorithm, mode))) {
+      int totalRead = 0;
+      while (totalRead < decompressed.length) {
+        int bytesRead =
+            decompressedStream.read(decompressed, totalRead, decompressed.length - totalRead);
+        if (bytesRead == -1) break;
+        totalRead += bytesRead;
+      }
+      assertEquals(sourceData.length, totalRead);
+    }
     assertArrayEquals(sourceData, decompressed);
   }
 
@@ -185,6 +200,52 @@ public class QatCompressorOutputStreamTests {
             // Should throw before reaching this point
           }
         });
+  }
+
+  @Test
+  void testNegativeBufferSize() {
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> {
+          try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+              QatCompressorOutputStream compressedStream =
+                  new QatCompressorOutputStream(outputStream, -1, Algorithm.LZ4)) {
+            // Should throw before reaching this point
+          }
+        });
+  }
+
+  @ParameterizedTest
+  @MethodSource("provideModeAlgorithmParams")
+  void testWriteEmptyArray(Mode mode, Algorithm algorithm) throws IOException {
+    qzip = createQatBuilder(algorithm, mode).build();
+
+    ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+    try (QatCompressorOutputStream compressedStream =
+        new QatCompressorOutputStream(
+            outputStream, DEFAULT_BUFFER_SIZE, createQatBuilder(algorithm, mode))) {
+
+      // Write empty array should not throw
+      compressedStream.write(new byte[0]);
+      compressedStream.write(new byte[0], 0, 0);
+    }
+
+    // Output may contain just the compression header/empty frame
+    byte[] compressedData = outputStream.toByteArray();
+    assertNotNull(compressedData);
+  }
+
+  @ParameterizedTest
+  @MethodSource("provideModeAlgorithmParams")
+  void testWriteZeroLength(Mode mode, Algorithm algorithm) throws IOException {
+    ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+    try (QatCompressorOutputStream compressedStream =
+        new QatCompressorOutputStream(
+            outputStream, DEFAULT_BUFFER_SIZE, createQatBuilder(algorithm, mode))) {
+
+      // Write with zero length should not throw
+      compressedStream.write(sourceData, 0, 0);
+    }
   }
 
   // Write operation tests
@@ -293,7 +354,6 @@ public class QatCompressorOutputStreamTests {
   @ParameterizedTest
   @MethodSource("provideModeAlgorithmLengthParams")
   void testFlushOnClose(Mode mode, Algorithm algorithm, int bufferSize) throws IOException {
-    QatZipper localQzip = createQatBuilder(algorithm, mode).build();
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
 
     byte[] preCloseData;
@@ -308,13 +368,21 @@ public class QatCompressorOutputStreamTests {
     byte[] postCloseData = outputStream.toByteArray();
     assertFalse(Arrays.equals(postCloseData, preCloseData), "Data should change after close/flush");
 
-    // Verify decompression works
+    // Verify decompression works using QatDecompressorInputStream for multi-frame support
     byte[] decompressed = new byte[sourceData.length];
-    localQzip.decompress(
-        postCloseData, 0, postCloseData.length, decompressed, 0, decompressed.length);
+    ByteArrayInputStream inputStream = new ByteArrayInputStream(postCloseData);
+    try (QatDecompressorInputStream decompressedStream =
+        new QatDecompressorInputStream(
+            inputStream, bufferSize, createQatBuilder(algorithm, mode))) {
+      int totalRead = 0;
+      while (totalRead < decompressed.length) {
+        int bytesRead =
+            decompressedStream.read(decompressed, totalRead, decompressed.length - totalRead);
+        if (bytesRead == -1) break;
+        totalRead += bytesRead;
+      }
+    }
     assertArrayEquals(sourceData, decompressed);
-
-    localQzip.end();
   }
 
   // Parameter validation tests
@@ -397,7 +465,19 @@ public class QatCompressorOutputStreamTests {
     byte[] compressedData = outputStream.toByteArray();
     byte[] decompressed = new byte[sourceData.length];
 
-    qzip.decompress(compressedData, 0, compressedData.length, decompressed, 0, decompressed.length);
+    // Use QatDecompressorInputStream to handle multi-frame compressed data
+    ByteArrayInputStream inputStream = new ByteArrayInputStream(compressedData);
+    try (QatDecompressorInputStream decompressedStream =
+        new QatDecompressorInputStream(
+            inputStream, DEFAULT_BUFFER_SIZE, createQatBuilder(algorithm, mode))) {
+      int totalRead = 0;
+      while (totalRead < decompressed.length) {
+        int bytesRead =
+            decompressedStream.read(decompressed, totalRead, decompressed.length - totalRead);
+        if (bytesRead == -1) break;
+        totalRead += bytesRead;
+      }
+    }
     assertArrayEquals(sourceData, decompressed);
   }
 }

@@ -35,7 +35,7 @@ THE POSSIBILITY OF SUCH DAMAGE.
 
     <groupId>com.intel.qat.jmh</groupId>
     <artifactId>qat-java-bench</artifactId>
-    <version>2.4.0</version>
+    <version>2.5.0</version>
     <packaging>jar</packaging>
 
     <name>JMH benchmark sample: Java</name>
@@ -60,7 +60,7 @@ THE POSSIBILITY OF SUCH DAMAGE.
         <dependency>
             <groupId>com.intel.qat</groupId>
             <artifactId>qat-java</artifactId>
-            <version>2.4.0</version>
+            <version>2.5.0</version>
         </dependency>
         <dependency>
             <groupId>com.github.luben</groupId>
@@ -78,9 +78,9 @@ THE POSSIBILITY OF SUCH DAMAGE.
         <jmh.version>1.37</jmh.version>
 
         <!--
-            Java source/target to use for compilation.
+            Java release to use for compilation (replaces source/target for JDK 17+ compat).
           -->
-        <javac.target>1.8</javac.target>
+        <java.release>17</java.release>
 
         <!--
             Name of the benchmark Uber-JAR to generate.
@@ -93,7 +93,7 @@ THE POSSIBILITY OF SUCH DAMAGE.
             <plugin>
                 <groupId>com.diffplug.spotless</groupId>
                 <artifactId>spotless-maven-plugin</artifactId>
-                <version>2.41.1</version>
+                <version>3.6.0</version>
                 <executions>
                     <execution>
                         <id>format</id>
@@ -114,7 +114,7 @@ THE POSSIBILITY OF SUCH DAMAGE.
                     </formats>
                     <java>
                         <googleJavaFormat>
-                          <version>1.18.1</version>
+                          <version>1.35.0</version>
                         </googleJavaFormat>
                     </java>
                 </configuration>
@@ -122,11 +122,9 @@ THE POSSIBILITY OF SUCH DAMAGE.
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.11.0</version>
+                <version>3.15.0</version>
                 <configuration>
-                    <compilerVersion>${javac.target}</compilerVersion>
-                    <source>${javac.target}</source>
-                    <target>${javac.target}</target>
+                    <release>${java.release}</release>
                     <annotationProcessorPaths>
                       <path>
                         <groupId>org.openjdk.jmh</groupId>
@@ -139,7 +137,7 @@ THE POSSIBILITY OF SUCH DAMAGE.
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
-                <version>3.5.1</version>
+                <version>3.6.0</version>
                 <executions>
                     <execution>
                         <phase>package</phase>
@@ -178,23 +176,23 @@ THE POSSIBILITY OF SUCH DAMAGE.
             <plugins>
                 <plugin>
                     <artifactId>maven-clean-plugin</artifactId>
-                    <version>3.3.2</version>
+                    <version>3.4.0</version>
                 </plugin>
                 <plugin>
                     <artifactId>maven-deploy-plugin</artifactId>
-                    <version>3.1.1</version>
+                    <version>3.1.3</version>
                 </plugin>
                 <plugin>
                     <artifactId>maven-install-plugin</artifactId>
-                    <version>3.1.1</version>
+                    <version>3.1.3</version>
                 </plugin>
                 <plugin>
                     <artifactId>maven-jar-plugin</artifactId>
-                    <version>3.3.0</version>
+                    <version>3.4.2</version>
                 </plugin>
                 <plugin>
                     <artifactId>maven-javadoc-plugin</artifactId>
-                    <version>3.6.3</version>
+                    <version>3.11.2</version>
                 </plugin>
                 <plugin>
                     <artifactId>maven-resources-plugin</artifactId>
@@ -202,15 +200,15 @@ THE POSSIBILITY OF SUCH DAMAGE.
                 </plugin>
                 <plugin>
                     <artifactId>maven-site-plugin</artifactId>
-                    <version>4.0.0-M12</version>
+                    <version>4.0.0-M16</version>
                 </plugin>
                 <plugin>
                     <artifactId>maven-source-plugin</artifactId>
-                    <version>3.3.0</version>
+                    <version>3.3.1</version>
                 </plugin>
                 <plugin>
                     <artifactId>maven-surefire-plugin</artifactId>
-                    <version>3.2.2</version>
+                    <version>3.5.3</version>
                 </plugin>
             </plugins>
         </pluginManagement>
