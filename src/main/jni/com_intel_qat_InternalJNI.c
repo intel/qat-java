@@ -10,6 +10,8 @@
 #include <qatzip.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
+#include <zlib.h>
 #include <zstd.h>
 
 #include "qatseqprod.h"
@@ -482,14 +484,15 @@ static QzSessionHandle_T* get_or_create_session(JNIEnv* env, int32_t qz_key) {
  * destination buffer.
  * @return               QZ_OK (0) if successful, non-zero otherwise.
  */
-static inline __attribute__((always_inline)) int compress(JNIEnv* env,
-                                                          QzSession_T* sess,
-                                                          uint8_t* src_ptr,
-                                                          unsigned int src_len,
-                                                          uint8_t* dst_ptr,
-                                                          unsigned int dst_len,
-                                                          int* bytes_read,
-                                                          int* bytes_written) {
+static inline __attribute__((always_inline)) int qat_compress(
+    JNIEnv* env,
+    QzSession_T* sess,
+    uint8_t* src_ptr,
+    unsigned int src_len,
+    uint8_t* dst_ptr,
+    unsigned int dst_len,
+    int* bytes_read,
+    int* bytes_written) {
   int rc = qzCompress(sess, src_ptr, &src_len, dst_ptr, &dst_len, 1);
 
   if (likely(rc == QZ_OK)) {
@@ -507,6 +510,59 @@ static inline __attribute__((always_inline)) int compress(JNIEnv* env,
 }
 
 /**
+ * Inflates a single sub-threshold gzip-ext frame in software.
+ *
+ * QATzip routes compressions of inputs smaller than input_sz_thrshold to
+ * software even when sw_backup is 0, but its qzDecompress entry gate refuses
+ * (QZ_FAIL) a gzip-ext stream whose leading frame declares a sub-threshold
+ * source size unless sw_backup is 1. A HARDWARE-mode session can therefore
+ * produce frames it will not decompress (e.g. small flushes from
+ * QatCompressorOutputStream). Mirror QATzip's compress-side routing by
+ * inflating that single frame with zlib; callers continue with the next
+ * frame through QAT.
+ *
+ * @return QZ_OK if a sub-threshold leading frame was fully inflated,
+ *         QZ_FAIL otherwise (no bytes consumed or produced)
+ */
+static int inflate_tiny_gzip_ext_frame(uint8_t* src_ptr,
+                                       unsigned int src_len,
+                                       uint8_t* dst_ptr,
+                                       unsigned int dst_len,
+                                       int* bytes_read,
+                                       int* bytes_written) {
+  /* gzip header with FEXTRA and QATzip's 'QZ' extra field:
+   * 1f 8b 08 flg mtime[4] xfl os xlen[2] 'Q' 'Z' len[2] src_sz[4] dest_sz[4]
+   */
+  if (src_len < 20 || src_ptr[0] != 0x1f || src_ptr[1] != 0x8b ||
+      src_ptr[2] != 8 || (src_ptr[3] & 4) == 0 || src_ptr[12] != 'Q' ||
+      src_ptr[13] != 'Z')
+    return QZ_FAIL;
+
+  uint32_t frame_src_sz = (uint32_t)src_ptr[16] | ((uint32_t)src_ptr[17] << 8) |
+                          ((uint32_t)src_ptr[18] << 16) |
+                          ((uint32_t)src_ptr[19] << 24);
+  if (frame_src_sz >= QZ_COMP_THRESHOLD_DEFAULT) return QZ_FAIL;
+
+  z_stream strm;
+  memset(&strm, 0, sizeof(strm));
+  if (inflateInit2(&strm, 15 + 16) != Z_OK) return QZ_FAIL; /* gzip wrapper */
+
+  strm.next_in = src_ptr;
+  strm.avail_in = src_len;
+  strm.next_out = dst_ptr;
+  strm.avail_out = dst_len;
+  int rc = inflate(&strm, Z_FINISH);
+  int consumed = (int)strm.total_in;
+  int produced = (int)strm.total_out;
+  inflateEnd(&strm);
+  if (rc != Z_STREAM_END) return QZ_FAIL;
+
+  *bytes_read = consumed;
+  *bytes_written = produced;
+  return QZ_OK;
+}
+
+/**
  * Decompresses data using a QzSession_T session.
  *
  * @param env           JNI environment pointer
@@ -519,7 +575,7 @@ static inline __attribute__((always_inline)) int compress(JNIEnv* env,
  * @param bytes_written Pointer to store number of bytes written to destination
  * @return              QZ_OK on success, error code on failure
  */
-static inline __attribute__((always_inline)) int decompress(
+static inline __attribute__((always_inline)) int qat_decompress(
     JNIEnv* env,
     QzSession_T* sess,
     uint8_t* src_ptr,
@@ -528,11 +584,24 @@ static inline __attribute__((always_inline)) int decompress(
     unsigned int dst_len,
     int* bytes_read,
     int* bytes_written) {
+  unsigned int orig_src_len = src_len;
+  unsigned int orig_dst_len = dst_len;
   int rc = qzDecompress(sess, src_ptr, &src_len, dst_ptr, &dst_len);
 
-  if (likely(rc == QZ_OK)) {
+  /* On QZ_BUF_ERROR and QZ_DATA_ERROR qzDecompress reports partial progress
+   * through src_len/dst_len (e.g. a multi-frame stream whose decompressed
+   * size exceeds dst). The streaming callers rely on that progress to
+   * continue frame by frame, so report it as success; throwing here would
+   * discard the progress and force callers into a grow-and-retry loop. */
+  if (likely(rc == QZ_OK || rc == QZ_BUF_ERROR || rc == QZ_DATA_ERROR)) {
     *bytes_read = src_len;
     *bytes_written = dst_len;
+    return QZ_OK;
+  }
+
+  if (rc == QZ_FAIL &&
+      inflate_tiny_gzip_ext_frame(src_ptr, orig_src_len, dst_ptr, orig_dst_len,
+                                  bytes_read, bytes_written) == QZ_OK) {
     return QZ_OK;
   }
 
@@ -713,9 +782,9 @@ Java_com_intel_qat_InternalJNI_compressBytesBytes(JNIEnv* env,
   }
 
   int bytes_read = 0, bytes_written = 0;
-  int rc = compress(env, sess, src_ptr + src_off, (unsigned int)src_len,
-                    dst_ptr + dst_off, (unsigned int)dst_len, &bytes_read,
-                    &bytes_written);
+  int rc = qat_compress(env, sess, src_ptr + src_off, (unsigned int)src_len,
+                        dst_ptr + dst_off, (unsigned int)dst_len, &bytes_read,
+                        &bytes_written);
 
   (*env)->ReleasePrimitiveArrayCritical(env, dst_arr, (jbyte*)dst_ptr, 0);
   (*env)->ReleasePrimitiveArrayCritical(env, src_arr, (jbyte*)src_ptr,
@@ -752,10 +821,10 @@ Java_com_intel_qat_InternalJNI_compressBytesBuffer(JNIEnv* env,
   }
 
   int bytes_read = 0, bytes_written = 0;
-  int rc =
-      compress(env, sess, src_ptr + src_off, (unsigned int)src_len,
-               (uint8_t*)(*env)->GetDirectBufferAddress(env, dst_buf) + dst_pos,
-               (unsigned int)dst_len, &bytes_read, &bytes_written);
+  int rc = qat_compress(
+      env, sess, src_ptr + src_off, (unsigned int)src_len,
+      (uint8_t*)(*env)->GetDirectBufferAddress(env, dst_buf) + dst_pos,
+      (unsigned int)dst_len, &bytes_read, &bytes_written);
 
   (*env)->ReleasePrimitiveArrayCritical(env, src_arr, (jbyte*)src_ptr,
                                         JNI_ABORT);
@@ -791,11 +860,11 @@ Java_com_intel_qat_InternalJNI_compressBufferBytes(JNIEnv* env,
   }
 
   int bytes_read = 0, bytes_written = 0;
-  int rc =
-      compress(env, sess,
-               (uint8_t*)(*env)->GetDirectBufferAddress(env, src_buf) + src_pos,
-               (unsigned int)src_len, dst_ptr + dst_off, (unsigned int)dst_len,
-               &bytes_read, &bytes_written);
+  int rc = qat_compress(
+      env, sess,
+      (uint8_t*)(*env)->GetDirectBufferAddress(env, src_buf) + src_pos,
+      (unsigned int)src_len, dst_ptr + dst_off, (unsigned int)dst_len,
+      &bytes_read, &bytes_written);
 
   (*env)->ReleasePrimitiveArrayCritical(env, dst_arr, (jbyte*)dst_ptr, 0);
 
@@ -819,12 +888,12 @@ Java_com_intel_qat_InternalJNI_compressBufferBuffer(JNIEnv* env,
   if (unlikely(sess == NULL)) return -1L;
 
   int bytes_read = 0, bytes_written = 0;
-  int rc =
-      compress(env, sess,
-               (uint8_t*)(*env)->GetDirectBufferAddress(env, src_buf) + src_pos,
-               (unsigned int)src_len,
-               (uint8_t*)(*env)->GetDirectBufferAddress(env, dst_buf) + dst_pos,
-               (unsigned int)dst_len, &bytes_read, &bytes_written);
+  int rc = qat_compress(
+      env, sess,
+      (uint8_t*)(*env)->GetDirectBufferAddress(env, src_buf) + src_pos,
+      (unsigned int)src_len,
+      (uint8_t*)(*env)->GetDirectBufferAddress(env, dst_buf) + dst_pos,
+      (unsigned int)dst_len, &bytes_read, &bytes_written);
 
   if (unlikely(rc != QZ_OK)) return (jlong)rc;
   return PACK_RESULT(bytes_read, bytes_written);
@@ -872,9 +941,9 @@ Java_com_intel_qat_InternalJNI_decompressBytesBytes(JNIEnv* env,
   }
 
   int bytes_read = 0, bytes_written = 0;
-  int rc = decompress(env, sess, src_ptr + src_off, (unsigned int)src_len,
-                      dst_ptr + dst_off, (unsigned int)dst_len, &bytes_read,
-                      &bytes_written);
+  int rc = qat_decompress(env, sess, src_ptr + src_off, (unsigned int)src_len,
+                          dst_ptr + dst_off, (unsigned int)dst_len, &bytes_read,
+                          &bytes_written);
 
   (*env)->ReleasePrimitiveArrayCritical(env, dst_arr, (jbyte*)dst_ptr, 0);
   (*env)->ReleasePrimitiveArrayCritical(env, src_arr, (jbyte*)src_ptr,
@@ -911,7 +980,7 @@ Java_com_intel_qat_InternalJNI_decompressBytesBuffer(JNIEnv* env,
   }
 
   int bytes_read = 0, bytes_written = 0;
-  int rc = decompress(
+  int rc = qat_decompress(
       env, sess, src_ptr + src_off, (unsigned int)src_len,
       (uint8_t*)(*env)->GetDirectBufferAddress(env, dst_buf) + dst_pos,
       (unsigned int)dst_len, &bytes_read, &bytes_written);
@@ -950,7 +1019,7 @@ Java_com_intel_qat_InternalJNI_decompressBufferBytes(JNIEnv* env,
   }
 
   int bytes_read = 0, bytes_written = 0;
-  int rc = decompress(
+  int rc = qat_decompress(
       env, sess,
       (uint8_t*)(*env)->GetDirectBufferAddress(env, src_buf) + src_pos,
       (unsigned int)src_len, dst_ptr + dst_off, (unsigned int)dst_len,
@@ -978,7 +1047,7 @@ Java_com_intel_qat_InternalJNI_decompressBufferBuffer(JNIEnv* env,
   if (unlikely(sess == NULL)) return -1L;
 
   int bytes_read = 0, bytes_written = 0;
-  int rc = decompress(
+  int rc = qat_decompress(
       env, sess,
       (uint8_t*)(*env)->GetDirectBufferAddress(env, src_buf) + src_pos,
       (unsigned int)src_len,
@@ -1372,7 +1441,8 @@ JNIEXPORT jint JNICALL Java_com_intel_qat_InternalJNI_teardown(JNIEnv* env,
   free(sess_ptr->qz_session);
 
   // Compact the cache: move the last entry into the hole left by this session
-  // to keep active sessions contiguous in g_session_cache[0..g_session_counter).
+  // to keep active sessions contiguous in
+  // g_session_cache[0..g_session_counter).
   g_session_counter--;
   int idx = (int)(sess_ptr - g_session_cache);
   if (idx < g_session_counter) {
