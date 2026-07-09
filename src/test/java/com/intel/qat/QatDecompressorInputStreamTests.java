@@ -135,6 +135,43 @@ public class QatDecompressorInputStreamTests {
   }
 
   @Test
+  void testInvalidBufferSizeZero() {
+    ByteArrayInputStream inputStream = new ByteArrayInputStream(new byte[0]);
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> {
+          try (QatDecompressorInputStream stream =
+              new QatDecompressorInputStream(inputStream, 0, Algorithm.DEFLATE)) {
+            // Should throw before reaching this point
+          }
+        });
+  }
+
+  @Test
+  void testInvalidBufferSizeNegative() {
+    ByteArrayInputStream inputStream = new ByteArrayInputStream(new byte[0]);
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> {
+          try (QatDecompressorInputStream stream =
+              new QatDecompressorInputStream(inputStream, -1, Algorithm.DEFLATE)) {
+            // Should throw before reaching this point
+          }
+        });
+  }
+
+  @Test
+  void testEmptyInputStream() throws IOException {
+    ByteArrayInputStream inputStream = new ByteArrayInputStream(new byte[0]);
+    try (QatDecompressorInputStream stream =
+        new QatDecompressorInputStream(
+            inputStream, DEFAULT_BUFFER_SIZE, createQatBuilder(Algorithm.DEFLATE, Mode.AUTO))) {
+      assertEquals(-1, stream.read(), "Empty stream should return -1");
+      assertEquals(0, stream.available(), "Available should be 0 for empty stream");
+    }
+  }
+
+  @Test
   void testBasicConstructors() {
     if (!QatZipper.isQatAvailable()) return;
 

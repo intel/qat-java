@@ -14,7 +14,7 @@
  * @return A constant string describing the error code, or "QZ_UNKNOWN" for
  * unrecognized codes
  */
-const char *get_err_str(int err_code) {
+const char* get_err_str(int err_code) {
   // clang-format off
   switch (err_code) {
     case QZ_OK:                    return "QZ_OK: The operation was successful";

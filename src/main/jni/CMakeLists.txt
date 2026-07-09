@@ -110,9 +110,12 @@ if(NOT QATZIP_LIB)
     message(FATAL_ERROR "Could not find system library: qatzip")
 endif()
 
+find_package(ZLIB REQUIRED)
+
 target_link_libraries(${SHARED_LIBRARY_NAME} PRIVATE
     ${QATZIP_LIB}
     ${QAT_ZSTD_LIB}
+    ZLIB::ZLIB
     pthread
 )
 

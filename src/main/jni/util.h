@@ -13,7 +13,7 @@
 extern "C" {
 #endif
 
-const char *get_err_str(int err_code);
+const char* get_err_str(int err_code);
 
 #ifdef __cplusplus
 }

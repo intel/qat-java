@@ -242,14 +242,8 @@ public class FuzzerTest {
   private static void testWithAdvancedConfiguration(
       byte[] sourceData, QatZipper.Algorithm algorithm) {
     int compressionLevel = RANDOM.nextInt(9) + 1;
-    int retryCount = RANDOM.nextInt(20);
 
-    QatZipper qzip =
-        new QatZipper.Builder()
-            .algorithm(algorithm)
-            .level(compressionLevel)
-            .retryCount(retryCount)
-            .build();
+    QatZipper qzip = new QatZipper.Builder().algorithm(algorithm).level(compressionLevel).build();
     try {
       byte[] compressed = new byte[qzip.maxCompressedLength(sourceData.length)];
       byte[] decompressed = new byte[sourceData.length];
@@ -260,8 +254,7 @@ public class FuzzerTest {
 
       assert Arrays.equals(sourceData, decompressed)
           : String.format(
-              "Advanced configuration test failed for %s (level: %d, retry: %d)",
-              algorithm, compressionLevel, retryCount);
+              "Advanced configuration test failed for %s (level: %d)", algorithm, compressionLevel);
     } finally {
       qzip.end();
     }
