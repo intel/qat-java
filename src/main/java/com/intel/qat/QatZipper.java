@@ -86,6 +86,13 @@ public class QatZipper {
   /** The default compression level for ZSTD is 3. */
   public static final int DEFAULT_COMPRESSION_LEVEL_ZSTD = 3;
 
+  /**
+   * The maximum compression level supported for ZSTD is 12. QAT-accelerated ZSTD is based on the <a
+   * href="https://github.com/intel/QAT-ZSTD-Plugin">QAT-ZSTD-Plugin</a>, which supports only levels
+   * 1 to 12.
+   */
+  public static final int MAX_COMPRESSION_LEVEL_ZSTD = 12;
+
   /** The default execution mode. */
   public static final Mode DEFAULT_MODE = Mode.AUTO;
 
@@ -290,8 +297,8 @@ public class QatZipper {
    */
   public static class Builder {
     private Algorithm algorithm = DEFAULT_ALGORITHM;
-    private int level = DEFAULT_COMPRESSION_LEVEL_DEFLATE;
-    private boolean levelSet = false;
+    // null means "not set"; the algorithm-specific default is resolved in QatZipper(Builder).
+    private Integer level = null;
     private Mode mode = DEFAULT_MODE;
     private PollingMode pollingMode = DEFAULT_POLLING_MODE;
     private DataFormat dataFormat = DEFAULT_DATA_FORMAT;
@@ -332,7 +339,6 @@ public class QatZipper {
         throw new IllegalArgumentException("Compression level must be at least 1, got: " + level);
       }
       this.level = level;
-      this.levelSet = true;
       return this;
     }
 
@@ -397,27 +403,41 @@ public class QatZipper {
      * @return A QatZipper.
      */
     public QatZipper build() {
-      if (!levelSet) {
-        level =
-            algorithm == Algorithm.ZSTD
-                ? DEFAULT_COMPRESSION_LEVEL_ZSTD
-                : DEFAULT_COMPRESSION_LEVEL_DEFLATE;
-      }
-      // Validate level is appropriate for algorithm
-      if (algorithm == Algorithm.ZSTD) {
-        if (level < 1 || level > 22) {
-          throw new IllegalArgumentException(
-              "ZSTD compression level must be between 1 and 22, got: " + level);
-        }
-      } else {
-        // DEFLATE and LZ4 have more restrictive limits
-        if (level < 1 || level > 9) {
-          throw new IllegalArgumentException(
-              "Compression level for " + algorithm + " must be between 1 and 9, got: " + level);
-        }
-      }
       return new QatZipper(this);
     }
+  }
+
+  /**
+   * Resolves the effective compression level for the given algorithm, applying the
+   * algorithm-specific default when unset and validating the range. Every constructor path goes
+   * through this, so convenience constructors get the same defaults and validation as build().
+   *
+   * @throws IllegalArgumentException if the level is out of range for the algorithm
+   */
+  private static int resolveLevel(Algorithm algorithm, Integer level) {
+    if (level == null) {
+      return algorithm == Algorithm.ZSTD
+          ? DEFAULT_COMPRESSION_LEVEL_ZSTD
+          : DEFAULT_COMPRESSION_LEVEL_DEFLATE;
+    }
+    if (algorithm == Algorithm.ZSTD) {
+      // QAT-accelerated ZSTD is based on https://github.com/intel/QAT-ZSTD-Plugin,
+      // which supports only levels 1-12; the native session setup rejects anything higher.
+      if (level < 1 || level > MAX_COMPRESSION_LEVEL_ZSTD) {
+        throw new IllegalArgumentException(
+            "ZSTD compression level must be between 1 and "
+                + MAX_COMPRESSION_LEVEL_ZSTD
+                + ", got: "
+                + level);
+      }
+    } else {
+      // DEFLATE and LZ4 have more restrictive limits
+      if (level < 1 || level > 9) {
+        throw new IllegalArgumentException(
+            "Compression level for " + algorithm + " must be between 1 and 9, got: " + level);
+      }
+    }
+    return level;
   }
 
   /**
@@ -428,7 +448,7 @@ public class QatZipper {
    */
   private QatZipper(Builder builder) throws RuntimeException {
     this.algorithm = builder.algorithm;
-    this.level = builder.level;
+    this.level = resolveLevel(builder.algorithm, builder.level);
     this.mode = builder.mode;
     this.pollingMode = builder.pollingMode;
     this.dataFormat = builder.dataFormat;
@@ -508,9 +528,9 @@ public class QatZipper {
    * @throws RuntimeException if compression fails
    */
   public int compress(byte[] src, byte[] dst) {
-    if (src == null || dst == null) {
-      throw new IllegalArgumentException("Source and destination arrays cannot be null");
-    }
+    bytesRead = bytesWritten = 0;
+    validateSessionOpen();
+    validateArraysNotNull(src, dst);
     return compress(src, 0, src.length, dst, 0, dst.length);
   }
 
@@ -538,6 +558,7 @@ public class QatZipper {
    */
   public int compress(
       byte[] src, int srcOffset, int srcLen, byte[] dst, int dstOffset, int dstLen) {
+    bytesRead = bytesWritten = 0;
     validateSessionOpen();
     validateByteArrays(src, srcOffset, srcLen, dst, dstOffset, dstLen);
 
@@ -609,6 +630,7 @@ public class QatZipper {
    * @throws RuntimeException if compression fails
    */
   public int compress(ByteBuffer src, ByteBuffer dst) {
+    bytesRead = bytesWritten = 0;
     validateSessionOpen();
     validateByteBuffers(src, dst);
     if (dst.isReadOnly()) {
@@ -1012,9 +1034,9 @@ public class QatZipper {
    * @throws RuntimeException if decompression fails
    */
   public int decompress(byte[] src, byte[] dst) {
-    if (src == null || dst == null) {
-      throw new IllegalArgumentException("Source and destination arrays cannot be null");
-    }
+    bytesRead = bytesWritten = 0;
+    validateSessionOpen();
+    validateArraysNotNull(src, dst);
     return decompress(src, 0, src.length, dst, 0, dst.length);
   }
 
@@ -1042,6 +1064,7 @@ public class QatZipper {
    */
   public int decompress(
       byte[] src, int srcOffset, int srcLen, byte[] dst, int dstOffset, int dstLen) {
+    bytesRead = bytesWritten = 0;
     validateSessionOpen();
     validateByteArrays(src, srcOffset, srcLen, dst, dstOffset, dstLen);
 
@@ -1089,8 +1112,8 @@ public class QatZipper {
    * @param dst the destination array for compressed data
    * @param dstOffset the start offset in the destination array
    * @param dstLen the maximum number of bytes that can be written to destination
-   * @param sizes an int array with at least ceil(srcLen / blockLength) entries; on return,
-   *     sizes[startBlock..startBlock+N-1] holds the compressed size of each sub-block
+   * @param sizes an int array with at least startBlock + ceil(srcLen / blockLength) entries; on
+   *     return, sizes[startBlock..startBlock+N-1] holds the compressed size of each sub-block
    * @param startBlock the sub-block index to start compressing from (for resumption after grow)
    * @return the total number of bytes written to dst for blocks [startBlock..last], or a negative
    *     value {@code -(blocksCompleted + 1)} if the destination buffer was too small. In the
@@ -1110,26 +1133,32 @@ public class QatZipper {
       int dstLen,
       int[] sizes,
       int startBlock) {
+    bytesRead = bytesWritten = 0;
     validateSessionOpen();
     validateByteArrays(src, srcOffset, srcLen, dst, dstOffset, dstLen);
 
-    long result = -1;
-    if (algorithm != Algorithm.ZSTD) {
-      result =
-          InternalJNI.compressFullBytesBytes(
-              qzKey,
-              src,
-              srcOffset,
-              srcLen,
-              blockLength,
-              dst,
-              dstOffset,
-              dstLen,
-              sizes,
-              startBlock);
-    } else {
-      result = compressZSTDByteArray(src, srcOffset, srcLen, dst, dstOffset, dstLen);
+    if (algorithm == Algorithm.ZSTD) {
+      // Compresses the whole range as a single frame; sets bytesRead/bytesWritten itself.
+      return compressZSTDByteArray(src, srcOffset, srcLen, dst, dstOffset, dstLen);
     }
+
+    if (blockLength <= 0) {
+      throw new IllegalArgumentException("Block length must be positive, got: " + blockLength);
+    }
+    if (sizes == null) {
+      throw new IllegalArgumentException("Sizes array cannot be null");
+    }
+    int numBlocks = (int) (((long) srcLen + blockLength - 1) / blockLength);
+    if (startBlock < 0 || (long) startBlock + numBlocks > sizes.length) {
+      throw new ArrayIndexOutOfBoundsException(
+          String.format(
+              "sizes bounds exceeded: startBlock=%d, blocks=%d, sizes.length=%d",
+              startBlock, numBlocks, sizes.length));
+    }
+
+    long result =
+        InternalJNI.compressFullBytesBytes(
+            qzKey, src, srcOffset, srcLen, blockLength, dst, dstOffset, dstLen, sizes, startBlock);
 
     if (result >= 0) {
       // All remaining blocks compressed successfully
@@ -1170,17 +1199,17 @@ public class QatZipper {
    */
   public int decompressFull(
       byte[] src, int srcOffset, int srcLen, byte[] dst, int dstOffset, int dstLen) {
+    bytesRead = bytesWritten = 0;
     validateSessionOpen();
     validateByteArrays(src, srcOffset, srcLen, dst, dstOffset, dstLen);
 
-    long result = -1;
-    if (algorithm != Algorithm.ZSTD) {
-      result =
-          InternalJNI.decompressFullBytesBytes(
-              qzKey, src, srcOffset, srcLen, dst, dstOffset, dstLen);
-    } else {
-      result = decompressZSTDByteArray(src, srcOffset, srcLen, dst, dstOffset, dstLen);
+    if (algorithm == Algorithm.ZSTD) {
+      // Decompresses the whole range; sets bytesRead/bytesWritten itself.
+      return decompressZSTDByteArray(src, srcOffset, srcLen, dst, dstOffset, dstLen);
     }
+
+    long result =
+        InternalJNI.decompressFullBytesBytes(qzKey, src, srcOffset, srcLen, dst, dstOffset, dstLen);
 
     if (result < 0) {
       bytesRead = 0;
@@ -1238,6 +1267,7 @@ public class QatZipper {
    * @throws RuntimeException if decompression fails
    */
   public int decompress(ByteBuffer src, ByteBuffer dst) {
+    bytesRead = bytesWritten = 0;
     validateSessionOpen();
     validateByteBuffers(src, dst);
 
@@ -1510,19 +1540,23 @@ public class QatZipper {
       throw new RuntimeException("ZSTD decompression failed with error code: " + decompressedSize);
     }
 
-    src.position(srcPos + bytesRead);
+    // On success the entire source range was consumed.
+    src.position(srcPos + srcLen);
     dst.position(dstPos + decompressedSize);
     return decompressedSize;
   }
 
   private int decompressZSTDDirectBuffers(ByteBuffer src, ByteBuffer dst, int srcPos, int dstPos) {
+    int srcLen = src.remaining();
     int decompressedSize = zstdDecompressCtx.decompress(dst, src);
 
     if (decompressedSize < 0) {
       throw new RuntimeException("ZSTD decompression failed with error code: " + decompressedSize);
     }
 
-    src.position(srcPos + bytesRead);
+    // zstd-jni advances both positions itself; set them explicitly so this method's
+    // contract does not depend on that behavior.
+    src.position(srcPos + srcLen);
     dst.position(dstPos + decompressedSize);
 
     return decompressedSize;
@@ -1543,13 +1577,15 @@ public class QatZipper {
       throw new RuntimeException("ZSTD decompression failed with error code: " + decompressedSize);
     }
 
-    src.position(srcPos + bytesRead);
+    // On success the entire source range was consumed.
+    src.position(srcPos + srcLen);
     dst.position(dstPos + decompressedSize);
 
     return decompressedSize;
   }
 
   private int decompressZSTDDirectToArray(ByteBuffer src, ByteBuffer dst, int srcPos, int dstPos) {
+    int srcLen = src.remaining();
     int dstLen = dst.remaining();
 
     ByteBuffer tempDst = getStagingBuffer(dstLen);
@@ -1560,7 +1596,9 @@ public class QatZipper {
       throw new RuntimeException("ZSTD decompression failed with error code: " + decompressedSize);
     }
 
-    src.position(srcPos + bytesRead);
+    // On success the entire source range was consumed (zstd-jni advances src itself;
+    // set it explicitly so this method's contract does not depend on that behavior).
+    src.position(srcPos + srcLen);
 
     byte[] dstArr = dst.array();
     int dstOffset = dst.arrayOffset() + dstPos;
@@ -1679,14 +1717,23 @@ public class QatZipper {
    */
   private void validateByteArrays(
       byte[] src, int srcOffset, int srcLen, byte[] dst, int dstOffset, int dstLen) {
-    if (src == null || dst == null) {
-      throw new IllegalArgumentException("Source and destination arrays cannot be null");
-    }
+    validateArraysNotNull(src, dst);
     if (srcLen == 0 || dstLen == 0) {
       throw new IllegalArgumentException("Source and destination length cannot be zero");
     }
     validateArrayBounds(src, srcOffset, srcLen, "source");
     validateArrayBounds(dst, dstOffset, dstLen, "destination");
+  }
+
+  /**
+   * Validates that the source and destination arrays are non-null.
+   *
+   * @throws IllegalArgumentException if either array is null
+   */
+  private static void validateArraysNotNull(byte[] src, byte[] dst) {
+    if (src == null || dst == null) {
+      throw new IllegalArgumentException("Source and destination arrays cannot be null");
+    }
   }
 
   /**

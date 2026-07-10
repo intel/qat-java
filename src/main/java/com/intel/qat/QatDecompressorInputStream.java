@@ -225,7 +225,8 @@ public class QatDecompressorInputStream extends FilterInputStream {
     if (eof && outputPosition == outputBufferLimit) return 0;
     int skipped = 0;
     int bytesRemaining;
-    int bytesLeftToSkip = (int) n;
+    // Clamp to avoid int overflow; at most Integer.MAX_VALUE bytes are skipped per call.
+    int bytesLeftToSkip = (int) Math.min(n, Integer.MAX_VALUE);
     while (bytesLeftToSkip > (bytesRemaining = outputBufferLimit - outputPosition)) {
       outputPosition += bytesRemaining;
       bytesLeftToSkip -= bytesRemaining;

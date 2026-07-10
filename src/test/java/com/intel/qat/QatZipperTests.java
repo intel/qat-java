@@ -1621,6 +1621,160 @@ class QatZipperTests {
         });
   }
 
+  @Test
+  @DisplayName("Builder throws exception for ZSTD level above 12")
+  void testBuilderInvalidZSTDLevelAbove12() {
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> {
+          new QatZipper.Builder().algorithm(QatZipper.Algorithm.ZSTD).level(13).build();
+        });
+  }
+
+  @Test
+  @DisplayName("Convenience constructor validates compression level")
+  void testConvenienceConstructorValidatesLevel() {
+    assertThrows(
+        IllegalArgumentException.class, () -> new QatZipper(QatZipper.Algorithm.DEFLATE, 99));
+    assertThrows(IllegalArgumentException.class, () -> new QatZipper(QatZipper.Algorithm.ZSTD, 13));
+  }
+
+  @Test
+  @DisplayName("compressFull and decompressFull return sizes for ZSTD")
+  void testZstdCompressFullReturnsSize() {
+    QatZipper zipper = new QatZipper.Builder().algorithm(QatZipper.Algorithm.ZSTD).build();
+    try {
+      byte[] compressed = new byte[zipper.maxCompressedLength(LARGE_DATA.length)];
+      int[] sizes = new int[4];
+      int compressedSize =
+          zipper.compressFull(
+              LARGE_DATA, 0, LARGE_DATA.length, 4096, compressed, 0, compressed.length, sizes, 0);
+      assertTrue(compressedSize > 0);
+      assertEquals(LARGE_DATA.length, zipper.getBytesRead());
+      assertEquals(compressedSize, zipper.getBytesWritten());
+
+      byte[] decompressed = new byte[LARGE_DATA.length];
+      int decompressedSize =
+          zipper.decompressFull(
+              compressed, 0, compressedSize, decompressed, 0, decompressed.length);
+      assertEquals(LARGE_DATA.length, decompressedSize);
+      assertEquals(compressedSize, zipper.getBytesRead());
+      assertEquals(decompressedSize, zipper.getBytesWritten());
+      assertArrayEquals(LARGE_DATA, decompressed);
+    } finally {
+      zipper.end();
+    }
+  }
+
+  @Test
+  @DisplayName("compressFull throws exception for null sizes array")
+  void testCompressFullNullSizes() {
+    QatZipper zipper = new QatZipper.Builder().build();
+    try {
+      byte[] compressed = new byte[zipper.maxCompressedLength(TEST_DATA.length)];
+      assertThrows(
+          IllegalArgumentException.class,
+          () ->
+              zipper.compressFull(
+                  TEST_DATA, 0, TEST_DATA.length, 16, compressed, 0, compressed.length, null, 0));
+    } finally {
+      zipper.end();
+    }
+  }
+
+  @Test
+  @DisplayName("compressFull throws exception for too-short sizes array")
+  void testCompressFullShortSizes() {
+    QatZipper zipper = new QatZipper.Builder().build();
+    try {
+      byte[] compressed = new byte[zipper.maxCompressedLength(LARGE_DATA.length)];
+      // 10000 bytes in 4096-byte blocks needs 3 entries
+      int[] sizes = new int[2];
+      assertThrows(
+          ArrayIndexOutOfBoundsException.class,
+          () ->
+              zipper.compressFull(
+                  LARGE_DATA,
+                  0,
+                  LARGE_DATA.length,
+                  4096,
+                  compressed,
+                  0,
+                  compressed.length,
+                  sizes,
+                  0));
+    } finally {
+      zipper.end();
+    }
+  }
+
+  @ParameterizedTest
+  @EnumSource(QatZipper.Algorithm.class)
+  @DisplayName("ByteBuffer decompress advances source position for all algorithms")
+  void testByteBufferDecompressAdvancesSource(QatZipper.Algorithm algorithm) {
+    QatZipper zipper = new QatZipper.Builder().algorithm(algorithm).build();
+    try {
+      ByteBuffer src = ByteBuffer.allocateDirect(LARGE_DATA.length);
+      src.put(LARGE_DATA).flip();
+      ByteBuffer compressed =
+          ByteBuffer.allocateDirect(zipper.maxCompressedLength(LARGE_DATA.length));
+      zipper.compress(src, compressed);
+      compressed.flip();
+      int compressedSize = compressed.remaining();
+
+      ByteBuffer decompressed = ByteBuffer.allocateDirect(LARGE_DATA.length);
+      zipper.decompress(compressed, decompressed);
+      assertEquals(compressedSize, compressed.position());
+      assertFalse(compressed.hasRemaining());
+      assertEquals(compressedSize, zipper.getBytesRead());
+      assertEquals(LARGE_DATA.length, zipper.getBytesWritten());
+    } finally {
+      zipper.end();
+    }
+  }
+
+  @Test
+  @DisplayName("getBytesRead and getBytesWritten return 0 after a failed operation")
+  void testCountersResetOnFailure() {
+    QatZipper zipper = new QatZipper.Builder().build();
+    try {
+      byte[] compressed = new byte[zipper.maxCompressedLength(TEST_DATA.length)];
+      int compressedSize = zipper.compress(TEST_DATA, compressed);
+      assertTrue(compressedSize > 0);
+      assertTrue(zipper.getBytesRead() > 0);
+
+      // Early-exit failure: read-only destination buffer
+      ByteBuffer src = ByteBuffer.wrap(TEST_DATA);
+      ByteBuffer dst = ByteBuffer.allocate(64).asReadOnlyBuffer();
+      assertThrows(ReadOnlyBufferException.class, () -> zipper.compress(src, dst));
+      assertEquals(0, zipper.getBytesRead());
+      assertEquals(0, zipper.getBytesWritten());
+    } finally {
+      zipper.end();
+    }
+  }
+
+  @Test
+  @DisplayName("getBytesRead and getBytesWritten return 0 after a failed ZSTD decompression")
+  void testCountersResetOnZstdFailure() {
+    QatZipper zipper = new QatZipper.Builder().algorithm(QatZipper.Algorithm.ZSTD).build();
+    try {
+      byte[] compressed = new byte[zipper.maxCompressedLength(TEST_DATA.length)];
+      int compressedSize = zipper.compress(TEST_DATA, compressed);
+      assertTrue(compressedSize > 0);
+      assertTrue(zipper.getBytesRead() > 0);
+
+      // Not a valid ZSTD frame
+      byte[] garbage = new byte[64];
+      byte[] dst = new byte[64];
+      assertThrows(RuntimeException.class, () -> zipper.decompress(garbage, dst));
+      assertEquals(0, zipper.getBytesRead());
+      assertEquals(0, zipper.getBytesWritten());
+    } finally {
+      zipper.end();
+    }
+  }
+
   // ===========================
   // Helper Methods
   // ===========================
