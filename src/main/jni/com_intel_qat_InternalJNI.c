@@ -48,8 +48,8 @@
  * Mirroring OpenJDK's libzip Deflater/Inflater convention, every JNI op
  * returns a jlong containing two non-negative 31-bit fields:
  *
- *   bits  0..30  bytes_read    (uncompressed bytes consumed from src)
- *   bits 31..61  bytes_written (compressed bytes produced into dst)
+ *   bits  0..30  bytes_read    (bytes consumed from src)
+ *   bits 31..61  bytes_written (bytes produced into dst)
  *
  * This avoids a separate SetIntField(env, qz_obj, bytes_read_id, ...) JNI
  * call on every operation, which is measurable on small-buffer workloads

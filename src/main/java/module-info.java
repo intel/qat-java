@@ -5,7 +5,7 @@
  ******************************************************************************/
 
 /**
- * Defines APIs for data compression using Intel&reg; QuickAssit Technology.
+ * Defines APIs for data compression using Intel&reg; QuickAssist Technology.
  *
  * <p>The implementation uses the <a href="https://github.com/intel/QATzip">QATZip</a> library
  * through JNI bindings.

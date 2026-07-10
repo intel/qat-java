@@ -107,7 +107,7 @@ public class QatDecompressorInputStream extends FilterInputStream {
    * Reads uncompressed data into the provided array.
    *
    * @param b the array into which the data is read
-   * @return the number of bytes read
+   * @return the number of bytes read, or -1 if the end of the stream is reached
    * @throws IOException if the stream is closed
    */
   @Override
@@ -121,7 +121,7 @@ public class QatDecompressorInputStream extends FilterInputStream {
    * @param b the array into which the data is read
    * @param off the starting offset in the array
    * @param len the maximum number of bytes to be read
-   * @return the number of bytes read
+   * @return the number of bytes read, or -1 if the end of the stream is reached
    * @throws IOException if the stream is closed
    */
   @Override
@@ -164,7 +164,7 @@ public class QatDecompressorInputStream extends FilterInputStream {
   }
 
   /**
-   * Closes this input stream and releases resources. This method will close the underlying output
+   * Closes this input stream and releases resources. This method will close the underlying input
    * stream.
    *
    * @throws IOException if an I/O error occurs
@@ -179,7 +179,12 @@ public class QatDecompressorInputStream extends FilterInputStream {
     closed = true;
   }
 
-  /** Marks the current position in this input stream. This method does nothing. */
+  /**
+   * Marks the current position in this input stream. This method does nothing.
+   *
+   * @param readLimit the maximum limit of bytes that can be read before the mark position becomes
+   *     invalid (ignored)
+   */
   @Override
   public void mark(int readLimit) {}
 
@@ -206,16 +211,18 @@ public class QatDecompressorInputStream extends FilterInputStream {
   }
 
   /**
-   * Skips up to n bytes of compressed bytes.
+   * Skips up to n bytes of uncompressed data.
    *
    * @param n the maximum number of bytes to skip
-   * @return the number of bytes skipped or 0 if n is negative.
+   * @return the actual number of bytes skipped; 0 if n is negative or the end of the stream has
+   *     been reached
+   * @throws IOException if the stream is closed
    */
   @Override
   public long skip(long n) throws IOException {
     if (n < 0) return 0;
     if (closed) throw new IOException("Stream is closed");
-    if (eof && outputPosition == outputBufferLimit) return -1;
+    if (eof && outputPosition == outputBufferLimit) return 0;
     int skipped = 0;
     int bytesRemaining;
     int bytesLeftToSkip = (int) n;

@@ -26,14 +26,15 @@ public class QatCompressorOutputStream extends FilterOutputStream {
   private int outputPosition;
   private boolean closed;
 
-  /** The default size in bytes of the output buffer (64KB). */
+  /** The default size in bytes of the input buffer (64KB). */
   public static final int DEFAULT_BUFFER_SIZE = 1 << 16;
 
   /**
    * Creates a new output stream with the given parameters.
    *
    * @param out the output stream
-   * @param bufferSize the output buffer size
+   * @param bufferSize the size of the input buffer that accumulates uncompressed data before it is
+   *     compressed and written to the output stream
    * @param builder pre configured QatZipper builder
    */
   public QatCompressorOutputStream(OutputStream out, int bufferSize, Builder builder) {
@@ -60,8 +61,9 @@ public class QatCompressorOutputStream extends FilterOutputStream {
    * Creates a new output stream with the given parameters.
    *
    * @param out the output stream
-   * @param bufferSize the output buffer size
-   * @param algorithm the compression algorithm .
+   * @param bufferSize the size of the input buffer that accumulates uncompressed data before it is
+   *     compressed and written to the output stream
+   * @param algorithm the compression algorithm
    */
   public QatCompressorOutputStream(OutputStream out, int bufferSize, Algorithm algorithm) {
     this(out, bufferSize, new Builder().algorithm(algorithm));

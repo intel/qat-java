@@ -68,7 +68,7 @@ import java.util.Objects;
  *   <li>Buffer positions mark the start of data to process
  *   <li>Buffer limits mark the end of available data
  *   <li>After successful operations, positions are advanced
- *   <li>On error, positions may be partially advanced
+ *   <li>On error, positions are restored to their initial values
  * </ul>
  *
  * @see Algorithm
@@ -133,16 +133,10 @@ public class QatZipper {
   /** Indicates if this QatZipper session is valid. */
   private boolean isValid;
 
-  /**
-   * Number of bytes read from the source by the most recent compress/decompress call. Visible
-   * across threads.
-   */
+  /** Number of bytes read from the source by the most recent compress/decompress call. */
   private int bytesRead;
 
-  /**
-   * Number of bytes written to the destination by the most recent compress/decompress call. Visible
-   * across threads.
-   */
+  /** Number of bytes written to the destination by the most recent compress/decompress call. */
   private int bytesWritten;
 
   /** QAT session key set by JNI code. */
@@ -296,10 +290,8 @@ public class QatZipper {
    */
   public static class Builder {
     private Algorithm algorithm = DEFAULT_ALGORITHM;
-    private int level =
-        algorithm == Algorithm.ZSTD
-            ? DEFAULT_COMPRESSION_LEVEL_ZSTD
-            : DEFAULT_COMPRESSION_LEVEL_DEFLATE;
+    private int level = DEFAULT_COMPRESSION_LEVEL_DEFLATE;
+    private boolean levelSet = false;
     private Mode mode = DEFAULT_MODE;
     private PollingMode pollingMode = DEFAULT_POLLING_MODE;
     private DataFormat dataFormat = DEFAULT_DATA_FORMAT;
@@ -340,6 +332,7 @@ public class QatZipper {
         throw new IllegalArgumentException("Compression level must be at least 1, got: " + level);
       }
       this.level = level;
+      this.levelSet = true;
       return this;
     }
 
@@ -404,6 +397,12 @@ public class QatZipper {
      * @return A QatZipper.
      */
     public QatZipper build() {
+      if (!levelSet) {
+        level =
+            algorithm == Algorithm.ZSTD
+                ? DEFAULT_COMPRESSION_LEVEL_ZSTD
+                : DEFAULT_COMPRESSION_LEVEL_DEFLATE;
+      }
       // Validate level is appropriate for algorithm
       if (algorithm == Algorithm.ZSTD) {
         if (level < 1 || level > 22) {
@@ -471,33 +470,27 @@ public class QatZipper {
     }
   }
 
-  /**
-   * Returns an instance of {@link QatZipper} that uses default values for all parameters.
-   *
-   * <p>return A QatZipper.
-   */
+  /** Constructs a QatZipper that uses default values for all parameters. */
   public QatZipper() {
     this(new Builder());
   }
 
   /**
-   * Returns an instance of {@link QatZipper} that uses the provided algorithm. Default values are
-   * used for all the other parameters.
+   * Constructs a QatZipper that uses the provided algorithm. Default values are used for all the
+   * other parameters.
    *
    * @param algorithm the {@link Algorithm}.
-   *     <p>return A QatZipper.
    */
   public QatZipper(Algorithm algorithm) {
     this(new Builder().algorithm(algorithm));
   }
 
   /**
-   * Returns an instance of {@link QatZipper} that uses the provided algorithm and compression
-   * level. Default values are used for all the other parameters.
+   * Constructs a QatZipper that uses the provided algorithm and compression level. Default values
+   * are used for all the other parameters.
    *
    * @param algorithm the {@link Algorithm}.
    * @param level the compression level.
-   *     <p>return A QatZipper.
    */
   public QatZipper(Algorithm algorithm, int level) {
     this(new Builder().algorithm(algorithm).level(level));
@@ -603,7 +596,8 @@ public class QatZipper {
    *   <li>On input: position marks start of data, limit marks end
    *   <li>On success: source position is advanced by bytesRead, destination position is advanced by
    *       bytesWritten
-   *   <li>On error: positions may be partially advanced; check bytesRead/bytesWritten
+   *   <li>On error: positions are restored to their initial values and bytesRead/bytesWritten are
+   *       reset to 0
    * </ul>
    *
    * @param src the source buffer holding uncompressed data (position to limit)
@@ -628,10 +622,6 @@ public class QatZipper {
     }
   }
 
-  /**
-   * Internal compression using QAT for ByteBuffers. Handles all combinations of buffer types
-   * (direct/heap).
-   */
   /**
    * Internal compression using QAT for ByteBuffers, handling every combination of
    * direct/heap/read-only on each side in a single method.
@@ -1022,6 +1012,9 @@ public class QatZipper {
    * @throws RuntimeException if decompression fails
    */
   public int decompress(byte[] src, byte[] dst) {
+    if (src == null || dst == null) {
+      throw new IllegalArgumentException("Source and destination arrays cannot be null");
+    }
     return decompress(src, 0, src.length, dst, 0, dst.length);
   }
 
@@ -1085,6 +1078,9 @@ public class QatZipper {
    * <p>Use this method when the source buffer should be compressed as multiple fixed-size
    * sub-blocks (e.g. Lucene sub-blocks) whose compressed data is written contiguously into a single
    * output buffer.
+   *
+   * <p>Note: For the ZSTD algorithm, {@code blockLength}, {@code sizes}, and {@code startBlock} are
+   * ignored; the entire source range is compressed as a single frame.
    *
    * @param src the source array containing uncompressed data
    * @param srcOffset the start offset in the source array
@@ -1229,7 +1225,8 @@ public class QatZipper {
    *   <li>On input: position marks start of data, limit marks end
    *   <li>On success: source position is advanced by bytesRead, destination position is advanced by
    *       bytesWritten
-   *   <li>On error: positions may be partially advanced; check bytesRead/bytesWritten
+   *   <li>On error: positions are restored to their initial values and bytesRead/bytesWritten are
+   *       reset to 0
    * </ul>
    *
    * @param src the source buffer holding compressed data (position to limit)
@@ -1616,7 +1613,7 @@ public class QatZipper {
    * Returns the number of bytes read from the source by the most recent compress/decompress
    * operation.
    *
-   * <p>Note: For operations that fail, this may represent bytes processed before failure.
+   * <p>Note: If the most recent operation failed, this returns 0.
    *
    * @return number of bytes read from source in the most recent operation
    */
@@ -1628,7 +1625,7 @@ public class QatZipper {
    * Returns the number of bytes written to the destination by the most recent compress/decompress
    * operation.
    *
-   * <p>Note: For operations that fail, this may represent bytes written before failure.
+   * <p>Note: If the most recent operation failed, this returns 0.
    *
    * @return number of bytes written to destination in the most recent operation
    */
