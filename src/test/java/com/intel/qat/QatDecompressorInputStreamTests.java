@@ -458,6 +458,28 @@ public class QatDecompressorInputStreamTests {
     assertArrayEquals(sourceData, result);
   }
 
+  @ParameterizedTest
+  @MethodSource("provideModeAlgorithmParams")
+  void testSkipBeyondIntRange(Mode mode, Algorithm algorithm) throws IOException {
+    // skip(n) with n > Integer.MAX_VALUE must not wrap negative; it should skip
+    // everything available and leave the stream at EOF.
+    ByteArrayInputStream inputStream = new ByteArrayInputStream(getCompressedData(algorithm));
+
+    try (QatDecompressorInputStream decompressor =
+        new QatDecompressorInputStream(
+            inputStream, DEFAULT_BUFFER_SIZE, createQatBuilder(algorithm, mode))) {
+
+      int firstByte = decompressor.read();
+      assertTrue(firstByte >= 0);
+
+      long skipped = decompressor.skip(Long.MAX_VALUE);
+      assertEquals(sourceData.length - 1, skipped);
+
+      assertEquals(-1, decompressor.read());
+      assertEquals(0, decompressor.skip(Long.MAX_VALUE), "skip at EOF should return 0");
+    }
+  }
+
   // Close and error condition tests
   @ParameterizedTest
   @MethodSource("provideModeAlgorithmLengthParams")

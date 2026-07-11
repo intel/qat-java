@@ -22,7 +22,7 @@ import java.nio.ByteBuffer;
  * <p>Every op returns a packed {@code long}:
  *
  * <pre>{@code
- * bits  0..30  bytes_read    (uncompressed bytes consumed from src)
+ * bits  0..30  bytes_read    (bytes consumed from src)
  * bits 31..61  bytes_written (bytes produced into dst)
  * }</pre>
  *
