@@ -52,7 +52,7 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
 
         <!-- Java version -->
-        <java.release>17</java.release>
+        <java.release>11</java.release>
 
         <!-- Test control -->
         <skipTests>${fuzzing}</skipTests>
@@ -78,8 +78,8 @@
         <maven-javadoc-plugin.version>3.11.2</maven-javadoc-plugin.version>
         <maven-antrun-plugin.version>3.1.0</maven-antrun-plugin.version>
         <jacoco-maven-plugin.version>0.8.15</jacoco-maven-plugin.version>
-        <spotless-maven-plugin.version>3.6.0</spotless-maven-plugin.version>
-        <google-java-format.version>1.35.0</google-java-format.version>
+        <spotless-maven-plugin.version>2.43.0</spotless-maven-plugin.version>
+        <google-java-format.version>1.15.0</google-java-format.version>
         <exec-maven-plugin.version>3.5.0</exec-maven-plugin.version>
         <ant-contrib.version>1.0b3</ant-contrib.version>
     </properties>
@@ -223,36 +223,7 @@
                 </executions>
             </plugin>
 
-            <!-- Code formatting (Spotless + Google Java Format) -->
-            <plugin>
-                <groupId>com.diffplug.spotless</groupId>
-                <artifactId>spotless-maven-plugin</artifactId>
-                <version>${spotless-maven-plugin.version}</version>
-                <executions>
-                    <execution>
-                        <id>format</id>
-                        <phase>process-sources</phase>
-                        <goals>
-                            <goal>check</goal>
-                            <goal>apply</goal>
-                        </goals>
-                    </execution>
-                </executions>
-                <configuration>
-                    <formats>
-                        <format>
-                            <includes>
-                                <include>*.java</include>
-                            </includes>
-                        </format>
-                    </formats>
-                    <java>
-                        <googleJavaFormat>
-                            <version>${google-java-format.version}</version>
-                        </googleJavaFormat>
-                    </java>
-                </configuration>
-            </plugin>
+            <!-- Code formatting (Spotless) is configured via JDK-specific profiles below -->
 
             <!-- Native (JNI) build via Ant -->
             <plugin>
@@ -449,6 +420,129 @@
                                 </goals>
                             </execution>
                         </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <!-- Spotless for JDK 11–16 (google-java-format 1.15.0) -->
+        <profile>
+            <id>spotless-jdk11</id>
+            <activation>
+                <jdk>[11,17)</jdk>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>com.diffplug.spotless</groupId>
+                        <artifactId>spotless-maven-plugin</artifactId>
+                        <version>${spotless-maven-plugin.version}</version>
+                        <executions>
+                            <execution>
+                                <id>format</id>
+                                <phase>process-sources</phase>
+                                <goals>
+                                    <goal>check</goal>
+                                    <goal>apply</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                        <configuration>
+                            <formats>
+                                <format>
+                                    <includes>
+                                        <include>*.java</include>
+                                    </includes>
+                                </format>
+                            </formats>
+                            <java>
+                                <googleJavaFormat>
+                                    <version>1.15.0</version>
+                                </googleJavaFormat>
+                            </java>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <!-- Spotless for JDK 17–20 (spotless 3.x + google-java-format 1.22.0) -->
+        <profile>
+            <id>spotless-jdk17</id>
+            <activation>
+                <jdk>[17,21)</jdk>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>com.diffplug.spotless</groupId>
+                        <artifactId>spotless-maven-plugin</artifactId>
+                        <version>3.6.0</version>
+                        <executions>
+                            <execution>
+                                <id>format</id>
+                                <phase>process-sources</phase>
+                                <goals>
+                                    <goal>check</goal>
+                                    <goal>apply</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                        <configuration>
+                            <formats>
+                                <format>
+                                    <includes>
+                                        <include>*.java</include>
+                                    </includes>
+                                </format>
+                            </formats>
+                            <java>
+                                <googleJavaFormat>
+                                    <version>1.22.0</version>
+                                </googleJavaFormat>
+                            </java>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <!-- Spotless for JDK 21+ (spotless 3.x + google-java-format 1.35.0) -->
+        <profile>
+            <id>spotless-jdk21</id>
+            <activation>
+                <jdk>[21,)</jdk>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>com.diffplug.spotless</groupId>
+                        <artifactId>spotless-maven-plugin</artifactId>
+                        <version>3.6.0</version>
+                        <executions>
+                            <execution>
+                                <id>format</id>
+                                <phase>process-sources</phase>
+                                <goals>
+                                    <goal>check</goal>
+                                    <goal>apply</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                        <configuration>
+                            <formats>
+                                <format>
+                                    <includes>
+                                        <include>*.java</include>
+                                    </includes>
+                                </format>
+                            </formats>
+                            <java>
+                                <googleJavaFormat>
+                                    <version>1.35.0</version>
+                                </googleJavaFormat>
+                            </java>
+                        </configuration>
                     </plugin>
                 </plugins>
             </build>
