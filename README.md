@@ -1,4 +1,4 @@
-# Java* Native Interface Binding for Intel® QuickAssist Technology
+## Java* Native Interface Binding for Intel® QuickAssist Technology
 
 **Qat-Java** accelerates data compression in Java applications using Intel® [QuickAssist Technology (QAT)](https://www.intel.com/content/www/us/en/architecture-and-technology/intel-quick-assist-technology-overview.html) hardware.
 
@@ -27,7 +27,7 @@
 | [zstd-jni](https://github.com/luben/zstd-jni) | 1.5.6-1+ (if not building from source) |
 | Zlib | 1.2.7+ |
 | GCC | 8.5+ |
-| JDK | 17+ |
+| JDK | 11+ |
 | Clang | Required for fuzz testing only |
 
 ## Quick Start
